@@ -12,6 +12,8 @@ import ua.inventorytype.pnclans.impl.inventory.listener.GuiListener
 import ua.inventorytype.pnclans.impl.listener.ClanListener
 import ua.inventorytype.pnclans.impl.placeholder.PnClansExpansion
 import ua.inventorytype.pnclans.impl.teleport.TeleportService
+import ua.inventorytype.pnclans.impl.ux.TimedBossBarService
+import ua.inventorytype.pnclans.impl.util.ChatInputPrompt
 
 class BukkitPlugin : JavaPlugin() {
 
@@ -31,6 +33,9 @@ class BukkitPlugin : JavaPlugin() {
         private set
 
     lateinit var teleportService: TeleportService
+        private set
+
+    lateinit var timedBossBarService: TimedBossBarService
         private set
 
     lateinit var guiListener: GuiListener
@@ -56,6 +61,7 @@ class BukkitPlugin : JavaPlugin() {
         placeholderRegistry.registerDefaults(clanService)
         inviteService = ClanInviteService(clanService)
         teleportService = TeleportService(this)
+        timedBossBarService = TimedBossBarService(this)
 
         guiListener = GuiListener(this)
         server.pluginManager.registerEvents(guiListener, this)
@@ -76,6 +82,13 @@ class BukkitPlugin : JavaPlugin() {
     }
 
     override fun onDisable() {
+        ChatInputPrompt.shutdown()
+        if (::timedBossBarService.isInitialized) {
+            timedBossBarService.clearAll()
+        }
+        if (::inviteService.isInitialized) {
+            inviteService.clear()
+        }
         if (::guiListener.isInitialized) {
             guiListener.forceCloseAll()
         }

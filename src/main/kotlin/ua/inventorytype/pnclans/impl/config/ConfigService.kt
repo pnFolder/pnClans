@@ -115,13 +115,19 @@ class ConfigService(private val plugin: Plugin) {
      * @param actions The list of [Action] objects to execute (from [MessagesConfig]).
      * @param placeholders Optional map of `{key}` → `value` replacements applied to every action.
      */
-    fun send(player: Player, actions: List<Action>, placeholders: Map<String, String> = emptyMap()) {
+    fun send(
+        player: Player,
+        actions: List<Action>,
+        placeholders: Map<String, String> = emptyMap(),
+        durationSeconds: Int? = null
+    ) {
         val bukkitPlugin = plugin as? BukkitPlugin ?: return
         val context = ActionContext(
             player = player,
             placeholderRegistry = bukkitPlugin.placeholderRegistry,
             placeholders = placeholders,
-            plugin = bukkitPlugin
+            plugin = bukkitPlugin,
+            durationSeconds = durationSeconds
         )
         actions.forEach { it.execute(context) }
     }

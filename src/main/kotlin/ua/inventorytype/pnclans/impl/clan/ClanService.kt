@@ -36,6 +36,9 @@ class ClanService(
 
     private val _clans = ConcurrentHashMap.newKeySet<Clan>()
 
+    /** Tracks online playtime for each member while they remain in a clan. */
+    internal val playtimeTracker: PlaytimeTracker = PlaytimeTracker()
+
     /** Registered listeners notified on clan state updates (e.g. member join/leave, level change). */
     private val clanUpdateListeners = mutableListOf<(playerUuid: UUID) -> Unit>()
 
@@ -60,6 +63,7 @@ class ClanService(
     fun loadClans() {
         _clans.clear()
         _clans.addAll(storage.loadAllClans())
+        playtimeTracker.clear()
         plugin.logger.info("Загружено кланов из хранилища (${storage::class.simpleName}): ${_clans.size}")
     }
 
@@ -68,6 +72,7 @@ class ClanService(
      * Should be called during plugin shutdown to flush any unsaved changes.
      */
     fun saveAll() {
+        playtimeTracker.flushAll(this)
         _clans.forEach { storage.saveClan(it) }
     }
 
@@ -185,6 +190,7 @@ class ClanService(
         storage.saveClan(clan)
         configService.send(leader, configService.messages.clan.created, mapOf("clan" to cleanName))
 
+        playtimeTracker.markOnline(leader.uniqueId, clan.id)
         return clan
     }
 

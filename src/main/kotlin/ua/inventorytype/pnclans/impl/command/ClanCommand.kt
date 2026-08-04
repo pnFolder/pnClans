@@ -107,10 +107,20 @@ class ClanCommand(
                     return true
                 }
 
+                val myRole = clan.getUserRole(myUser)
+                val targetRole = clan.getUserRole(targetUser)
+                if (targetUser.uuid == sender.uniqueId || myRole.weight <= targetRole.weight) {
+                    configService.send(sender, configService.messages.members.cannotManageHigherRank)
+                    return true
+                }
+
                 clan.removeUser(targetUser.uuid)
                 clanService.saveClan(clan)
-                sender.sendMessage("§aВы исключили ${targetUser.playerName} из клана.")
-                Bukkit.getPlayer(targetUser.uuid)?.sendMessage("§cВас исключили из клана ${clan.name}.")
+                clanService.notifyClanUpdated(targetUser.uuid)
+                configService.send(sender, configService.messages.members.kicked, mapOf("player" to targetUser.playerName))
+                Bukkit.getPlayer(targetUser.uuid)?.let { target ->
+                    configService.send(target, configService.messages.members.kickedTarget, mapOf("clan" to clan.name))
+                }
             }
 
             "leave" -> {
@@ -120,13 +130,14 @@ class ClanCommand(
                 }
                 val myUser = clan.users.find { it.uuid == sender.uniqueId } ?: return true
                 if (clan.getUserRole(myUser) == ClanRole.LEADER) {
-                    sender.sendMessage("§cЛидер не может покинуть клан! Используйте /clan disband для расформирования.")
+                    configService.send(sender, configService.messages.clan.leaderCannotLeave)
                     return true
                 }
 
                 clan.removeUser(sender.uniqueId)
                 clanService.saveClan(clan)
-                sender.sendMessage("§cВы покинули клан ${clan.name}.")
+                clanService.notifyClanUpdated(sender.uniqueId)
+                configService.send(sender, configService.messages.clan.left, mapOf("clan" to clan.name))
             }
 
             "disband" -> {
@@ -136,12 +147,11 @@ class ClanCommand(
                 }
                 val myUser = clan.users.find { it.uuid == sender.uniqueId } ?: return true
                 if (clan.getUserRole(myUser) != ClanRole.LEADER) {
-                    sender.sendMessage("§cТолько Лидер может распустить клан.")
+                    configService.send(sender, configService.messages.general.noPermission)
                     return true
                 }
 
                 clanService.disbandClan(clan)
-                sender.sendMessage(msg(sender, cfg.msgClanDisbanded, mapOf("clan" to clan.name)))
             }
 
             "deposit" -> {
@@ -157,6 +167,12 @@ class ClanCommand(
 
                 val clan = clanService.getClanUser(sender) ?: run {
                     sender.sendMessage(msg(sender, cfg.msgNoClan))
+                    return true
+                }
+
+                val myUser = clan.users.find { it.uuid == sender.uniqueId } ?: return true
+                if (!clan.hasPermission(myUser, ClanPerms.Bank.DEPOSIT)) {
+                    configService.send(sender, configService.messages.treasury.noPermissionDeposit)
                     return true
                 }
 
@@ -207,13 +223,23 @@ class ClanCommand(
                     sender.sendMessage(msg(sender, cfg.msgNoClan))
                     return true
                 }
-                val homeName = if (args.size > 1) args[1] else "main"
-                val loc = clan.homes[homeName.lowercase()]
-                if (loc == null) {
-                    sender.sendMessage("§cТочка дома '$homeName' не найдена.")
+                val homeEntry = configuredHome(if (args.size > 1) args[1] else defaultHomeKey()) ?: run {
+                    configService.send(sender, configService.messages.homes.unknownHome, mapOf("home" to args.getOrElse(1) { defaultHomeKey() }))
                     return true
                 }
-                plugin.teleportService.teleportToHome(sender, clan, homeName, loc)
+                if (clan.level < homeEntry.requiredLevel) {
+                    configService.send(sender, configService.messages.homes.lockedByLevel, mapOf(
+                        "home" to homeEntry.label,
+                        "level" to homeEntry.requiredLevel.toString()
+                    ))
+                    return true
+                }
+                val loc = clan.homes[homeEntry.key]
+                if (loc == null) {
+                    configService.send(sender, configService.messages.homes.notSet, mapOf("home" to homeEntry.label))
+                    return true
+                }
+                plugin.teleportService.teleportToHome(sender, clan, homeEntry.label, loc)
             }
 
             "sethome" -> {
@@ -226,10 +252,20 @@ class ClanCommand(
                     sender.sendMessage(msg(sender, cfg.msgNoPermission))
                     return true
                 }
-                val homeName = if (args.size > 1) args[1] else "main"
-                clan.setHome(homeName, sender.location)
+                val homeEntry = configuredHome(if (args.size > 1) args[1] else defaultHomeKey()) ?: run {
+                    configService.send(sender, configService.messages.homes.unknownHome, mapOf("home" to args.getOrElse(1) { defaultHomeKey() }))
+                    return true
+                }
+                if (clan.level < homeEntry.requiredLevel) {
+                    configService.send(sender, configService.messages.homes.lockedByLevel, mapOf(
+                        "home" to homeEntry.label,
+                        "level" to homeEntry.requiredLevel.toString()
+                    ))
+                    return true
+                }
+                clan.setHome(homeEntry.key, sender.location)
                 clanService.saveClan(clan)
-                sender.sendMessage("§aКлановый дом '$homeName' установлен!")
+                configService.send(sender, configService.messages.homes.set, mapOf("home" to homeEntry.label))
             }
 
             "delhome" -> {
@@ -242,12 +278,15 @@ class ClanCommand(
                     sender.sendMessage(msg(sender, cfg.msgNoPermission))
                     return true
                 }
-                val homeName = if (args.size > 1) args[1] else "main"
-                if (clan.deleteHome(homeName)) {
+                val homeEntry = configuredHome(if (args.size > 1) args[1] else defaultHomeKey()) ?: run {
+                    configService.send(sender, configService.messages.homes.unknownHome, mapOf("home" to args.getOrElse(1) { defaultHomeKey() }))
+                    return true
+                }
+                if (clan.deleteHome(homeEntry.key)) {
                     clanService.saveClan(clan)
-                    sender.sendMessage("§aКлановый дом '$homeName' удален.")
+                    configService.send(sender, configService.messages.homes.deleted, mapOf("home" to homeEntry.label))
                 } else {
-                    sender.sendMessage("§cТочка дома '$homeName' не найдена.")
+                    configService.send(sender, configService.messages.homes.notSet, mapOf("home" to homeEntry.label))
                 }
             }
 
@@ -273,6 +312,12 @@ class ClanCommand(
         return true
     }
 
+    private fun configuredHome(key: String) =
+        configService.menus.homesMenu.homes.firstOrNull { it.key.equals(key, ignoreCase = true) }
+
+    private fun defaultHomeKey(): String =
+        configService.menus.homesMenu.homes.firstOrNull()?.key.orEmpty()
+
     override fun onTabComplete(sender: CommandSender, command: Command, alias: String, args: Array<out String>): List<String> {
         if (args.size == 1) {
             val subcommands = listOf(
@@ -290,10 +335,13 @@ class ClanCommand(
                     val clan = clanService.getClanUser(p) ?: return emptyList()
                     return clan.users.map { it.playerName }.filter { it.startsWith(args[1], ignoreCase = true) }
                 }
-                "home", "delhome" -> {
+                "home", "sethome", "delhome" -> {
                     val p = sender as? Player ?: return emptyList()
                     val clan = clanService.getClanUser(p) ?: return emptyList()
-                    return clan.homes.keys.filter { it.startsWith(args[1], ignoreCase = true) }
+                    return configService.menus.homesMenu.homes
+                        .filter { clan.level >= it.requiredLevel }
+                        .map { it.key }
+                        .filter { it.startsWith(args[1], ignoreCase = true) }
                 }
             }
         }

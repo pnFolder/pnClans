@@ -28,7 +28,8 @@ data class ActionContext(
     val player: Player,
     val placeholderRegistry: PlaceholderRegistry,
     val placeholders: Map<String, String> = emptyMap(),
-    val plugin: BukkitPlugin? = null
+    val plugin: BukkitPlugin? = null,
+    val durationSeconds: Int? = null
 )
 
 /**
@@ -91,6 +92,32 @@ data class ActionBarAction(
     override fun execute(context: ActionContext) {
         val formatted = context.placeholderRegistry.process(context.player, text, context.placeholders)
         context.player.spigot().sendMessage(ChatMessageType.ACTION_BAR, *TextComponent.fromLegacyText(formatted))
+    }
+}
+
+/**
+ * Displays a timed BossBar whose progress decreases until it disappears.
+ *
+ * YAML tag: !bossbar { text: "&eВведите никнейм", color: "YELLOW", style: "SOLID" }
+ */
+@Serializable
+@SerialName("bossbar")
+data class BossBarAction(
+    val text: String,
+    val color: String = "YELLOW",
+    val style: String = "SOLID",
+    val durationSeconds: Int = 15
+) : Action {
+    override fun execute(context: ActionContext) {
+        val plugin = context.plugin ?: return
+        val formatted = context.placeholderRegistry.process(context.player, text, context.placeholders)
+        plugin.timedBossBarService.show(
+            context.player,
+            formatted,
+            color,
+            style,
+            context.durationSeconds ?: durationSeconds
+        )
     }
 }
 

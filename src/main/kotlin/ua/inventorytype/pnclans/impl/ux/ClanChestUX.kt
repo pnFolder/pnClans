@@ -7,7 +7,9 @@ import org.bukkit.event.inventory.InventoryCloseEvent
 import org.bukkit.inventory.ItemStack
 import ua.inventorytype.pnclans.api.clan.Clan
 import ua.inventorytype.pnclans.impl.clan.ClanService
+import ua.inventorytype.pnclans.impl.config.GuiItemConfig
 import ua.inventorytype.pnclans.impl.inventory.BaseGui
+import ua.inventorytype.pnclans.impl.inventory.builder.ItemBuilder
 
 /**
  * Virtual clan chest GUI providing shared item storage across all clan members.
@@ -37,10 +39,13 @@ class ClanChestUX(
     }
 
     init {
-        title("&8Хранилище Клана ${clan.name} (Ур. ${clan.level})")
-        rows(6)
+        val cfg = clanService.plugin.configService
+        val menuCfg = cfg.menus.chestMenu
 
-        // Загружаем сохраненные предметы
+        title(menuCfg.title)
+        rows(menuCfg.rows)
+
+        // Load persisted storage items before rendering control slots.
         val savedItems = clanService.getChestItems(clan.id)
         for (slotIndex in 0 until unlockedSlotsCount) {
             val item = savedItems.getOrNull(slotIndex)
@@ -49,7 +54,7 @@ class ClanChestUX(
             }
         }
 
-        // Заполняем заблокированные слоты (от unlockedSlotsCount до 44)
+        // Render locked storage slots that are unlocked by future clan levels.
         for (slotIndex in unlockedSlotsCount until 45) {
             val requiredLevel = when {
                 slotIndex < 18 -> 2
@@ -82,14 +87,12 @@ class ClanChestUX(
             }
         }
 
-        // Нижний ряд навигации (слоты 45 - 53)
         val controlDecor = listOf(46, 47, 51, 52)
         for (i in controlDecor) {
             slot(i) { item(Material.BLACK_STAINED_GLASS_PANE) { name(" ") } }
         }
 
-        // Слот [45]: Аналитика склада
-        slot(45) {
+        menuCfg.items["stats"]?.let { itemCfg -> slot(itemCfg.slot) {
             dynamicItem(Material.KNOWLEDGE_BOOK) { _ ->
                 val maxSlots = this@ClanChestUX.unlockedSlotsCount
                 val itemsStored = (0 until maxSlots).count { slotIdx ->
@@ -99,81 +102,72 @@ class ClanChestUX(
                 val percent = if (maxSlots > 0) (itemsStored * 100) / maxSlots else 0
                 val progressBar = this@ClanChestUX.buildProgressBar(percent)
                 val bankBal = this@ClanChestUX.clan.bankBalance
-
-                name("&#5EFD7D📊 СТАТИСТИКА СКЛАДА")
-                lore(
-                    "",
-                    "&#9EFC65 «Заполненность»",
-                    " &7- &fЗанято слотов: &e$itemsStored &7/ &f$maxSlots",
-                    " &7- &fЗагрузка: $progressBar &7(&e$percent%&7)",
-                    "",
-                    "&#FC65DF «Финансы»",
-                    " &7- &fКазна клана: &#5EFD7D$bankBal ⛁"
+                val placeholders = mapOf(
+                    "stored" to itemsStored.toString(),
+                    "slots" to maxSlots.toString(),
+                    "percent" to percent.toString(),
+                    "progress" to progressBar,
+                    "balance" to bankBal.toString(),
+                    "level" to this@ClanChestUX.clan.level.toString(),
+                    "rows" to (maxSlots / 9).toString()
                 )
+
+                this@ClanChestUX.renderConfigItem(this, itemCfg, placeholders)
                 null
             }
             onClick { _, event -> event.isCancelled = true }
-        }
+        } }
 
-        // Слот [48]: Возврат в Главное Меню
-        slot(48) {
-            item(Material.OAK_DOOR) {
-                name("&c🚪 Вернуться в главное меню")
-                lore("&7Нажмите, чтобы открыть главное меню клана.")
+        menuCfg.items["back"]?.let { itemCfg -> slot(itemCfg.slot) {
+            dynamicItem(this@ClanChestUX.parseMaterial(itemCfg.material, Material.RED_CANDLE)) {
+                this@ClanChestUX.renderConfigItem(this, itemCfg, emptyMap())
+                null
             }
             onClick { player, _ ->
                 this@ClanChestUX.saveChestContents()
                 MainUX(this@ClanChestUX.clanService).open(player)
             }
-        }
+        } }
 
-        // Слот [49]: Ядро хранилища
-        slot(49) {
+        menuCfg.items["core"]?.let { itemCfg -> slot(itemCfg.slot) {
             dynamicItem(Material.BEACON) { _ ->
-                glow(true)
                 val lvl = this@ClanChestUX.clan.level
                 val count = this@ClanChestUX.unlockedSlotsCount
-                name("&#FC7D37⚡ ЯДРО ХРАНИЛИЩА")
-                lore(
-                    "",
-                    "&#9EFC65 «Текущий статус»",
-                    " &7- &fУровень клана: &e$lvl лвл.",
-                    " &7- &fДоступно рядов: &b${count / 9} из 5",
-                    " &7- &fСохранение данных: &aАКТИВНО"
+                this@ClanChestUX.renderConfigItem(
+                    this,
+                    itemCfg,
+                    mapOf("level" to lvl.toString(), "rows" to (count / 9).toString(), "slots" to count.toString())
                 )
                 null
             }
             onClick { _, event -> event.isCancelled = true }
-        }
+        } }
 
-        // Слот [50]: Переход в Эволюцию Клана
-        slot(50) {
-            item(Material.NETHER_STAR) {
-                glow(true)
-                name("&#FC65DF✨ ЭВОЛЮЦИЯ КЛАНА")
-                lore(
-                    "",
-                    "&#9EFC65 «Прокачка»",
-                    " &7- &fНажмите, чтобы перейти в меню",
-                    " &7- &fулучшений и открыть новые слоты!"
+        menuCfg.items["upgrade"]?.let { itemCfg -> slot(itemCfg.slot) {
+            dynamicItem(this@ClanChestUX.parseMaterial(itemCfg.material, Material.NETHER_STAR)) {
+                this@ClanChestUX.renderConfigItem(
+                    this,
+                    itemCfg,
+                    mapOf("level" to this@ClanChestUX.clan.level.toString(), "slots" to this@ClanChestUX.unlockedSlotsCount.toString())
                 )
+                null
             }
             onClick { player, _ ->
                 this@ClanChestUX.saveChestContents()
                 UpgradeUX(this@ClanChestUX.clanService).open(player)
             }
-        }
+        } }
 
-        // Слот [53]: Закрыть
-        slot(53) {
-            item(Material.BARRIER) {
-                name("&c✖ Закрыть меню")
+        menuCfg.items["close"]?.let { itemCfg -> slot(itemCfg.slot) {
+            dynamicItem(this@ClanChestUX.parseMaterial(itemCfg.material, Material.RED_DYE)) {
+                this@ClanChestUX.renderConfigItem(this, itemCfg, emptyMap())
+                null
             }
             onClick { player, _ ->
                 this@ClanChestUX.saveChestContents()
                 player.closeInventory()
             }
-        }
+        } }
     }
 
     override fun handleClick(e: InventoryClickEvent) {
@@ -183,9 +177,11 @@ class ClanChestUX(
                 e.isCancelled = true
             } else {
                 e.isCancelled = false
+                return
             }
         } else {
             e.isCancelled = false
+            return
         }
 
         super.handleClick(e)
@@ -212,4 +208,16 @@ class ClanChestUX(
         val empty = 10 - filled
         return "&a" + "■".repeat(filled) + "&7" + "□".repeat(empty)
     }
+
+    private fun renderConfigItem(builder: ItemBuilder, itemCfg: GuiItemConfig, placeholders: Map<String, String>) {
+        builder.name(format(itemCfg.name, placeholders))
+        builder.lore(itemCfg.lore.map { format(it, placeholders) })
+        builder.glow(itemCfg.glow)
+    }
+
+    private fun format(template: String, placeholders: Map<String, String>): String =
+        placeholders.entries.fold(template) { result, (key, value) -> result.replace("{$key}", value) }
+
+    private fun parseMaterial(name: String, fallback: Material): Material =
+        runCatching { Material.valueOf(name.uppercase()) }.getOrDefault(fallback)
 }

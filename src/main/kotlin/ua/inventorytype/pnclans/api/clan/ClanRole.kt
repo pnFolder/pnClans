@@ -20,7 +20,7 @@ enum class ClanRole(
     /** Regular clan member with standard entry-level privileges. */
     MEMBER(
         weight = 1,
-        icon = Material.IRON_INGOT,
+        icon = Material.NAME_TAG,
         defaultPermissions = setOf(
             ClanPerms.Bank.DEPOSIT,
             ClanPerms.Bank.SEE,
@@ -32,7 +32,7 @@ enum class ClanRole(
     /** Senior clan member empowered to recruit new players. */
     ELDER(
         weight = 2,
-        icon = Material.GOLD_INGOT,
+        icon = Material.ENCHANTED_BOOK,
         defaultPermissions = setOf(
             ClanPerms.Bank.DEPOSIT,
             ClanPerms.Bank.SEE,
@@ -45,7 +45,7 @@ enum class ClanRole(
     /** Deputy co-leader possessing extensive management authority over lower ranks and clan treasury. */
     DEPUTY(
         weight = 3,
-        icon = Material.DIAMOND,
+        icon = Material.TOTEM_OF_UNDYING,
         defaultPermissions = setOf(
             ClanPerms.Bank.DEPOSIT,
             ClanPerms.Bank.WITHDRAW,

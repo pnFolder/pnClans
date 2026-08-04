@@ -38,6 +38,12 @@ class Settings {
     @YamlComment("Стоимость создания клана в монетах экономики Vault (0 — бесплатно)")
     val createClanCost: Double = 1000.0
 
+    @YamlComment("Время ввода ника при приглашении через меню в секундах")
+    val invitePromptTimeoutSeconds: Int = 15
+
+    @YamlComment("Время жизни отправленного приглашения в секундах")
+    val inviteLifetimeSeconds: Int = 60
+
     @YamlComment("Названия ролей клана для отображения в чате, меню и плейсхолдерах {clan_role}")
     val roleLeader: String = "Лидер"
     val roleDeputy: String = "Заместитель"

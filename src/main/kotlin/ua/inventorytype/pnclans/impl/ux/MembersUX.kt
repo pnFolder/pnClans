@@ -11,8 +11,8 @@ import kotlin.math.ceil
 /**
  * Paginated clan member list GUI supporting comprehensive member management operations.
  *
- * Displays up to 28 member heads per page, sorted by role weight (descending) then by name.
- * Each head shows role display name, online status, and available management actions:
+ * Displays role icons instead of cosmetic player heads, sorted by role weight then by name.
+ * Each icon shows role display name, online status, and available management actions:
  * - **LMB**: Promote the member one rank up.
  * - **RMB**: Demote the member one rank down.
  * - **Shift+RMB**: Kick the member (requires [ClanPerms.Members.KICK]).
@@ -31,20 +31,22 @@ class MembersUX(
 
     init {
         val currentPage = page
-        title("Участники > Страница ${currentPage + 1}")
-        rows(6)
-        border(Material.GRAY_STAINED_GLASS_PANE)
+        val cfg = clanService.plugin.configService
+        val menuCfg = cfg.menus.membersMenu
+        val memberSlots = listOf(20, 21, 22, 23, 24, 29, 30, 31, 32, 33)
 
-        val memberSlots = listOf(
-            10, 11, 12, 13, 14, 15, 16,
-            19, 20, 21, 22, 23, 24, 25,
-            28, 29, 30, 31, 32, 33, 34,
-            37, 38, 39, 40, 41, 42, 43
+        title(menuCfg.title.replace("{page}", (currentPage + 1).toString()).replace("{pages}", "?"))
+        rows(menuCfg.rows)
+        hotWorldDecor(true)
+
+        fun navPlaceholders(maxPages: Int) = mapOf(
+            "page" to (currentPage + 1).toString(),
+            "pages" to maxPages.coerceAtLeast(1).toString()
         )
 
         for (i in memberSlots.indices) {
             slot(memberSlots[i]) {
-                dynamicItem(Material.PLAYER_HEAD) { viewer ->
+                dynamicItemNullable(Material.NAME_TAG) { viewer ->
                     val service = this@MembersUX.clanService
                     val clan = service.getClanUser(viewer) ?: return@dynamicItem null
 
@@ -58,6 +60,7 @@ class MembersUX(
 
                     val targetUser = allMembers[index]
                     val targetRole = clan.getUserRole(targetUser)
+                    type(targetRole.icon)
                     val myUser = clan.users.find { it.uuid == viewer.uniqueId } ?: return@dynamicItem null
                     val myRole = clan.getUserRole(myUser)
 
@@ -68,32 +71,37 @@ class MembersUX(
                     val isOnline = targetUser.isOnline
                     val roleDisplayName = service.plugin.configService.getRoleDisplayName(targetRole)
 
-                    name("&#FC7D37${targetUser.playerName}")
+                    name("&#FC7D37${targetUser.playerName} &7• $roleDisplayName")
                     val loreLines = mutableListOf(
                         "",
-                        "&#9EFC65 «Информация»",
-                        " &7- &fДолжность: &b$roleDisplayName",
-                        " &7- &fСтатус: ${if (isOnline) "&aОнлайн" else "&cОффлайн"}",
+                        "&#9EFC65 «Профиль»",
+                        " &7- &fДолжность: &#5EA9FD$roleDisplayName",
+                        " &7- &fСтатус: ${if (isOnline) "&#5EFD7DОнлайн" else "&#FC3737Оффлайн"}",
+                        " &7- &fИерархия: &e${targetRole.weight}",
                         ""
                     )
 
                     if (canManage) {
-                        loreLines.add("&#FF8702 «Управление»")
-                        loreLines.add(" &7- &fЛКМ: &aПовысить")
-                        loreLines.add(" &7- &fПКМ: &cПонизить")
-                        loreLines.add(" &7- &fShift+ПКМ: &4Исключить")
+                        loreLines.add("&#FC65DF «Управление»")
+                        loreLines.add(" &7- &fЛКМ: &#5EFD7DПовысить")
+                        loreLines.add(" &7- &fПКМ: &#FC3737Понизить")
+                        loreLines.add(" &7- &fShift+ПКМ: &#FC3737Исключить")
 
                         if (isLeader) {
-                            loreLines.add(" &7- &fShift+ЛКМ: &eПередать лидерство")
+                            loreLines.add(" &7- &fShift+ЛКМ: &#FFD700Передать лидерство")
                         }
+                        loreLines.add("")
+                        loreLines.add("&#FF8702➥ &fИспользуйте клики для управления")
                     } else if (isMe) {
-                        loreLines.add(" &7- &fЭто ваш профиль.")
+                        loreLines.add("&#FC65DF «Личный профиль»")
+                        loreLines.add(" &7- &fЭто ваш профиль в составе клана.")
                     } else {
-                        loreLines.add(" &cУ вас недостаточно прав для управления.")
+                        loreLines.add("&c➥ У вас недостаточно прав для управления")
                     }
 
+                    glow(targetRole == ClanRole.LEADER || isMe)
                     lore(*loreLines.toTypedArray())
-                    null
+                    build()
                 }
 
                 onClick { viewer, event ->
@@ -177,11 +185,19 @@ class MembersUX(
             }
         }
 
-        slot(48) {
-            dynamicItem(Material.ARROW) {
+        val previousCfg = menuCfg.items["previous"]
+        slot(previousCfg?.slot ?: 47) {
+            dynamicItem(Material.ARROW) { viewer ->
+                val clan = this@MembersUX.clanService.getClanUser(viewer) ?: return@dynamicItem null
+                val maxPages = ceil(clan.users.size / memberSlots.size.toDouble()).toInt()
                 if (currentPage > 0) {
-                    name("&a← Предыдущая страница")
-                    lore("&7Нажмите, чтобы вернуться назад.")
+                    name(previousCfg?.name ?: "&#5EA9FD◀ Предыдущая страница")
+                    lore(previousCfg?.lore?.map { line -> replace(line, navPlaceholders(maxPages)) } ?: listOf("&#FF8702➥ &fНажмите, &eЛКМ &fчтобы открыть"))
+                    glow(previousCfg?.glow == true)
+                } else {
+                    type(Material.GRAY_DYE)
+                    name("&#FC3737◀ Предыдущая страница")
+                    lore("", "&#FC3737 «Недоступно»", " &7- &fВы уже на первой странице.", "", "&c➥ Листать назад нельзя")
                 }
                 null
             }
@@ -190,34 +206,50 @@ class MembersUX(
             }
         }
 
-        slot(49) {
-            item(Material.OAK_DOOR) {
-                name("&cВернуться в меню")
-                lore("&7Нажмите, чтобы открыть главное меню.")
+        val backCfg = menuCfg.items["back"]
+        slot(backCfg?.slot ?: 49) {
+            item(parseMaterial(backCfg?.material, Material.RED_CANDLE)) {
+                name(backCfg?.name ?: "&#FC3737⏎ Вернуться в меню")
+                lore(backCfg?.lore ?: listOf("", "&#FF8702➥ &fНажмите, &eЛКМ &fчтобы вернуться"))
             }
             onClick { player, _ ->
                 MainUX(this@MembersUX.clanService).open(player)
             }
         }
 
-        slot(50) {
+        val nextCfg = menuCfg.items["next"]
+        slot(nextCfg?.slot ?: 51) {
             dynamicItem(Material.ARROW) { viewer ->
                 val service = this@MembersUX.clanService
                 val clan = service.getClanUser(viewer) ?: return@dynamicItem null
-                val maxPages = ceil(clan.users.size / 28.0).toInt()
+                val maxPages = ceil(clan.users.size / memberSlots.size.toDouble()).toInt()
 
                 if (currentPage + 1 < maxPages) {
-                    name("&aСледующая страница →")
-                    lore("&7Нажмите, чтобы перейти дальше.")
+                    type(parseMaterial(nextCfg?.material, Material.SPECTRAL_ARROW))
+                    name(nextCfg?.name ?: "&#5EA9FDСледующая страница ▶")
+                    lore(nextCfg?.lore?.map { line -> replace(line, navPlaceholders(maxPages)) } ?: listOf("&#FF8702➥ &fНажмите, &eЛКМ &fчтобы открыть"))
+                    glow(nextCfg?.glow != false)
+                } else {
+                    type(Material.GRAY_DYE)
+                    name("&#FC3737Следующая страница ▶")
+                    lore("", "&#FC3737 «Недоступно»", " &7- &fВы уже на последней странице.", "", "&c➥ Листать вперёд нельзя")
                 }
                 null
             }
             onClick { viewer, _ ->
                 val service = this@MembersUX.clanService
                 val clan = service.getClanUser(viewer) ?: return@onClick
-                val maxPages = ceil(clan.users.size / 28.0).toInt()
+                val maxPages = ceil(clan.users.size / memberSlots.size.toDouble()).toInt()
                 if (currentPage + 1 < maxPages) MembersUX(service, currentPage + 1).open(viewer)
             }
         }
+    }
+
+    companion object {
+        private fun parseMaterial(name: String?, fallback: Material): Material =
+            runCatching { Material.valueOf(name.orEmpty().uppercase()) }.getOrDefault(fallback)
+
+        private fun replace(template: String, placeholders: Map<String, String>): String =
+            placeholders.entries.fold(template) { result, (key, value) -> result.replace("{$key}", value) }
     }
 }

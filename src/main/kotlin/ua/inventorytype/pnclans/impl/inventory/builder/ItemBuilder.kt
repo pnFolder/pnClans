@@ -53,6 +53,7 @@ class ItemBuilder(initialMaterial: Material) {
     }
 
     fun build(): ItemStack {
+        itemMeta?.addItemFlags(ItemFlag.HIDE_ATTRIBUTES)
         itemStack.itemMeta = itemMeta
         return itemStack
     }
@@ -78,6 +79,19 @@ class SlotBuilder {
             val builder = ItemBuilder(material)
             val customItem = builder.block(player)
             customItem ?: builder.build()
+        }
+    }
+
+    /**
+     * Dynamic item provider that may intentionally leave a slot empty.
+     *
+     * Unlike [dynamicItem], a `null` result is preserved instead of being replaced with the
+     * initial material. Use [ItemBuilder.build] explicitly for visible items.
+     */
+    fun dynamicItemNullable(material: Material, block: ItemBuilder.(Player) -> ItemStack?) {
+        this.itemProvider = { player ->
+            val builder = ItemBuilder(material)
+            builder.block(player)
         }
     }
 

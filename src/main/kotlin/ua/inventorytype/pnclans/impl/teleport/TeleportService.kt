@@ -15,14 +15,16 @@ class TeleportService(private val plugin: BukkitPlugin) {
     fun teleportToHome(player: Player, clan: Clan, homeName: String, targetLocation: Location) {
         cancelTeleport(player.uniqueId)
 
-        // Задержка телепортации зависит от уровня клана:
-        // 1 уровень -> 5 сек, 2 уровень -> 4 сек, 3 уровень -> 3 сек, 4 уровень -> 2 сек, 5 уровень -> 1 сек!
         val delaySeconds = (6 - clan.level).coerceAtLeast(1)
+        val cfg = plugin.configService
 
         val startLocation = player.location.clone()
         val startHealth = player.health
 
-        player.sendMessage("§eТелепортация на дом '$homeName' произойдёт через §b$delaySeconds сек. §eНе двигайтесь!")
+        cfg.send(player, cfg.messages.teleport.started, mapOf(
+            "home" to homeName,
+            "seconds" to delaySeconds.toString()
+        ))
 
         val runnable = object : BukkitRunnable() {
             var secondsLeft = delaySeconds
@@ -33,8 +35,8 @@ class TeleportService(private val plugin: BukkitPlugin) {
                     return
                 }
 
-                if (player.location.distance(startLocation) > 0.5 || player.health < startHealth) {
-                    player.sendMessage("§cТелепортация отменена! Вы сдвинулись или получили урон.")
+                if (player.world != startLocation.world || player.location.distanceSquared(startLocation) > MAX_MOVE_DISTANCE_SQUARED || player.health < startHealth) {
+                    cfg.send(player, cfg.messages.teleport.cancelled)
                     cancelTeleport(player.uniqueId)
                     return
                 }
@@ -43,7 +45,7 @@ class TeleportService(private val plugin: BukkitPlugin) {
 
                 if (secondsLeft <= 0) {
                     player.teleport(targetLocation)
-                    player.sendMessage("§aТелепортация на клановый дом '$homeName' успешна!")
+                    cfg.send(player, cfg.messages.teleport.completed, mapOf("home" to homeName))
                     pendingTeleports.remove(player.uniqueId)
                     cancel()
                 }
@@ -56,5 +58,9 @@ class TeleportService(private val plugin: BukkitPlugin) {
 
     fun cancelTeleport(uuid: UUID) {
         pendingTeleports.remove(uuid)?.cancel()
+    }
+
+    private companion object {
+        const val MAX_MOVE_DISTANCE_SQUARED = 0.25
     }
 }

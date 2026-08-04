@@ -25,6 +25,72 @@ data class GuiMenuConfig(
 )
 
 /**
+ * Configuration of the main clan dashboard with dynamic state labels.
+ *
+ * @property display Text values injected by [ua.inventorytype.pnclans.impl.ux.MainUX]
+ * into the dashboard item templates.
+ */
+@Serializable
+data class MainMenuConfig(
+    val title: String = "&#FC7D37« Штаб Клана »",
+    val rows: Int = 6,
+    val items: Map<String, GuiItemConfig> = emptyMap(),
+    @YamlComment("Тексты динамических состояний главного меню")
+    val display: MainMenuDisplayConfig = MainMenuDisplayConfig()
+)
+
+/** Dynamic state labels used by the main clan dashboard. */
+@Serializable
+data class MainMenuDisplayConfig(
+    @YamlComment("Статус открытого кланового хранилища")
+    val chestOpen: String = "&#5EFD7DОткрыт",
+
+    @YamlComment("Статус закрытого кланового хранилища")
+    val chestClosed: String = "&#FC3737Закрыт",
+
+    @YamlComment("Значение баланса без права на просмотр")
+    val hiddenBalance: String = "&#FC3737Скрыт",
+
+    @YamlComment("Название опасного действия для главы клана")
+    val leaderLeaveName: String = "&#FC3737✖ Распустить клан",
+
+    @YamlComment("Предупреждение опасного действия для главы клана")
+    val leaderLeaveWarning: String = "Клан будет удалён навсегда.",
+
+    @YamlComment("Название опасного действия для участника клана")
+    val memberLeaveName: String = "&#FC3737✖ Покинуть клан",
+
+    @YamlComment("Предупреждение опасного действия для участника клана")
+    val memberLeaveWarning: String = "Вы потеряете доступ к клану и его функциям."
+)
+
+/** Configuration of the clan Hall of Fame ranking screen. */
+@Serializable
+data class TopMenuConfig(
+    val title: String = "&#FC65DF« Зал Славы » &7({page}/{pages})",
+    val rows: Int = 6,
+    val items: Map<String, GuiItemConfig> = emptyMap(),
+    @YamlComment("Слоты карточек кланов на одной странице")
+    val entrySlots: List<Int> = listOf(20, 21, 22, 23, 24, 29, 30, 31, 32, 33),
+    @YamlComment("Материал клана на первом месте")
+    val firstMaterial: String = "DRAGON_EGG",
+    @YamlComment("Материал клана на втором месте")
+    val secondMaterial: String = "NETHER_STAR",
+    @YamlComment("Материал клана на третьем месте")
+    val thirdMaterial: String = "DIAMOND",
+    @YamlComment("Материал остальных кланов в рейтинге")
+    val otherMaterial: String = "AMETHYST_SHARD",
+    @YamlComment("Цвет первого места")
+    val firstColor: String = "&#FFD700",
+    @YamlComment("Цвет второго места")
+    val secondColor: String = "&#C0C0C0",
+    @YamlComment("Цвет третьего места")
+    val thirdColor: String = "&#CD7F32",
+    @YamlComment("Цвет остальных мест")
+    val otherColor: String = "&#A9A9A9"
+)
+
+/**
  * 100% Config-Driven Menu Design.
  * Every single title, item slot, material, display name, lore line, glow effect,
  * decorative border glass pane, and click action is configured in menus.yml.
@@ -33,161 +99,324 @@ data class GuiMenuConfig(
 class MenusConfig {
 
     @YamlComment("Главное меню клана (/clan menu)")
-    val mainMenu: GuiMenuConfig = GuiMenuConfig(
-        title = "&#FC7D37« Управление Кланом »",
+    val mainMenu: MainMenuConfig = MainMenuConfig(
+        title = "&#FC7D37« Штаб Клана »",
         rows = 6,
         items = mapOf(
-            // --- Декоративная окантовка (Черные и Оранжевые панели) ---
-            "decor_b0" to GuiItemConfig(slot = 0, material = "BLACK_STAINED_GLASS_PANE", name = " "),
-            "decor_o1" to GuiItemConfig(slot = 1, material = "ORANGE_STAINED_GLASS_PANE", name = " "),
-            "decor_b2" to GuiItemConfig(slot = 2, material = "BLACK_STAINED_GLASS_PANE", name = " "),
-            "decor_b3" to GuiItemConfig(slot = 3, material = "BLACK_STAINED_GLASS_PANE", name = " "),
-            "decor_b4" to GuiItemConfig(slot = 4, material = "BLACK_STAINED_GLASS_PANE", name = " "),
-            "decor_b5" to GuiItemConfig(slot = 5, material = "BLACK_STAINED_GLASS_PANE", name = " "),
-            "decor_b6" to GuiItemConfig(slot = 6, material = "BLACK_STAINED_GLASS_PANE", name = " "),
-            "decor_o7" to GuiItemConfig(slot = 7, material = "ORANGE_STAINED_GLASS_PANE", name = " "),
-            "decor_b8" to GuiItemConfig(slot = 8, material = "BLACK_STAINED_GLASS_PANE", name = " "),
-            "decor_o9" to GuiItemConfig(slot = 9, material = "ORANGE_STAINED_GLASS_PANE", name = " "),
-            "decor_b10" to GuiItemConfig(slot = 10, material = "BLACK_STAINED_GLASS_PANE", name = " "),
-            "decor_o11" to GuiItemConfig(slot = 11, material = "ORANGE_STAINED_GLASS_PANE", name = " "),
-            "decor_o12" to GuiItemConfig(slot = 12, material = "ORANGE_STAINED_GLASS_PANE", name = " "),
-            "decor_o13" to GuiItemConfig(slot = 13, material = "ORANGE_STAINED_GLASS_PANE", name = " "),
-            "decor_o14" to GuiItemConfig(slot = 14, material = "ORANGE_STAINED_GLASS_PANE", name = " "),
-            "decor_o15" to GuiItemConfig(slot = 15, material = "ORANGE_STAINED_GLASS_PANE", name = " "),
-            "decor_b16" to GuiItemConfig(slot = 16, material = "BLACK_STAINED_GLASS_PANE", name = " "),
-            "decor_b17" to GuiItemConfig(slot = 17, material = "BLACK_STAINED_GLASS_PANE", name = " "),
-
-            // --- Кнопки управления ---
-            "members" to GuiItemConfig(
-                slot = 20,
-                material = "PLAYER_HEAD",
-                name = "&#FC7D37Участники клана",
-                lore = listOf(
-                    "",
-                    "&#9EFC65 «Информация»",
-                    " &7- &fИгроков в клане: &b{clan_members}",
-                    " &7- &fВ сети: &a{clan_online}",
-                    "",
-                    "&#FC65DF «Описание»",
-                    " &7- &fУправление составом клана.",
-                    " &7- &fПовышение, понижение и исключение.",
-                    "",
-                    "&#FF8702➥ &fНажмите, &eЛКМ &fдля просмотра участников"
-                ),
-                glow = false,
-                actions = listOf(OpenGuiAction("MEMBERS"), SoundAction("UI_BUTTON_CLICK"))
-            ),
             "stats" to GuiItemConfig(
-                slot = 22,
+                slot = 13,
                 material = "NETHER_STAR",
-                name = "&#FC7D37Клан: {clan}",
+                name = "&#FC7D37✦ {clan}",
                 lore = listOf(
                     "",
-                    "&#9EFC65 «Основное»",
-                    " &7- &fУровень клана: &#5EFD7D{clan_level} лвл.",
-                    " &7- &fОчки рейтинга (MMR): &e{clan_mmr}",
+                    "&#9EFC65 «Командный профиль»",
+                    " &7- &fУровень: &#5EFD7D{clan_level}",
+                    " &7- &fРейтинг MMR: &#FFD700{clan_mmr}",
+                    " &7- &fУчастники: &#5EA9FD{clan_online} &7/ &f{clan_members}",
                     "",
                     "&#FC65DF «Боевая сводка»",
-                    " &7- &fУбийств: &a{clan_kills}",
-                    " &7- &fСмертей: &c{clan_deaths}"
+                    " &7- &fУбийств: &#5EFD7D{clan_kills}",
+                    " &7- &fСмертей: &#FC3737{clan_deaths}",
+                    " &7- &fKDA: &e{clan_kda}",
+                    "",
+                    "&#FF8702➥ &fВыберите модуль управления ниже"
                 ),
                 glow = true
             ),
-            "chest" to GuiItemConfig(
-                slot = 24,
-                material = "CHEST",
-                name = "&#FC7D37Клановый Сундук",
+            "members" to GuiItemConfig(
+                slot = 20,
+                material = "ARMOR_STAND",
+                name = "&#FC7D37☷ Состав клана",
                 lore = listOf(
                     "",
-                    "&#9EFC65 «Общее Хранилище»",
-                    " &7- &fХранилище предметов клана",
-                    " &7- &fВместимость зависит от уровня",
+                    "&#9EFC65 «Участники»",
+                    " &7- &fВсего в клане: &#5EA9FD{clan_members}",
+                    " &7- &fСейчас в сети: &#5EFD7D{clan_online}",
+                    "",
+                    "&#FC65DF «Управление»",
+                    " &7- &fРоли, повышение, понижение",
+                    " &7- &fи исключение участников.",
+                    "",
+                    "&#FF8702➥ &fНажмите, &eЛКМ &fчтобы открыть состав"
+                ),
+                actions = listOf(SoundAction("UI_BUTTON_CLICK"))
+            ),
+            "chest" to GuiItemConfig(
+                slot = 21,
+                material = "BARREL",
+                name = "&#FFD700❂ Хранилище клана",
+                lore = listOf(
+                    "",
+                    "&#9EFC65 «Склад»",
+                    " &7- &fДоступ: {chest_state}",
+                    " &7- &fВместимость: &e{chest_slots} &fслотов",
+                    "",
+                    "&#FC65DF «Назначение»",
+                    " &7- &fОбщее хранилище ресурсов",
+                    " &7- &fдля всех участников клана.",
                     "",
                     "&#FF8702➥ &fНажмите, &eЛКМ &fчтобы открыть склад"
                 ),
-                glow = true,
-                actions = listOf(OpenGuiAction("CHEST"), SoundAction("BLOCK_CHEST_OPEN"))
+                actions = listOf(SoundAction("BLOCK_BARREL_OPEN"))
             ),
             "treasury" to GuiItemConfig(
-                slot = 29,
+                slot = 22,
                 material = "GOLD_INGOT",
-                name = "&#FC7D37Казна клана",
+                name = "&#FFD700⛁ Казна клана",
                 lore = listOf(
                     "",
-                    "&#9EFC65 «Баланс»",
-                    " &7- &fБаланс: &#5EFD7D{clan_balance} ⛁",
+                    "&#9EFC65 «Финансы»",
+                    " &7- &fБаланс: {clan_balance_animated} ⛁",
+                    " &7- &fСтатус: &eОбщий счёт клана",
+                    "",
+                    "&#FC65DF «Назначение»",
+                    " &7- &fПополнение, снятие и журнал",
+                    " &7- &fфинансовых операций.",
                     "",
                     "&#FF8702➥ &fНажмите, &eЛКМ &fдля управления казной"
                 ),
-                glow = false,
-                actions = listOf(OpenGuiAction("TREASURY"), SoundAction("UI_BUTTON_CLICK"))
+                actions = listOf(SoundAction("UI_BUTTON_CLICK"))
             ),
             "homes" to GuiItemConfig(
-                slot = 30,
+                slot = 23,
                 material = "RED_BED",
-                name = "&#FC7D37Клановые Дома",
+                name = "&#FC7D37⌂ Клановые дома",
                 lore = listOf(
                     "",
-                    "&#9EFC65 «Информация»",
-                    " &7- &fОбщие точки телепортации",
+                    "&#9EFC65 «Точки телепортации»",
+                    " &7- &fУстановлено: &e{homes_set} &7/ &f{homes_unlocked}",
+                    " &7- &fВсего точек: &#5EA9FD{homes_total}",
                     "",
-                    "&#FF8702➥ &fИспользуйте &e/clan home &fдля телепорта"
+                    "&#FC65DF «Назначение»",
+                    " &7- &fОбщие точки сбора, базы",
+                    " &7- &fи быстрых перемещений клана.",
+                    "",
+                    "&#FF8702➥ &fНажмите, &eЛКМ &fчтобы открыть дома"
                 ),
-                glow = false
-            ),
-            "top" to GuiItemConfig(
-                slot = 31,
-                material = "DRAGON_EGG",
-                name = "&#FC7D37Топ Кланов",
-                lore = listOf(
-                    "",
-                    "&#9EFC65 «Зал Славы»",
-                    " &7- &fРейтинг лучших кланов",
-                    "",
-                    "&#FF8702➥ &fНажмите, &eЛКМ &fчтобы посмотреть ТОП"
-                ),
-                glow = true,
-                actions = listOf(OpenGuiAction("TOP"), SoundAction("UI_BUTTON_CLICK"))
+                actions = listOf(SoundAction("UI_BUTTON_CLICK"))
             ),
             "invite" to GuiItemConfig(
-                slot = 32,
+                slot = 24,
                 material = "WRITABLE_BOOK",
-                name = "&#FC7D37Приглашения в клан",
+                name = "&#5EA9FD✉ Пригласить игрока",
                 lore = listOf(
                     "",
-                    "&#9EFC65 «Информация»",
-                    " &7- &fПриглашайте игроков через &e/clan invite <ник>",
+                    "&#9EFC65 «Новый участник»",
+                    " &7- &fНикнейм вводится в чат.",
+                    " &7- &fВремя на ввод: &e{prompt_seconds} сек.",
                     "",
-                    "&#FF8702➥ &fИспользуйте команду для отправки"
+                    "&#FC65DF «Проверки»",
+                    " &7- &fПроверяется клан игрока, лимит",
+                    " &7- &fучастников и ваши права доступа.",
+                    "",
+                    "&#FF8702➥ &fНажмите, &eЛКМ &fчтобы пригласить"
                 ),
-                glow = false
+                actions = listOf(SoundAction("UI_BUTTON_CLICK"))
+            ),
+            "top" to GuiItemConfig(
+                slot = 29,
+                material = "DRAGON_EGG",
+                name = "&#FC65DF♛ Зал славы",
+                lore = listOf(
+                    "",
+                    "&#9EFC65 «Рейтинг серверов»",
+                    " &7- &fСравните силу кланов по MMR",
+                    " &7- &fи боевой статистике.",
+                    "",
+                    "&#FF8702➥ &fНажмите, &eЛКМ &fчтобы открыть рейтинг"
+                ),
+                actions = listOf(SoundAction("UI_BUTTON_CLICK"))
+            ),
+            "upgrade" to GuiItemConfig(
+                slot = 31,
+                material = "BEACON",
+                name = "&#FC7D37✦ Эволюция клана",
+                lore = listOf(
+                    "",
+                    "&#9EFC65 «Прогресс»",
+                    " &7- &fТекущий уровень: &e{clan_level} лвл.",
+                    " &7- &fMMR клана: &#FFD700{clan_mmr}",
+                    " &7- &fКазна: &e{clan_balance}⛁",
+                    "",
+                    "&#FC65DF «Награды прокачки»",
+                    " &7- &fНовые слоты участников и складов,",
+                    " &7- &fновые клановые дома и преимущества.",
+                    "",
+                    "&#FF8702➥ &fНажмите, &eЛКМ &fчтобы улучшить клан"
+                ),
+                glow = true
             ),
             "settings" to GuiItemConfig(
-                slot = 33,
+                slot = 32,
                 material = "COMPARATOR",
-                name = "&#FC7D37Настройки клана",
+                name = "&#FC7D37⚙ Настройки клана",
                 lore = listOf(
                     "",
-                    "&#9EFC65 «Параметры»",
-                    " &7- &fУправление чатом, PvP и ролями",
+                    "&#9EFC65 «Системы клана»",
+                    " &7- &fPvP, чат, склад и оповещения.",
+                    " &7- &fПрава и иерархия ролей.",
                     "",
                     "&#FF8702➥ &fНажмите, &eЛКМ &fчтобы открыть настройки"
                 ),
-                glow = false,
-                actions = listOf(OpenGuiAction("SETTINGS"), SoundAction("UI_BUTTON_CLICK"))
+                actions = listOf(SoundAction("UI_BUTTON_CLICK"))
             ),
-            "leave" to GuiItemConfig(
+            "help" to GuiItemConfig(
                 slot = 40,
-                material = "BARRIER",
-                name = "&#FC3737Выйти / Распустить",
+                material = "ENCHANTED_BOOK",
+                name = "&#5EA9FD⌕ Помощь по клану",
                 lore = listOf(
                     "",
-                    "&#FC65DF «Внимание»",
-                    " &7- &fВыход из состава или расформирование",
+                    "&#9EFC65 «С чего начать»",
+                    " &7- &fНайдите тиммейтов через &e/clan",
+                    " &7- &fи пригласите их сюда.",
+                    " &7- &fУбивайте врагов и копите MMR.",
                     "",
-                    "&#FF8702➥ &fНажмите для подтверждения действия"
+                    "&#FC65DF «Что открыто»",
+                    " &7- &fУровень {clan_level}: {clan_slots} участников,",
+                    " &7- &f{clan_homes} точек домов и {clan_kills} убийств.",
+                    "",
+                    "&#FF8702➥ &fОткройте подробную инструкцию"
+                )
+            ),
+            "leave" to GuiItemConfig(
+                slot = 33,
+                material = "RED_DYE",
+                name = "{leave_name}",
+                lore = listOf(
+                    "",
+                    "&#FC3737 «Внимание»",
+                    " &7- &f{leave_warning}",
+                    " &7- &fДействие потребует подтверждения.",
+                    "",
+                    "&#FF8702➥ &fНажмите, &eЛКМ &fчтобы продолжить"
+                )
+            )
+        )
+    )
+
+    @YamlComment("Подробная инструкция по функциям клана и режиму прокачки")
+    val helpMenu: GuiMenuConfig = GuiMenuConfig(
+        title = "&#5EA9FD« Справка Клана »",
+        rows = 6,
+        items = mapOf(
+            "evolution" to GuiItemConfig(
+                slot = 13,
+                material = "BEACON",
+                name = "&#FC7D37✦ Путь эволюции",
+                lore = listOf(
+                    "",
+                    "&#9EFC65 «Как прокачиваться»",
+                    " &7- &fПовышайте MMR в боях и сражениях.",
+                    " &7- &fКопите казну, выполняйте квесты.",
+                    " &7- &fКаждый уровень открывает новые слоты,",
+                    " &7- &fдома и уникальные перки клана.",
+                    "",
+                    "&#FF8702➥ &fТекущая задача: достичь уровня &e{next_level}"
                 ),
-                glow = false
+                glow = true
+            ),
+            "rewards" to GuiItemConfig(
+                slot = 20,
+                material = "TOTEM_OF_UNDYING",
+                name = "&#FC65DF✦ Награды за уровни",
+                lore = listOf(
+                    "",
+                    "&#9EFC65 «Бонусы прокачки»",
+                    " &7- &f+5 слотов участников за уровень.",
+                    " &7- &f+1 ряд в клановом сундуке за уровень.",
+                    " &7- &f+10 точек домов на максимальном уровне.",
+                    " &7- &f+Кастомные эффекты над головой.",
+                    "",
+                    "&#FF8702➥ &fПланируйте апгрейды"
+                )
+            ),
+            "earning" to GuiItemConfig(
+                slot = 22,
+                material = "EXPERIENCE_BOTTLE",
+                name = "&#5EFD7D✦ Источники очков",
+                lore = listOf(
+                    "",
+                    "&#9EFC65 «Где брать прогресс»",
+                    " &7- &fУбийства врагов: +10 MMR.",
+                    " &7- &fСмерти: -5 MMR (но не меньше 0).",
+                    " &7- &fПобеда в клановом бою: до +30 MMR.",
+                    " &7- &fАктивность в чате: ежедневный бонус.",
+                    "",
+                    "&#FF8702➥ &fСледите за статистикой в Зале славы"
+                )
+            ),
+            "back" to GuiItemConfig(
+                slot = 49,
+                material = "RED_CANDLE",
+                name = "&#FC3737⏎ Вернуться в штаб",
+                lore = listOf(
+                    "",
+                    "&#FC65DF «Переход»",
+                    " &7- &fОткрывает главное меню клана.",
+                    "",
+                    "&#FF8702➥ &fНажмите, &eЛКМ &fчтобы вернуться"
+                ),
+                actions = listOf(OpenGuiAction("MAIN"))
+            )
+        )
+    )
+
+    @YamlComment("Окно подтверждения выхода из клана или его расформирования")
+    val leaveConfirmMenu: GuiMenuConfig = GuiMenuConfig(
+        title = "&#FC3737« Подтверждение »",
+        rows = 3,
+        items = mapOf(
+            "confirmDisband" to GuiItemConfig(
+                slot = 11,
+                material = "RED_DYE",
+                name = "&#FC3737✖ Распустить клан",
+                lore = listOf(
+                    "",
+                    "&#FC3737 «Подтверждение»",
+                    " &7- &fКлан &#5EA9FD{clan} &fбудет удалён навсегда.",
+                    " &7- &fЭто действие нельзя отменить.",
+                    "",
+                    "&#FC3737➥ &fНажмите, &eЛКМ &fчтобы подтвердить"
+                )
+            ),
+            "confirmLeave" to GuiItemConfig(
+                slot = 11,
+                material = "RED_DYE",
+                name = "&#FC3737✖ Покинуть клан",
+                lore = listOf(
+                    "",
+                    "&#FC3737 «Подтверждение»",
+                    " &7- &fВы покинете клан &#5EA9FD{clan}&f.",
+                    " &7- &fПрава и доступы будут потеряны.",
+                    "",
+                    "&#FC3737➥ &fНажмите, &eЛКМ &fчтобы подтвердить"
+                )
+            ),
+            "info" to GuiItemConfig(
+                slot = 13,
+                material = "ENCHANTED_BOOK",
+                name = "&#FFD700❂ Важное решение",
+                lore = listOf(
+                    "",
+                    "&#9EFC65 «Проверьте действие»",
+                    " &7- &fПеред подтверждением убедитесь,",
+                    " &7- &fчто выбрали правильное решение.",
+                    "",
+                    "&#FC65DF «Безопасность»",
+                    " &7- &fДля возврата выберите отмену справа."
+                )
+            ),
+            "cancel" to GuiItemConfig(
+                slot = 15,
+                material = "LIME_CANDLE",
+                name = "&#5EFD7D↶ Отменить действие",
+                lore = listOf(
+                    "",
+                    "&#9EFC65 «Безопасный возврат»",
+                    " &7- &fНичего не будет изменено.",
+                    "",
+                    "&#FF8702➥ &fНажмите, &eЛКМ &fчтобы вернуться"
+                )
             )
         )
     )
@@ -197,12 +426,43 @@ class MenusConfig {
         title = "&#FC7D37« Состав Клана »",
         rows = 6,
         items = mapOf(
+            "previous" to GuiItemConfig(
+                slot = 47,
+                material = "ARROW",
+                name = "&#5EA9FD◀ Предыдущая страница",
+                lore = listOf(
+                    "",
+                    "&#9EFC65 «Навигация»",
+                    " &7- &fСтраница: &e{page} &7/ &f{pages}",
+                    "",
+                    "&#FF8702➥ &fНажмите, &eЛКМ &fчтобы открыть"
+                )
+            ),
             "back" to GuiItemConfig(
                 slot = 49,
                 material = "RED_CANDLE",
-                name = "§x§F§F§0§0§0§0Вернуться",
-                lore = listOf("&7Вернуться в главное меню"),
+                name = "&#FC3737⏎ Вернуться в меню",
+                lore = listOf(
+                    "",
+                    "&#FC65DF «Переход»",
+                    " &7- &fОткрывает главное меню клана.",
+                    "",
+                    "&#FF8702➥ &fНажмите, &eЛКМ &fчтобы вернуться"
+                ),
                 actions = listOf(OpenGuiAction("MAIN"))
+            ),
+            "next" to GuiItemConfig(
+                slot = 51,
+                material = "SPECTRAL_ARROW",
+                name = "&#5EA9FDСледующая страница ▶",
+                lore = listOf(
+                    "",
+                    "&#9EFC65 «Навигация»",
+                    " &7- &fСтраница: &e{page} &7/ &f{pages}",
+                    "",
+                    "&#FF8702➥ &fНажмите, &eЛКМ &fчтобы открыть"
+                ),
+                glow = true
             )
         )
     )
@@ -210,67 +470,142 @@ class MenusConfig {
     @YamlComment("Меню настроек клана")
     val settingsMenu: GuiMenuConfig = GuiMenuConfig(
         title = "&#FC7D37« Настройки Клана »",
-        rows = 3,
+        rows = 6,
         items = mapOf(
-            "pvp" to GuiItemConfig(
-                slot = 10,
-                material = "DIAMOND_SWORD",
-                name = "&#FC7D37Режим ПвП",
+            "overview" to GuiItemConfig(
+                slot = 13,
+                material = "COMPARATOR",
+                name = "&#FC7D37✦ Панель управления кланом",
                 lore = listOf(
                     "",
-                    "&#65D1FC «Боевой режим»",
-                    " &7- &fПереключение урона между своими",
+                    "&#9EFC65 «Сводка»",
+                    " &7- &fУчастников: &e{members}",
+                    " &7- &fОнлайн сейчас: &#5EFD7D{online}",
+                    " &7- &fВаш ранг: &#5EA9FD{role}",
                     "",
-                    "&#FF8702➥ &fНажмите, &eЛКМ &fчтобы переключить"
+                    "&#FC65DF «Назначение»",
+                    " &7- &fЗдесь настраиваются режимы клана,",
+                    " &7- &fдоступы к функциям и права ролей.",
+                    "",
+                    "&#FF8702➥ &fВыберите модуль ниже"
+                ),
+                glow = true
+            ),
+            "pvp" to GuiItemConfig(
+                slot = 20,
+                material = "DIAMOND_SWORD",
+                name = "&#FC7D37⚔ Режим PvP",
+                lore = listOf(
+                    "",
+                    "&#9EFC65 «Состояние»",
+                    " &7- &fFriendly Fire: {state}",
+                    " &7- &fУрон по своим: {pvp_damage}",
+                    "",
+                    "&#FC65DF «Описание»",
+                    " &7- &fКонтролирует боевой режим",
+                    " &7- &fмежду участниками клана.",
+                    "",
+                    "&#FF8702➥ &fНажмите, &eЛКМ &fчтобы {action}"
                 )
             ),
             "chat" to GuiItemConfig(
-                slot = 11,
+                slot = 21,
                 material = "WRITABLE_BOOK",
-                name = "&#FC7D37Клановый Чат",
+                name = "&#5EA9FD✎ Клановый чат",
                 lore = listOf(
                     "",
-                    "&#65D1FC «Канал общения»",
-                    " &7- &fПереключение кланового чата",
+                    "&#9EFC65 «Состояние»",
+                    " &7- &fКанал общения: {state}",
+                    " &7- &fТип: &eВнутриигровой",
                     "",
-                    "&#FF8702➥ &fНажмите, &eЛКМ &fчтобы переключить"
+                    "&#FC65DF «Описание»",
+                    " &7- &fЗакрытый чат для общения",
+                    " &7- &fтолько между соклановцами.",
+                    "",
+                    "&#FF8702➥ &fНажмите, &eЛКМ &fчтобы {action}"
                 )
             ),
             "chest" to GuiItemConfig(
-                slot = 12,
-                material = "CHEST",
-                name = "&#FC7D37Доступ к Сундуку",
+                slot = 22,
+                material = "BARREL",
+                name = "&#FFD700❂ Доступ к складу",
                 lore = listOf(
                     "",
-                    "&#65D1FC «Хранилище»",
-                    " &7- &fРазрешить/запретить доступ к сундуку",
+                    "&#9EFC65 «Состояние»",
+                    " &7- &fОбщее хранилище: {state}",
+                    " &7- &fРесурсы клана: &eПод контролем",
                     "",
-                    "&#FF8702➥ &fНажмите, &eЛКМ &fчтобы переключить"
+                    "&#FC65DF «Описание»",
+                    " &7- &fРазрешает или блокирует",
+                    " &7- &fдоступ к виртуальному складу.",
+                    "",
+                    "&#FF8702➥ &fНажмите, &eЛКМ &fчтобы {action}"
                 )
             ),
             "join" to GuiItemConfig(
-                slot = 13,
+                slot = 23,
                 material = "BELL",
-                name = "&#FC7D37Уведомления о входе",
+                name = "&#FC65DF✦ Оповещения входа",
                 lore = listOf(
                     "",
-                    "&#65D1FC «Оповещения»",
-                    " &7- &fСообщения при входе соклановцев",
+                    "&#9EFC65 «Состояние»",
+                    " &7- &fУведомления: {state}",
+                    " &7- &fОнлайн: &e{online}&7/&f{members}",
                     "",
-                    "&#FF8702➥ &fНажмите, &eЛКМ &fчтобы переключить"
+                    "&#FC65DF «Описание»",
+                    " &7- &fСообщает о входе и выходе",
+                    " &7- &fучастников клана.",
+                    "",
+                    "&#FF8702➥ &fНажмите, &eЛКМ &fчтобы {action}"
                 )
             ),
             "roles" to GuiItemConfig(
-                slot = 14,
-                material = "ARMOR_STAND",
-                name = "&#FC7D37Управление ролями",
+                slot = 24,
+                material = "NETHER_STAR",
+                name = "&#FC7D37✵ Управление ролями",
                 lore = listOf(
                     "",
-                    "&#65D1FC «Права доступа»",
-                    " &7- &fНастройка прав для каждой должности",
+                    "&#9EFC65 «Права доступа»",
+                    " &7- &fВсего ролей: &e{roles}",
+                    " &7- &fУчастников: &e{members}",
+                    " &7- &fВаш ранг: &b{role}",
+                    "",
+                    "&#FC65DF «Описание»",
+                    " &7- &fРедактор прав, должностей",
+                    " &7- &fи управленческих доступов.",
                     "",
                     "&#FF8702➥ &fНажмите, &eЛКМ &fчтобы открыть редактор"
                 )
+            ),
+            "hint" to GuiItemConfig(
+                slot = 31,
+                material = "ENCHANTED_BOOK",
+                name = "&#FFD700❂ Подсказка по доступам",
+                lore = listOf(
+                    "",
+                    "&#9EFC65 «Важно»",
+                    " &7- &fЕсли игрок не может нажать кнопку,",
+                    " &7- &fпроверьте права его роли.",
+                    "",
+                    "&#FC65DF «Роли»",
+                    " &7- &fГлава может открыть редактор ролей",
+                    " &7- &fи выдать точечные разрешения.",
+                    "",
+                    "&#FF8702➥ &fИспользуйте &eУправление ролями"
+                )
+            ),
+            "back" to GuiItemConfig(
+                slot = 49,
+                material = "RED_CANDLE",
+                name = "&#FC3737⏎ Вернуться в меню",
+                lore = listOf(
+                    "",
+                    "&#FC65DF «Переход»",
+                    " &7- &fОткрывает главное меню клана.",
+                    "",
+                    "&#FF8702➥ &fНажмите, &eЛКМ &fчтобы вернуться"
+                ),
+                actions = listOf(OpenGuiAction("MAIN"))
             )
         )
     )
@@ -278,13 +613,70 @@ class MenusConfig {
     @YamlComment("Редактор ролей")
     val editorRolesMenu: GuiMenuConfig = GuiMenuConfig(
         title = "&#FC7D37« Редактор Ролей »",
-        rows = 3,
+        rows = 6,
         items = mapOf(
+            "overview" to GuiItemConfig(
+                slot = 13,
+                material = "LECTERN",
+                name = "&#FC7D37✦ Архитектура ролей",
+                lore = listOf(
+                    "",
+                    "&#9EFC65 «Система доступа»",
+                    " &7- &fРолей для настройки: &e{roles}",
+                    " &7- &fУчастников клана: &e{members}",
+                    "",
+                    "&#FC65DF «Как работает»",
+                    " &7- &fВыберите должность ниже,",
+                    " &7- &fчтобы открыть матрицу прав.",
+                    "",
+                    "&#FF8702➥ &fВыберите роль для настройки"
+                ),
+                glow = true
+            ),
+            "role" to GuiItemConfig(
+                slot = 20,
+                material = "IRON_INGOT",
+                name = "&#FC7D37✦ Роль: {role}",
+                lore = listOf(
+                    "",
+                    "&#9EFC65 «Профиль роли»",
+                    " &7- &fИерархия: &#FFD700#{weight}",
+                    " &7- &fБазовых прав: &e{permissions}",
+                    "",
+                    "&#FC65DF «Настройка»",
+                    " &7- &fОткроет список разрешений",
+                    " &7- &fдля выбранной должности.",
+                    "",
+                    "&#FF8702➥ &fНажмите, &eЛКМ &fчтобы настроить"
+                )
+            ),
+            "permission" to GuiItemConfig(
+                slot = 10,
+                material = "PAPER",
+                name = "&#FC7D37Право: &f{permission}",
+                lore = listOf(
+                    "",
+                    "&#9EFC65 «Состояние»",
+                    " &7- &fСтатус: {state}",
+                    " &7- &fРоль: &#5EA9FD{role}",
+                    "",
+                    "&#FC65DF «Описание»",
+                    "{description}",
+                    "",
+                    "&#FF8702➥ &fНажмите, &eЛКМ &fчтобы {action}"
+                )
+            ),
             "back" to GuiItemConfig(
-                slot = 22,
+                slot = 49,
                 material = "RED_CANDLE",
-                name = "§x§F§F§0§0§0§0Вернуться",
-                lore = listOf("&7Вернуться в настройки"),
+                name = "&#FC3737⏎ Вернуться в настройки",
+                lore = listOf(
+                    "",
+                    "&#FC65DF «Переход»",
+                    " &7- &fВозвращает в настройки клана.",
+                    "",
+                    "&#FF8702➥ &fНажмите, &eЛКМ &fчтобы вернуться"
+                ),
                 actions = listOf(OpenGuiAction("SETTINGS"))
             )
         )
@@ -396,73 +788,208 @@ class MenusConfig {
     )
 
     @YamlComment("Зал Славы / Топ Кланов")
-    val topMenu: GuiMenuConfig = GuiMenuConfig(
-        title = "&#FC7D37« Зал Славы (Топ Кланов) »",
+    val topMenu: TopMenuConfig = TopMenuConfig(
+        title = "&#FC65DF« Зал Славы » &7({page}/{pages})",
         rows = 6,
         items = mapOf(
+            "overview" to GuiItemConfig(
+                slot = 13,
+                material = "BEACON",
+                name = "&#FC65DF♛ Рейтинг кланов",
+                lore = listOf(
+                    "",
+                    "&#9EFC65 «Сводка рейтинга»",
+                    " &7- &fКланов в таблице: &e{total}",
+                    " &7- &fТекущая страница: &#5EA9FD{page} &7/ &f{pages}",
+                    "",
+                    "&#FC65DF «Как считается»",
+                    " &7- &fГлавный параметр: &#FFD700MMR",
+                    " &7- &fПри равенстве учитываются убийства.",
+                    "",
+                    "&#FF8702➥ &fЛучшие кланы отмечены особыми иконками"
+                ),
+                glow = true
+            ),
+            "entry" to GuiItemConfig(
+                slot = 20,
+                material = "AMETHYST_SHARD",
+                name = "{rank_color}#{rank} &7• &#FC7D37{clan}",
+                lore = listOf(
+                    "",
+                    "&#9EFC65 «Позиция в рейтинге»",
+                    " &7- &fМесто: {rank_color}#{rank}",
+                    " &7- &fЛидер: &#5EA9FD{leader}",
+                    " &7- &fУровень клана: &#5EFD7D{level}",
+                    "",
+                    "&#FC65DF «Боевая мощь»",
+                    " &7- &fРейтинг MMR: &#FFD700{mmr}",
+                    " &7- &fУбийств: &#5EFD7D{kills} &7/ &fСмертей: &#FC3737{deaths}",
+                    " &7- &fОбщий KDA: &e{kda}",
+                    "",
+                    "&#5EA9FD «Состав»",
+                    " &7- &fУчастников: &e{members}",
+                    " &7- &fКазна: &#5EFD7D{balance}⛁"
+                )
+            ),
+            "empty" to GuiItemConfig(
+                slot = 22,
+                material = "KNOWLEDGE_BOOK",
+                name = "&#5EA9FD⌁ Рейтинг пока пуст",
+                lore = listOf(
+                    "",
+                    "&#9EFC65 «Зал ожидает легенд»",
+                    " &7- &fСоздайте клан, развивайте его",
+                    " &7- &fи заработайте первые очки MMR.",
+                    "",
+                    "&#FF8702➥ &fПервый клан займёт вершину рейтинга"
+                )
+            ),
+            "previous" to GuiItemConfig(
+                slot = 47,
+                material = "ARROW",
+                name = "&#5EA9FD◀ Выше по рейтингу",
+                lore = listOf(
+                    "",
+                    "&#9EFC65 «Навигация»",
+                    " &7- &fСтраница: &e{page} &7/ &f{pages}",
+                    "",
+                    "&#FF8702➥ &fНажмите, &eЛКМ &fчтобы открыть"
+                )
+            ),
+            "previousLocked" to GuiItemConfig(
+                slot = 47,
+                material = "GRAY_DYE",
+                name = "&#FC3737◀ Выше по рейтингу",
+                lore = listOf(
+                    "",
+                    "&#FC3737 «Недоступно»",
+                    " &7- &fВы уже на первой странице.",
+                    "",
+                    "&c➥ Листать назад нельзя"
+                )
+            ),
             "back" to GuiItemConfig(
                 slot = 49,
                 material = "RED_CANDLE",
-                name = "§x§F§F§0§0§0§0Вернуться",
-                lore = listOf("&7Вернуться в главное меню"),
+                name = "&#FC3737⏎ Вернуться в штаб",
+                lore = listOf(
+                    "",
+                    "&#FC65DF «Переход»",
+                    " &7- &fОткрывает главный штаб клана.",
+                    "",
+                    "&#FF8702➥ &fНажмите, &eЛКМ &fчтобы вернуться"
+                ),
                 actions = listOf(OpenGuiAction("MAIN"))
+            ),
+            "next" to GuiItemConfig(
+                slot = 51,
+                material = "SPECTRAL_ARROW",
+                name = "&#5EA9FDНиже по рейтингу ▶",
+                lore = listOf(
+                    "",
+                    "&#9EFC65 «Навигация»",
+                    " &7- &fСтраница: &e{page} &7/ &f{pages}",
+                    "",
+                    "&#FF8702➥ &fНажмите, &eЛКМ &fчтобы открыть"
+                ),
+                glow = true
+            ),
+            "nextLocked" to GuiItemConfig(
+                slot = 51,
+                material = "GRAY_DYE",
+                name = "&#FC3737Ниже по рейтингу ▶",
+                lore = listOf(
+                    "",
+                    "&#FC3737 «Недоступно»",
+                    " &7- &fВы уже на последней странице.",
+                    "",
+                    "&c➥ Листать вперёд нельзя"
+                )
             )
         )
     )
 
     @YamlComment("Виртуальное хранилище сундук клана")
     val chestMenu: GuiMenuConfig = GuiMenuConfig(
-        title = "&#FC7D37« Клановый Сундук »",
+        title = "&#FC7D37« Хранилище Клана »",
         rows = 6,
         items = mapOf(
             "stats" to GuiItemConfig(
                 slot = 45,
                 material = "KNOWLEDGE_BOOK",
-                name = "&#5EFD7D📊 СТАТИСТИКА СКЛАДА",
+                name = "&#5EFD7D⌁ Аналитика склада",
                 lore = listOf(
                     "",
-                    "&#9EFC65 «Информация»",
-                    " &7- &fУровень клана: &e{clan_level} лвл.",
-                    " &7- &fБаланс: &#5EFD7D{clan_balance} ⛁"
+                    "&#9EFC65 «Заполненность»",
+                    " &7- &fЗанято слотов: &e{stored} &7/ &f{slots}",
+                    " &7- &fЗагрузка: {progress} &7(&e{percent}%&7)",
+                    "",
+                    "&#FC65DF «Финансы»",
+                    " &7- &fКазна клана: &#5EFD7D{balance}⛁"
                 )
             ),
             "back" to GuiItemConfig(
                 slot = 48,
-                material = "OAK_DOOR",
-                name = "&c🚪 Вернуться в меню",
-                lore = listOf("&7Нажмите для возврата"),
+                material = "RED_CANDLE",
+                name = "&#FC3737⏎ Вернуться в меню",
+                lore = listOf(
+                    "",
+                    "&#FC65DF «Переход»",
+                    " &7- &fСохраняет содержимое склада.",
+                    " &7- &fОткрывает главное меню клана.",
+                    "",
+                    "&#FF8702➥ &fНажмите, &eЛКМ &fчтобы вернуться"
+                ),
                 actions = listOf(OpenGuiAction("MAIN"))
             ),
             "core" to GuiItemConfig(
                 slot = 49,
                 material = "BEACON",
-                name = "&#FC7D37⚡ ЯДРО ХРАНИЛИЩА",
+                name = "&#FC7D37✦ Ядро хранилища",
                 lore = listOf(
                     "",
                     "&#9EFC65 «Статус»",
-                    " &7- &fСохранение в БД: &aАКТИВНО"
+                    " &7- &fУровень клана: &e{level}",
+                    " &7- &fДоступно рядов: &b{rows} &7/ &f5",
+                    " &7- &fСохранение данных: &#5EFD7DАктивно",
+                    "",
+                    "&#FC65DF «Назначение»",
+                    " &7- &fЦентральный модуль склада.",
+                    " &7- &fПоказывает текущую вместимость."
                 ),
                 glow = true
             ),
             "upgrade" to GuiItemConfig(
                 slot = 50,
                 material = "NETHER_STAR",
-                name = "&#FC65DF✨ ЭВОЛЮЦИЯ КЛАНА",
+                name = "&#FC65DF✵ Эволюция склада",
                 lore = listOf(
                     "",
                     "&#9EFC65 «Прокачка»",
-                    " &7- &fОткрыть больше слотов",
+                    " &7- &fКаждый уровень открывает",
+                    " &7- &fновые ряды хранилища.",
                     "",
-                    "&#FF8702➥ &fНажмите для перехода"
+                    "&#FC65DF «Сейчас»",
+                    " &7- &fДоступно слотов: &e{slots}",
+                    " &7- &fУровень клана: &e{level}",
+                    "",
+                    "&#FF8702➥ &fНажмите, &eЛКМ &fчтобы улучшить"
                 ),
                 glow = true,
                 actions = listOf(OpenGuiAction("UPGRADE"))
             ),
             "close" to GuiItemConfig(
                 slot = 53,
-                material = "BARRIER",
-                name = "&c✖ Закрыть",
-                lore = listOf("&7Закрыть склад")
+                material = "RED_DYE",
+                name = "&#FC3737✖ Закрыть склад",
+                lore = listOf(
+                    "",
+                    "&#FC3737 «Выход»",
+                    " &7- &fСодержимое будет сохранено.",
+                    " &7- &fМеню просто закроется.",
+                    "",
+                    "&#FF8702➥ &fНажмите, &eЛКМ &fчтобы закрыть"
+                )
             )
         )
     )
@@ -479,52 +1006,25 @@ class MenusConfig {
  * Full configuration for the clan homes GUI ([ua.inventorytype.pnclans.impl.ux.HomesUX]).
  *
  * Controls the inventory title, size, all item texts (names, lore lines), materials,
- * and slot positions for each home entry. Supports three home waypoints by default.
+ * level requirements, and slot positions for each home entry.
  *
- * All lore list supports `{world}`, `{x}`, `{y}`, `{z}` and `{home}` placeholder tokens.
+ * Home item text supports `{world}`, `{x}`, `{y}`, `{z}`, `{home}`, `{label}`,
+ * `{required_level}` and `{current_level}` placeholder tokens.
  */
 @Serializable
 data class HomesMenuConfig(
 
     @YamlComment("Название инвентаря клановых домов")
-    val title: String = "&#FC7D37« Клановые Дома »",
+    val title: String = "&#FC7D37« Клановые Дома » &7({page}/{pages})",
 
     @YamlComment("Количество рядов (1-6). По умолчанию 6 (54 слота)")
     val rows: Int = 6,
 
     @YamlComment(
-        "Список точек домов. Каждая точка — отдельная запись с ключом, названием,",
-        "цветом, эмодзи, слотом и предметами для установленного / незаполненного состояния."
+        "Список точек домов. Каждая точка — отдельная запись с ключом, страницей,",
+        "слотом, уровнем открытия и предметами для каждого состояния."
     )
-    val homes: List<HomesEntryConfig> = listOf(
-        HomesEntryConfig(
-            key            = "main",
-            label          = "Главная",
-            colorCode      = "&#5EFD7D",
-            emoji          = "🏠",
-            slot           = 20,
-            lockedMaterial = "RED_STAINED_GLASS_PANE",
-            unlockedMaterial = "RED_BED"
-        ),
-        HomesEntryConfig(
-            key            = "base",
-            label          = "База",
-            colorCode      = "&#5EA9FD",
-            emoji          = "🏰",
-            slot           = 22,
-            lockedMaterial = "BLUE_STAINED_GLASS_PANE",
-            unlockedMaterial = "BLUE_BED"
-        ),
-        HomesEntryConfig(
-            key            = "pvp",
-            label          = "PvP",
-            colorCode      = "&#FC65DF",
-            emoji          = "⚔",
-            slot           = 24,
-            lockedMaterial = "PURPLE_STAINED_GLASS_PANE",
-            unlockedMaterial = "PURPLE_BED"
-        )
-    ),
+    val homes: List<HomesEntryConfig> = defaultHomesEntries(),
 
     @YamlComment(
         "Лор предмета для УСТАНОВЛЕННОГО дома.",
@@ -559,26 +1059,105 @@ data class HomesMenuConfig(
         "&#FF8702➥ &fНажмите &eПКМ &fчтобы установить"
     ),
 
-    @YamlComment("Слот информационного предмета (компас) в центре меню")
-    val infoSlot: Int = 31,
+    @YamlComment("Слот информационного предмета (компас сверху)")
+    val infoSlot: Int = 4,
+
+    @YamlComment("Материал информационного предмета")
+    val infoMaterial: String = "COMPASS",
 
     @YamlComment("Название информационного предмета")
     val infoName: String = "&#FC7D37Клановые Дома",
 
     @YamlComment(
         "Лор информационного предмета.",
-        "Переменная: {set} — кол-во установленных, {max} — максимум"
+        "Переменные: {set} — установлено, {max} — доступно, {total} — всего, {current_level} — уровень клана"
     )
     val infoLore: List<String> = listOf(
         "",
         "&#9EFC65 «Информация»",
         " &7- &fУстановлено: &e{set} &7/ &f{max} точек",
-        " &7- &fМакс. точек: &b{max}",
+        " &7- &fВсего слотов: &b{total}",
+        " &7- &fУровень клана: &e{current_level}",
+        " &7- &fСтраница: &e{page} &7/ &f{pages}",
         "",
         "&#FC65DF «Управление»",
         " &7- &fЛКМ: &aТелепортироваться",
         " &7- &fПКМ: &eУстановить / Переставить",
         " &7- &fShift+ПКМ: &cУдалить точку"
+    ),
+
+    @YamlComment("Кнопка предыдущей страницы, когда переход доступен")
+    val previousPageButton: GuiItemConfig = GuiItemConfig(
+        slot = 47,
+        material = "ARROW",
+        name = "&#5EA9FD◀ Предыдущая страница",
+        lore = listOf(
+            "",
+            "&#9EFC65 «Навигация»",
+            " &7- &fТекущая страница: &e{page} &7/ &f{pages}",
+            " &7- &fПереход: &#5EA9FDназад",
+            "",
+            "&#FF8702➥ &fНажмите, &eЛКМ &fчтобы открыть"
+        )
+    ),
+
+    @YamlComment("Кнопка предыдущей страницы, когда переход недоступен")
+    val previousPageLockedButton: GuiItemConfig = GuiItemConfig(
+        slot = 47,
+        material = "GRAY_DYE",
+        name = "&#FC3737◀ Предыдущая страница",
+        lore = listOf(
+            "",
+            "&#FC3737 «Недоступно»",
+            " &7- &fВы уже на первой странице.",
+            "",
+            "&c➥ Листать назад нельзя"
+        )
+    ),
+
+    @YamlComment("Кнопка следующей страницы, когда переход доступен")
+    val nextPageButton: GuiItemConfig = GuiItemConfig(
+        slot = 51,
+        material = "SPECTRAL_ARROW",
+        name = "&#5EA9FDСледующая страница ▶",
+        lore = listOf(
+            "",
+            "&#9EFC65 «Навигация»",
+            " &7- &fТекущая страница: &e{page} &7/ &f{pages}",
+            " &7- &fПереход: &#5EA9FDвперёд",
+            "",
+            "&#FF8702➥ &fНажмите, &eЛКМ &fчтобы открыть"
+        ),
+        glow = true
+    ),
+
+    @YamlComment("Кнопка следующей страницы, когда переход недоступен")
+    val nextPageLockedButton: GuiItemConfig = GuiItemConfig(
+        slot = 51,
+        material = "GRAY_DYE",
+        name = "&#FC3737Следующая страница ▶",
+        lore = listOf(
+            "",
+            "&#FC3737 «Недоступно»",
+            " &7- &fВы уже на последней странице.",
+            "",
+            "&c➥ Листать вперёд нельзя"
+        )
+    ),
+
+    @YamlComment("Кнопка возврата в главное меню")
+    val backButton: GuiItemConfig = GuiItemConfig(
+        slot = 49,
+        material = "RED_CANDLE",
+        name = "&#FC3737⏎ Вернуться в меню",
+        lore = listOf(
+            "",
+            "&#FC65DF «Переход»",
+            " &7- &fОткрывает главное меню клана.",
+            " &7- &fВсе изменения домов уже сохранены.",
+            "",
+            "&#FF8702➥ &fНажмите, &eЛКМ &fчтобы вернуться"
+        )
     ),
 
     @YamlComment("Слот кнопки «Назад»")
@@ -598,9 +1177,13 @@ data class HomesMenuConfig(
  * @property label The Russian display name of this waypoint (shown in the item name).
  * @property colorCode Hex color prefix applied to the label when the home is set.
  * @property emoji Single emoji shown in the locked-state item name.
+ * @property page GUI page number where this home item is rendered.
  * @property slot GUI slot index (0–53) where this home item is rendered.
- * @property lockedMaterial [Material] name shown when the waypoint is not yet configured.
- * @property unlockedMaterial [Material] name shown when the waypoint is active.
+ * @property requiredLevel Clan level required to unlock this waypoint.
+ * @property lockedMaterial [Material] name shown when the clan level is too low.
+ * @property unsetMaterial [Material] name shown when the waypoint is unlocked but empty.
+ * @property setMaterial [Material] name shown when the waypoint is active.
+ * @property unlockedMaterial Legacy alias used by older menus for the active item material.
  */
 @Serializable
 data class HomesEntryConfig(
@@ -616,13 +1199,128 @@ data class HomesEntryConfig(
     @YamlComment("Эмодзи для незаполненного состояния")
     val emoji: String = "🏠",
 
+    @YamlComment("Страница меню, на которой отображается точка")
+    val page: Int = 1,
+
     @YamlComment("Слот инвентаря (0-53)")
     val slot: Int = 20,
 
-    @YamlComment("Предмет, когда точка НЕ установлена (стёкла, барьеры и т.д.)")
+    @YamlComment("Минимальный уровень клана для открытия этой точки")
+    val requiredLevel: Int = 1,
+
+    @YamlComment("Предмет, когда точка ЗАКРЫТА по уровню клана")
     val lockedMaterial: String = "RED_STAINED_GLASS_PANE",
 
-    @YamlComment("Предмет, когда точка УСТАНОВЛЕНА (светится)")
-    val unlockedMaterial: String = "RED_BED"
+    @YamlComment("Предмет, когда точка ДОСТУПНА, но НЕ УСТАНОВЛЕНА")
+    val unsetMaterial: String = "LIGHT_GRAY_STAINED_GLASS_PANE",
+
+    @YamlComment("Предмет, когда точка УСТАНОВЛЕНА")
+    val setMaterial: String = "RED_BED",
+
+    @YamlComment("Старое поле для предмета установленной точки. Оставьте пустым, если используете setMaterial")
+    val unlockedMaterial: String = "",
+
+    @YamlComment("Название предмета, когда точка ЗАКРЫТА по уровню")
+    val lockedName: String = "&#FC3737🔒 {label} &7(ур. {required_level})",
+
+    @YamlComment("Лор предмета, когда точка ЗАКРЫТА по уровню")
+    val lockedLore: List<String> = listOf(
+        "",
+        "&#FC3737 «Слот заблокирован»",
+        " &7- &fТребуемый уровень: &#FFD700{required_level}",
+        " &7- &fТекущий уровень: &c{current_level}",
+        " &7- &fСтраница: &e{page} &7/ &f{pages}",
+        "",
+        "&#FC65DF «Как открыть»",
+        " &7- &fПрокачайте клан в меню улучшений.",
+        " &7- &fПосле апгрейда слот станет активным.",
+        "",
+        "&c➥ Этот слот пока нельзя использовать"
+    ),
+
+    @YamlComment("Название предмета, когда точка ДОСТУПНА, но НЕ УСТАНОВЛЕНА")
+    val unsetName: String = "&#FC7D37{emoji} {label} &7(свободно)",
+
+    @YamlComment("Лор предмета, когда точка ДОСТУПНА, но НЕ УСТАНОВЛЕНА")
+    val unsetLore: List<String> = listOf(
+        "",
+        "&#FC7D37 «Свободный слот»",
+        " &7- &fТочка ещё не установлена.",
+        " &7- &fУровень открытия: &#5EFD7D{required_level}",
+        " &7- &fСтраница: &e{page} &7/ &f{pages}",
+        "",
+        "&#FC65DF «Установка»",
+        " &7- &fВстаньте в нужном месте.",
+        " &7- &fНажмите &eПКМ&f, чтобы сохранить точку.",
+        "",
+        "&#FF8702➥ &fНажмите &eПКМ &fчтобы установить"
+    ),
+
+    @YamlComment("Название предмета, когда точка УСТАНОВЛЕНА")
+    val setName: String = "{color}{emoji} {label} &7(активна)",
+
+    @YamlComment("Лор предмета, когда точка УСТАНОВЛЕНА")
+    val setLore: List<String> = listOf(
+        "",
+        "&#9EFC65 «Статус»",
+        " &7- &fСостояние: &aУстановлена ✔",
+        " &7- &fМир: &#5EA9FD{world}",
+        " &7- &fX: &e{x}  &fY: &e{y}  &fZ: &e{z}",
+        " &7- &fСтраница: &e{page} &7/ &f{pages}",
+        "",
+        "&#FC65DF «Управление»",
+        " &7- &fЛКМ: &aТелепортироваться",
+        " &7- &fПКМ: &eПереставить сюда",
+        " &7- &fShift+ПКМ: &cУдалить",
+        "",
+        "&#FF8702➥ &fНажмите &eЛКМ &fдля телепорта"
+    )
 )
 
+private fun defaultHomesEntries(): List<HomesEntryConfig> {
+    val slots = listOf(
+        10, 11, 12, 13, 14, 15, 16,
+        19, 20, 21, 22, 23, 24, 25,
+        28, 29, 30, 31, 32, 33, 34
+    )
+    val setMaterials = listOf(
+        "RED_BED",
+        "BLUE_BED",
+        "PURPLE_BED",
+        "GREEN_BED",
+        "YELLOW_BED",
+        "CYAN_BED",
+        "MAGENTA_BED"
+    )
+    val colors = listOf(
+        "&#FC7D37",
+        "&#5EA9FD",
+        "&#FC65DF",
+        "&#5EFD7D",
+        "&#FFD700"
+    )
+
+    return (1..42).map { index ->
+        val level = when {
+            index <= 4 -> 1
+            index <= 8 -> 2
+            index <= 14 -> 3
+            index <= 24 -> 4
+            else -> 5
+        }
+        val number = index.toString().padStart(2, '0')
+
+        HomesEntryConfig(
+            key = "home_$number",
+            label = "Точка #$number",
+            colorCode = colors[(level - 1).coerceIn(colors.indices)],
+            emoji = "⌂",
+            page = ((index - 1) / slots.size) + 1,
+            slot = slots[(index - 1) % slots.size],
+            requiredLevel = level,
+            lockedMaterial = "BARRIER",
+            unsetMaterial = "ENDER_EYE",
+            setMaterial = setMaterials[(index - 1) % setMaterials.size]
+        )
+    }
+}

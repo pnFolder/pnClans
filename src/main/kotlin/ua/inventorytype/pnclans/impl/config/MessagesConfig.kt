@@ -3,6 +3,7 @@ package ua.inventorytype.pnclans.impl.config
 import com.charleskorn.kaml.YamlComment
 import kotlinx.serialization.Serializable
 import ua.inventorytype.pnclans.api.Action
+import ua.inventorytype.pnclans.api.BossBarAction
 import ua.inventorytype.pnclans.api.MessageAction
 import ua.inventorytype.pnclans.api.SoundAction
 
@@ -35,6 +36,9 @@ class MessagesConfig {
 
     @YamlComment("Сообщения системы управления клановыми домами (точками телепортации)")
     val homes: HomesMessages = HomesMessages()
+
+    @YamlComment("Сообщения отложенной телепортации к клановому дому")
+    val teleport: TeleportMessages = TeleportMessages()
 
     @YamlComment("Сообщения системы приглашений в клан")
     val invite: InviteMessages = InviteMessages()
@@ -151,6 +155,12 @@ class MessagesConfig {
         @YamlComment("Игрок покинул клан. Переменная: {clan}")
         val left: List<Action> = listOf(
             MessageAction("&cВы вышли из клана &e{clan}&c.")
+        ),
+
+        @YamlComment("Глава не может покинуть клан без расформирования")
+        val leaderCannotLeave: List<Action> = listOf(
+            MessageAction("&#FC3737✖ &fГлава не может покинуть клан. Используйте расформирование."),
+            SoundAction("ENTITY_VILLAGER_NO", 1.0f, 1.2f)
         )
     )
 
@@ -202,6 +212,44 @@ class MessagesConfig {
         val deleted: List<Action> = listOf(
             MessageAction("&cКлановая точка &e{home} &cудалена."),
             SoundAction("ENTITY_ITEM_BREAK", 1.0f, 1.0f)
+        ),
+
+        @YamlComment("Точка дома отсутствует в настройках. Переменная: {home}")
+        val unknownHome: List<Action> = listOf(
+            MessageAction("&#FC3737✖ &fТочка &#5EA9FD{home} &fне настроена в меню домов."),
+            SoundAction("ENTITY_VILLAGER_NO", 1.0f, 1.2f)
+        ),
+
+        @YamlComment("Точка дома закрыта по уровню клана. Переменные: {home}, {level}")
+        val lockedByLevel: List<Action> = listOf(
+            MessageAction("&#FC3737✖ &fТочка &#5EA9FD{home} &fоткрывается с &e{level} &fуровня клана."),
+            SoundAction("ENTITY_VILLAGER_NO", 1.0f, 1.2f)
+        )
+    )
+
+    /**
+     * Messages for delayed teleportation to a clan home.
+     *
+     * Supported placeholders: `{home}`, `{seconds}`.
+     */
+    @Serializable
+    data class TeleportMessages(
+        @YamlComment("Телепортация запущена. Переменные: {home}, {seconds}")
+        val started: List<Action> = listOf(
+            MessageAction("&#FC7D37✦ &fТелепортация к точке &#5EA9FD{home} &fчерез &e{seconds} сек.&f Не двигайтесь."),
+            SoundAction("BLOCK_NOTE_BLOCK_PLING", 0.8f, 1.2f)
+        ),
+
+        @YamlComment("Телепортация отменена из-за движения или урона")
+        val cancelled: List<Action> = listOf(
+            MessageAction("&#FC3737✖ &fТелепортация отменена: вы сдвинулись или получили урон."),
+            SoundAction("ENTITY_VILLAGER_NO", 1.0f, 1.2f)
+        ),
+
+        @YamlComment("Телепортация успешно завершена. Переменная: {home}")
+        val completed: List<Action> = listOf(
+            MessageAction("&#5EFD7D✔ &fВы телепортировались к точке &#5EA9FD{home}&f."),
+            SoundAction("ENTITY_ENDERMAN_TELEPORT", 1.0f, 1.0f)
         )
     )
 
@@ -221,50 +269,148 @@ class MessagesConfig {
      */
     @Serializable
     data class InviteMessages(
+        @YamlComment("Настройки ввода ника игрока через меню")
+        val prompt: InvitePromptConfig = InvitePromptConfig(),
+
+        @YamlComment("Игрок-отправитель не состоит в клане")
+        val inviterNoClan: List<Action> = listOf(
+            MessageAction("&#FC3737✖ &fВы не состоите в клане."),
+            SoundAction("ENTITY_VILLAGER_NO", 1.0f, 1.2f)
+        ),
+
         @YamlComment("Нет прав на приглашение игроков")
         val noPermission: List<Action> = listOf(
-            MessageAction("&cУ вас нет прав приглашать игроков в клан."),
+            MessageAction("&#FC3737✖ &fУ вас нет прав приглашать игроков в клан."),
             SoundAction("ENTITY_VILLAGER_NO", 1.0f, 1.2f)
         ),
 
         @YamlComment("Отмена отправки приглашения")
         val cancelled: List<Action> = listOf(
-            MessageAction("&cПриглашение отменено.")
+            MessageAction("&#FC3737✖ &fОтправка приглашения отменена.")
+        ),
+
+        @YamlComment("Нельзя пригласить самого себя")
+        val cannotInviteSelf: List<Action> = listOf(
+            MessageAction("&#FC3737✖ &fНельзя отправить приглашение самому себе."),
+            SoundAction("ENTITY_VILLAGER_NO", 1.0f, 1.2f)
         ),
 
         @YamlComment("Игрок не найден в сети. Переменная: {player}")
         val targetNotFound: List<Action> = listOf(
-            MessageAction("&cИгрок &e{player} &cне найден в сети."),
+            MessageAction("&#FC3737✖ &fИгрок &e{player} &fне найден в сети."),
             SoundAction("ENTITY_VILLAGER_NO", 1.0f, 1.2f)
         ),
 
         @YamlComment("Игрок уже в вашем клане. Переменная: {player}")
         val targetAlreadyInYourClan: List<Action> = listOf(
-            MessageAction("&cИгрок &e{player} &cуже состоит в вашем клане."),
+            MessageAction("&#FC3737✖ &fИгрок &e{player} &fуже состоит в вашем клане."),
             SoundAction("ENTITY_VILLAGER_NO", 1.0f, 1.2f)
         ),
 
         @YamlComment("Игрок уже в другом клане. Переменные: {player}, {clan}")
         val targetAlreadyInOtherClan: List<Action> = listOf(
-            MessageAction("&cИгрок &e{player} &cуже состоит в клане &e{clan}&c."),
+            MessageAction("&#FC3737✖ &fИгрок &e{player} &fуже состоит в клане &#5EA9FD{clan}&f."),
             SoundAction("ENTITY_VILLAGER_NO", 1.0f, 1.2f)
         ),
 
-        @YamlComment("Приглашение успешно отправлено. Переменная: {player}")
+        @YamlComment("У приглашённого игрока уже есть активное приглашение")
+        val targetHasPendingInvite: List<Action> = listOf(
+            MessageAction("&#FC3737✖ &fУ игрока &e{player} &fуже есть активное приглашение."),
+            SoundAction("ENTITY_VILLAGER_NO", 1.0f, 1.2f)
+        ),
+
+        @YamlComment("В клане нет свободных мест. Переменные: {clan}, {limit}")
+        val clanFull: List<Action> = listOf(
+            MessageAction("&#FC3737✖ &fВ клане &#5EA9FD{clan} &fдостигнут лимит: &e{limit} &fучастников."),
+            SoundAction("ENTITY_VILLAGER_NO", 1.0f, 1.2f)
+        ),
+
+        @YamlComment("Приглашение успешно отправлено. Переменные: {player}, {seconds}")
         val inviteSent: List<Action> = listOf(
-            MessageAction("&aПриглашение успешно отправлено игроку &e{player}&a!"),
+            MessageAction("&#5EFD7D✔ &fПриглашение отправлено игроку &e{player}&f."),
             SoundAction("ENTITY_EXPERIENCE_ORB_PICKUP", 1.0f, 1.0f)
         ),
 
-        @YamlComment("Игрок получил приглашение. Переменная: {clan}")
+        @YamlComment("Игрок получил приглашение. Переменные: {clan}, {sender}, {seconds}")
         val inviteReceived: List<Action> = listOf(
-            MessageAction("&a✉ Клан &e{clan} &aприглашает вас вступить!"),
+            MessageAction("&#FC7D37✦ &fИгрок &e{sender} &fприглашает вас в клан &#5EA9FD{clan}&f."),
             SoundAction("ENTITY_EXPERIENCE_ORB_PICKUP", 1.0f, 1.2f)
         ),
 
-        @YamlComment("Инструкция для принятия приглашения. Переменная: {clan}")
+        @YamlComment("Инструкция для принятия приглашения. Переменная: {seconds}")
         val inviteInstructions: List<Action> = listOf(
-            MessageAction("&aИспользуйте &e/clan join {clan} &aдля принятия приглашения.")
+            MessageAction("&#FF8702➥ &fИспользуйте &e/clan accept &fили &c/clan deny &fв течение &e{seconds} сек.")
+        ),
+
+        @YamlComment("У игрока нет активного приглашения")
+        val noActiveInvite: List<Action> = listOf(
+            MessageAction("&#FC3737✖ &fУ вас нет активного приглашения в клан."),
+            SoundAction("ENTITY_VILLAGER_NO", 1.0f, 1.2f)
+        ),
+
+        @YamlComment("Срок действия приглашения истёк")
+        val inviteExpired: List<Action> = listOf(
+            MessageAction("&#FC3737✖ &fСрок действия приглашения истёк."),
+            SoundAction("ENTITY_VILLAGER_NO", 1.0f, 1.2f)
+        ),
+
+        @YamlComment("Приглашение больше нельзя использовать")
+        val inviteInvalid: List<Action> = listOf(
+            MessageAction("&#FC3737✖ &fПриглашение больше недействительно."),
+            SoundAction("ENTITY_VILLAGER_NO", 1.0f, 1.2f)
+        ),
+
+        @YamlComment("Игрок уже состоит в клане при попытке принять приглашение")
+        val acceptAlreadyInClan: List<Action> = listOf(
+            MessageAction("&#FC3737✖ &fВы уже состоите в клане и не можете принять приглашение."),
+            SoundAction("ENTITY_VILLAGER_NO", 1.0f, 1.2f)
+        ),
+
+        @YamlComment("Приглашение успешно принято. Переменная: {clan}")
+        val accepted: List<Action> = listOf(
+            MessageAction("&#5EFD7D✔ &fВы вступили в клан &#5EA9FD{clan}&f!"),
+            SoundAction("ENTITY_PLAYER_LEVELUP", 1.0f, 1.1f)
+        ),
+
+        @YamlComment("Участник вступил в клан. Переменная: {player}")
+        val memberJoined: List<Action> = listOf(
+            MessageAction("&#5EFD7D✦ &fИгрок &e{player} &fвступил в клан."),
+            SoundAction("ENTITY_EXPERIENCE_ORB_PICKUP", 0.7f, 1.1f)
+        ),
+
+        @YamlComment("Игрок отклонил приглашение. Переменная: {clan}")
+        val denied: List<Action> = listOf(
+            MessageAction("&#FC3737✖ &fВы отклонили приглашение в клан &#5EA9FD{clan}&f.")
+        ),
+
+        @YamlComment("Приглашение отклонено игроком. Переменная: {player}")
+        val deniedByTarget: List<Action> = listOf(
+            MessageAction("&#FC3737✖ &fИгрок &e{player} &fотклонил приглашение в клан.")
+        )
+    )
+
+    /**
+     * Configures the timed chat prompt used by the clan invitation menu.
+     *
+     * @property started Actions shown when the prompt begins, including its BossBar.
+     * @property timedOut Actions shown when no response is received before the timeout.
+     */
+    @Serializable
+    data class InvitePromptConfig(
+        @YamlComment("Слова для отмены ввода никнейма")
+        val cancelInputs: List<String> = listOf("отмена", "cancel"),
+
+        @YamlComment("Действия при открытии ввода ника. Переменная: {seconds}")
+        val started: List<Action> = listOf(
+            MessageAction("&#FC7D37✦ &fНапишите никнейм игрока в чат или &cотмена&f."),
+            SoundAction("BLOCK_NOTE_BLOCK_PLING", 1.0f, 1.2f),
+            BossBarAction("&#FC7D37✦ &fВведите никнейм игрока &7• &e{seconds} сек.", "YELLOW", "SOLID")
+        ),
+
+        @YamlComment("Действия при истечении времени ввода")
+        val timedOut: List<Action> = listOf(
+            MessageAction("&#FC3737✖ &fВремя на ввод никнейма истекло."),
+            SoundAction("ENTITY_VILLAGER_NO", 1.0f, 1.2f)
         )
     )
 
@@ -298,6 +444,12 @@ class MessagesConfig {
         @YamlComment("Участник исключён из клана. Переменная: {player}")
         val kicked: List<Action> = listOf(
             MessageAction("&aВы исключили &e{player} &aиз клана.")
+        ),
+
+        @YamlComment("Игрок был исключён из клана. Переменная: {clan}")
+        val kickedTarget: List<Action> = listOf(
+            MessageAction("&#FC3737✖ &fВы были исключены из клана &#5EA9FD{clan}&f."),
+            SoundAction("ENTITY_VILLAGER_NO", 1.0f, 1.2f)
         ),
 
         @YamlComment("Передача лидерства. Переменная: {player}")

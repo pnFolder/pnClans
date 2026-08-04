@@ -2,342 +2,261 @@ package ua.inventorytype.pnclans.impl.ux
 
 import org.bukkit.Bukkit
 import org.bukkit.Material
-import org.bukkit.boss.BarColor
-import org.bukkit.boss.BarStyle
+import org.bukkit.entity.Player
+import ua.inventorytype.pnclans.api.OpenGuiAction
+import ua.inventorytype.pnclans.api.clan.Clan
 import ua.inventorytype.pnclans.api.clan.ClanRole
 import ua.inventorytype.pnclans.api.clan.ClanSetting
 import ua.inventorytype.pnclans.api.permission.ClanPerms
 import ua.inventorytype.pnclans.impl.clan.ClanService
+import ua.inventorytype.pnclans.impl.config.GuiItemConfig
+import ua.inventorytype.pnclans.impl.config.MainMenuConfig
 import ua.inventorytype.pnclans.impl.inventory.BaseGui
+import ua.inventorytype.pnclans.impl.inventory.builder.ItemBuilder
 import ua.inventorytype.pnclans.impl.util.ChatInputPrompt
+import java.util.Locale
 
 /**
- * Main clan control panel GUI — the primary entry point for all clan management features.
+ * Config-driven clan headquarters GUI.
  *
- * Renders the clan dashboard with navigation slots for:
- * - Member list ([MembersUX])
- * - Clan statistics
- * - Clan chest ([ClanChestUX])
- * - Treasury ([TreasuryUX])
- * - Clan homes ([HomesUX])
- * - Top clans leaderboard ([TopClansUX])
- * - Invitation flow (BossBar + chat prompt via [ChatInputPrompt])
- * - Settings panel ([SettingsUX])
- * - Disband/leave action
+ * `mainMenu` in `menus.yml` owns all visual design, titles, materials, lore, and click effects.
+ * This class supplies live clan placeholders and enforces permission-sensitive transitions.
  *
- * All feedback messages are dispatched through the [ua.inventorytype.pnclans.api.Action] system
- * configured in `messages.yml`.
- *
- * @param clanService The clan service providing all required data access.
+ * @param clanService The clan service providing state, persistence, and navigation dependencies.
  */
 class MainUX(clanService: ClanService) : BaseGui(clanService) {
 
     init {
-        title("Мой Клан")
-        rows(5)
-        border(Material.GRAY_STAINED_GLASS_PANE)
+        val cfg = clanService.plugin.configService
+        val menuCfg = cfg.menus.mainMenu
 
-        // [Слот 20] УЧАСТНИКИ
-        slot(20) {
-            dynamicItem(Material.PLAYER_HEAD) { player ->
+        title(menuCfg.title)
+        rows(menuCfg.rows)
+        hotWorldDecor(true)
+
+        addMenuItem(menuCfg, "stats")
+
+        addMenuItem(menuCfg, "members") { player, itemCfg ->
+            clickEffects(player, itemCfg)
+            MembersUX(this@MainUX.clanService).open(player)
+        }
+
+        addMenuItem(menuCfg, "chest") { player, itemCfg ->
+            val clan = this@MainUX.clanService.getClanUser(player) ?: return@addMenuItem
+            val user = clan.users.find { it.uuid == player.uniqueId } ?: return@addMenuItem
+
+            if (!clan.hasPermission(user, ClanPerms.Action.OPEN_CHEST)) {
+                cfg.send(player, cfg.messages.chest.noPermission)
+                return@addMenuItem
+            }
+            if (!clan.isSettingEnabled(ClanSetting.CHEST)) {
+                cfg.send(player, cfg.messages.chest.chestDisabled)
+                return@addMenuItem
+            }
+
+            clickEffects(player, itemCfg, mainPlaceholders(player, clan))
+            this@MainUX.clanService.openClanChest(player, clan)
+        }
+
+        addMenuItem(menuCfg, "treasury") { player, itemCfg ->
+            clickEffects(player, itemCfg)
+            TreasuryUX(this@MainUX.clanService).open(player)
+        }
+
+        addMenuItem(menuCfg, "homes") { player, itemCfg ->
+            clickEffects(player, itemCfg)
+            HomesUX(this@MainUX.clanService).open(player)
+        }
+
+        addMenuItem(menuCfg, "invite") { player, itemCfg ->
+            startInvitePrompt(player, itemCfg)
+        }
+
+        addMenuItem(menuCfg, "top") { player, itemCfg ->
+            clickEffects(player, itemCfg)
+            TopClansUX(this@MainUX.clanService).open(player)
+        }
+
+        addMenuItem(menuCfg, "upgrade") { player, itemCfg ->
+            clickEffects(player, itemCfg, mainPlaceholders(player, this@MainUX.clanService.getClanUser(player) ?: return@addMenuItem))
+            UpgradeUX(this@MainUX.clanService).open(player)
+        }
+
+        addMenuItem(menuCfg, "settings") { player, itemCfg ->
+            clickEffects(player, itemCfg)
+            SettingsUX(this@MainUX.clanService).open(player)
+        }
+
+        addMenuItem(menuCfg, "help") { player, itemCfg ->
+            clickEffects(player, itemCfg, mainPlaceholders(player, this@MainUX.clanService.getClanUser(player) ?: return@addMenuItem))
+            HelpUX(this@MainUX.clanService).open(player)
+        }
+
+        addMenuItem(menuCfg, "leave") { player, itemCfg ->
+            clickEffects(player, itemCfg)
+            ClanLeaveConfirmUX(this@MainUX.clanService).open(player)
+        }
+    }
+
+    private fun addMenuItem(
+        menuCfg: MainMenuConfig,
+        key: String,
+        onClick: ((Player, GuiItemConfig) -> Unit)? = null
+    ) {
+        val itemCfg = menuCfg.items[key] ?: return
+
+        slot(itemCfg.slot) {
+            dynamicItem(this@MainUX.parseMaterial(itemCfg.material, Material.STONE)) { player ->
                 val clan = this@MainUX.clanService.getClanUser(player) ?: return@dynamicItem null
-                val totalMembers = clan.users.size
-                val onlineMembers = clan.onlineCount
-
-                name("&#FC7D37Участники клана")
-                lore(
-                    "",
-                    "&#9EFC65 «Информация»",
-                    " &7- &fВсего игроков: &b$totalMembers чел.",
-                    " &7- &fСейчас в сети: &a$onlineMembers чел.",
-                    "",
-                    "&#FC65DF «Описание»",
-                    " &7- &fУправление составом клана.",
-                    " &7- &fЗдесь можно повышать, понижать",
-                    " &7- &fи исключать участников.",
-                    "",
-                    "&#FF8702➥ &fНажмите, &eЛКМ &fчтобы открыть список"
-                )
+                this@MainUX.renderConfigItem(this, player, itemCfg, this@MainUX.mainPlaceholders(player, clan))
                 null
             }
-            onClick { player, _ ->
-                MembersUX(this@MainUX.clanService).open(player)
+            if (onClick != null) {
+                onClick { player, _ -> onClick(player, itemCfg) }
             }
         }
+    }
 
-        // [Слот 22] СТАТИСТИКА КЛАНА
-        slot(22) {
-            dynamicItem(Material.NETHER_STAR) { player ->
-                val clan = this@MainUX.clanService.getClanUser(player) ?: return@dynamicItem null
+    private fun startInvitePrompt(player: Player, itemCfg: GuiItemConfig) {
+        val service = clanService
+        val cfg = service.plugin.configService
+        val clan = service.getClanUser(player) ?: return
+        val user = clan.users.find { it.uuid == player.uniqueId } ?: return
 
-                val level = clan.level
-                val mmr = clan.mmr
-                val kills = clan.kills
-                val deaths = clan.deaths
-                val kda = if (deaths == 0) "N/A" else String.format("%.2f", kills.toDouble() / deaths)
-
-                name("&#FC7D37${clan.name}")
-                lore(
-                    "",
-                    "&#9EFC65 «Основное»",
-                    " &7- &fУровень клана: &#5EFD7D$level лвл.",
-                    " &7- &fОчки рейтинга (MMR): &e$mmr",
-                    "",
-                    "&#FC65DF «Боевая сводка»",
-                    " &7- &fУбийств: &a$kills",
-                    " &7- &fСмертей: &c$deaths",
-                    " &7- &fKDA: &e$kda",
-                    ""
-                )
-                null
-            }
+        if (!clan.hasPermission(user, ClanPerms.Members.INVITE)) {
+            cfg.send(player, cfg.messages.invite.noPermission)
+            return
         }
 
-        // [Слот 24] КЛАНОВЫЙ СУНДУК
-        slot(24) {
-            dynamicItem(Material.CHEST) { player ->
-                val clan = this@MainUX.clanService.getClanUser(player) ?: return@dynamicItem null
-                val isOpen = clan.isSettingEnabled(ClanSetting.CHEST)
+        val promptCfg = cfg.messages.invite.prompt
+        val promptSeconds = cfg.settings.invitePromptTimeoutSeconds.coerceAtLeast(MIN_PROMPT_SECONDS)
+        val promptPlaceholders = mainPlaceholders(player, clan) + mapOf("seconds" to promptSeconds.toString())
 
-                name("&#FC7D37Клановый Сундук")
-                lore(
-                    "",
-                    "&#9EFC65 «Информация»",
-                    " &7- &fДоступ: ${if (isOpen) "&aОткрыт" else "&cЗакрыт"}",
-                    " &7- &fВместимость: &e${clan.level * 9} слотов",
-                    "",
-                    "&#FC65DF «Описание»",
-                    " &7- &fОбщее хранилище ресурсов клана.",
-                    "",
-                    "&#FF8702➥ &fНажмите, &eЛКМ &fчтобы открыть склад"
-                )
-                null
-            }
-            onClick { player, _ ->
-                val clan = this@MainUX.clanService.getClanUser(player) ?: return@onClick
-                val user = clan.users.find { it.uuid == player.uniqueId } ?: return@onClick
-                val cfg = this@MainUX.clanService.plugin.configService
+        service.plugin.timedBossBarService.remove(player)
+        ChatInputPrompt.cancel(player)
+        clickEffects(player, itemCfg, promptPlaceholders)
+        cfg.send(player, promptCfg.started, promptPlaceholders, promptSeconds)
 
-                if (!clan.hasPermission(user, ClanPerms.Action.OPEN_CHEST)) {
-                    cfg.send(player, cfg.messages.chest.noPermission)
-                    return@onClick
-                }
+        ChatInputPrompt.prompt(
+            plugin = service.plugin,
+            player = player,
+            timeoutTicks = promptSeconds.toLong() * TICKS_PER_SECOND,
+            onInput = { input ->
+                service.plugin.timedBossBarService.remove(player)
 
-                if (!clan.isSettingEnabled(ClanSetting.CHEST)) {
-                    cfg.send(player, cfg.messages.chest.chestDisabled)
-                    return@onClick
-                }
-
-                this@MainUX.clanService.openClanChest(player, clan)
-            }
-        }
-
-        // [Слот 29] КАЗНА
-        slot(29) {
-            dynamicItem(Material.GOLD_INGOT) { player ->
-                val clan = this@MainUX.clanService.getClanUser(player) ?: return@dynamicItem null
-                val user = clan.users.find { it.uuid == player.uniqueId } ?: return@dynamicItem null
-                val balance = clan.bankBalance
-
-                name("&#FC7D37Казна клана")
-                lore(
-                    "",
-                    "&#9EFC65 «Баланс»",
-                    " &7- &fСчет: &#5EFD7D${if (clan.hasUserPermission(user, ClanPerms.Bank.SEE)) "$balance" else "*****"} ⛁",
-                    "",
-                    "&#FC65DF «Описание»",
-                    " &7- &fБанк клана для покупки улучшений",
-                    " &7- &fи расширения вместимости.",
-                    "",
-                    "&#FF8702➥ &fНажмите, &eЛКМ &fдля управления средствами"
-                )
-                null
-            }
-            onClick { player, _ ->
-                TreasuryUX(this@MainUX.clanService).open(player)
-            }
-        }
-
-        // [Слот 30] КЛАНОВЫЕ ДОМА
-        slot(30) {
-            dynamicItem(Material.RED_BED) { player ->
-                val clan = this@MainUX.clanService.getClanUser(player) ?: return@dynamicItem null
-                val homesCount = clan.homes.size
-                name("&#FC7D37Клановые Дома")
-                lore(
-                    "",
-                    "&#9EFC65 «Информация»",
-                    " &7- &fУстановлено: &e$homesCount&7/&e3 точек",
-                    "",
-                    "&#FC65DF «Описание»",
-                    " &7- &fОбщие точки телепортации для",
-                    " &7- &fбыстрого сбора участников.",
-                    "",
-                    "&#FF8702➥ &fНажмите, &eЛКМ &fчтобы открыть список домов"
-                )
-                null
-            }
-            onClick { player, _ ->
-                HomesUX(this@MainUX.clanService).open(player)
-            }
-        }
-
-        // [Слот 31] ТОП КЛАНОВ
-        slot(31) {
-            dynamicItem(Material.DRAGON_EGG) { player ->
-                name("&#FC7D37Топ Кланов")
-                lore(
-                    "",
-                    "&#9EFC65 «Зал Славы»",
-                    " &7- &fРейтинг лучших кланов сервера",
-                    " &7- &fпо MMR и убийствам.",
-                    "",
-                    "&#FF8702➥ &fНажмите, &eЛКМ &fчтобы посмотреть таблицу"
-                )
-                null
-            }
-            onClick { player, _ ->
-                TopClansUX(this@MainUX.clanService).open(player)
-            }
-        }
-
-        // [Слот 32] ПРИГЛАШЕНИЯ С BOSSBAR И ВАЛИДАЦИЕЙ
-        slot(32) {
-            dynamicItem(Material.WRITABLE_BOOK) { player ->
-                name("&#FC7D37Приглашения в клан")
-                lore(
-                    "",
-                    "&#9EFC65 «Информация»",
-                    " &7- &fОтправка приглашения игроку",
-                    " &7- &fчерез ввод никнейма в чат",
-                    "",
-                    "&#FF8702➥ &fНажмите, &eЛКМ &fчтобы отправить инвайт"
-                )
-                null
-            }
-            onClick { player, _ ->
-                val service = this@MainUX.clanService
-                val cfg = service.plugin.configService
-                val clan = service.getClanUser(player) ?: return@onClick
-                val user = clan.users.find { it.uuid == player.uniqueId } ?: return@onClick
-
-                if (!clan.hasPermission(user, ClanPerms.Members.INVITE)) {
-                    cfg.send(player, cfg.messages.invite.noPermission)
-                    return@onClick
-                }
-
-                val bossBar = Bukkit.createBossBar(
-                    "§e💬 Введите никнейм игрока в чат (или 'отмена')",
-                    BarColor.YELLOW,
-                    BarStyle.SOLID
-                )
-                bossBar.addPlayer(player)
-
-                ChatInputPrompt.prompt(
-                    plugin = service.plugin,
-                    player = player,
-                    titleMessage = "§e💬 Напишите никнейм игрока в чат для отправки приглашения:"
-                ) { input ->
-                    bossBar.removeAll()
-                    if (input.equals("отмена", ignoreCase = true) || input.equals("cancel", ignoreCase = true)) {
-                        cfg.send(player, cfg.messages.invite.cancelled)
-                        MainUX(service).open(player)
-                        return@prompt
-                    }
-
-                    val targetPlayer = Bukkit.getPlayer(input)
-                    if (targetPlayer == null) {
+                if (promptCfg.cancelInputs.any { it.equals(input, ignoreCase = true) }) {
+                    cfg.send(player, cfg.messages.invite.cancelled)
+                } else {
+                    val target = Bukkit.getPlayer(input)
+                    if (target == null) {
                         cfg.send(player, cfg.messages.invite.targetNotFound, mapOf("player" to input))
-                        MainUX(service).open(player)
-                        return@prompt
+                    } else {
+                        service.plugin.inviteService.sendInvite(player, target)
                     }
-
-                    val targetClan = service.getClanUser(targetPlayer)
-                    if (targetClan != null) {
-                        if (targetClan.id == clan.id) {
-                            cfg.send(player, cfg.messages.invite.targetAlreadyInYourClan, mapOf("player" to targetPlayer.name))
-                        } else {
-                            cfg.send(player, cfg.messages.invite.targetAlreadyInOtherClan, mapOf(
-                                "player" to targetPlayer.name,
-                                "clan" to targetClan.name
-                            ))
-                        }
-                        MainUX(service).open(player)
-                        return@prompt
-                    }
-
-                    cfg.send(targetPlayer, cfg.messages.invite.inviteReceived, mapOf("clan" to clan.name))
-                    cfg.send(targetPlayer, cfg.messages.invite.inviteInstructions, mapOf("clan" to clan.name))
-                    cfg.send(player, cfg.messages.invite.inviteSent, mapOf("player" to targetPlayer.name))
-                    MainUX(service).open(player)
                 }
+                reopenMain(player)
+            },
+            onTimeout = {
+                service.plugin.timedBossBarService.remove(player)
+                cfg.send(player, promptCfg.timedOut)
+                reopenMain(player)
             }
+        )
+    }
+
+    private fun reopenMain(player: Player) {
+        if (clanService.getClanUser(player) != null) {
+            MainUX(clanService).open(player)
+        } else {
+            player.closeInventory()
         }
+    }
 
-        // [Слот 33] НАСТРОЙКИ
-        slot(33) {
-            dynamicItem(Material.COMPARATOR) { player ->
-                name("&#FC7D37Настройки клана")
-                lore(
-                    "",
-                    "&#9EFC65 «Информация»",
-                    " &7- &fУправление ролями, чатом,",
-                    " &7- &fрежимом PvP и уведомлениями.",
-                    "",
-                    "&#FF8702➥ &fНажмите, &eЛКМ &fчтобы открыть настройки"
-                )
-                null
-            }
-            onClick { player, _ ->
-                SettingsUX(this@MainUX.clanService).open(player)
-            }
+    private fun clickEffects(
+        player: Player,
+        itemCfg: GuiItemConfig,
+        placeholders: Map<String, String> = emptyMap()
+    ) {
+        val effects = itemCfg.actions.filterNot { it is OpenGuiAction }
+        if (effects.isNotEmpty()) {
+            clanService.plugin.configService.send(player, effects, placeholders)
         }
+    }
 
-        // [Слот 40] ВЫХОД / РАСФОРМ
-        slot(40) {
-            dynamicItem(Material.BARRIER) { player ->
-                val clan = this@MainUX.clanService.getClanUser(player) ?: return@dynamicItem null
-                val user = clan.users.find { it.uuid == player.uniqueId } ?: return@dynamicItem null
-                val isLeader = clan.getUserRole(user) == ClanRole.LEADER
-
-                if (isLeader) {
-                    name("&#FC3737Распустить клан")
-                    lore(
-                        "",
-                        "&#FC65DF «Внимание»",
-                        " &7- &fВы являетесь Лидером.",
-                        " &7- &fЭто действие навсегда удалит клан.",
-                        "",
-                        "&#FF8702➥ &fНажмите, &eЛКМ &fчтобы распустить клан"
-                    )
-                } else {
-                    name("&#FC3737Покинуть клан")
-                    lore(
-                        "",
-                        "&#FC65DF «Внимание»",
-                        " &7- &fВы потеряете доступ к клану.",
-                        "",
-                        "&#FF8702➥ &fНажмите, &eЛКМ &fчтобы выйти"
-                    )
-                }
-                null
-            }
-            onClick { player, _ ->
-                val clan = this@MainUX.clanService.getClanUser(player) ?: return@onClick
-                val user = clan.users.find { it.uuid == player.uniqueId } ?: return@onClick
-                val isLeader = clan.getUserRole(user) == ClanRole.LEADER
-                val cfg = this@MainUX.clanService.plugin.configService
-
-                if (isLeader) {
-                    this@MainUX.clanService.disbandClan(clan)
-                    cfg.send(player, cfg.messages.clan.disbandedLeader, mapOf("clan" to clan.name))
-                    player.closeInventory()
-                } else {
-                    clan.removeUser(player.uniqueId)
-                    cfg.send(player, cfg.messages.clan.left, mapOf("clan" to clan.name))
-                    player.closeInventory()
-                }
-            }
+    private fun mainPlaceholders(player: Player, clan: Clan): Map<String, String> {
+        val cfg = clanService.plugin.configService
+        val display = cfg.menus.mainMenu.display
+        val user = clan.users.find { it.uuid == player.uniqueId }
+        val homes = cfg.menus.homesMenu.homes
+        val unlockedHomes = homes.filter { clan.level >= it.requiredLevel }
+        val isLeader = user != null && clan.getUserRole(user) == ClanRole.LEADER
+        val kda = if (clan.deaths == 0) {
+            ZERO_KDA
+        } else {
+            String.format(Locale.US, KDA_FORMAT, clan.kills.toDouble() / clan.deaths)
         }
+        val canSeeBalance = user != null && clan.hasUserPermission(user, ClanPerms.Bank.SEE)
+
+        val hiddenStars = if (canSeeBalance) "" else animatedStars()
+        return mapOf(
+            "clan" to clan.name,
+            "clan_level" to clan.level.toString(),
+            "next_level" to (clan.level + 1).coerceAtMost(MAX_CLAN_LEVEL).toString(),
+            "clan_mmr" to clan.mmr.toString(),
+            "clan_kills" to clan.kills.toString(),
+            "clan_deaths" to clan.deaths.toString(),
+            "clan_kda" to kda,
+            "clan_members" to clan.users.size.toString(),
+            "clan_online" to clan.onlineCount.toString(),
+            "clan_balance" to if (canSeeBalance) clan.bankBalance.toString() else display.hiddenBalance,
+            "clan_balance_animated" to if (canSeeBalance) clan.bankBalance.toString() else hiddenStars,
+            "chest_state" to if (clan.isSettingEnabled(ClanSetting.CHEST)) display.chestOpen else display.chestClosed,
+            "chest_slots" to (clan.level.coerceIn(MIN_CLAN_LEVEL, MAX_CLAN_LEVEL) * SLOTS_PER_LEVEL).toString(),
+            "homes_set" to unlockedHomes.count { clan.homes.containsKey(it.key) }.toString(),
+            "homes_unlocked" to unlockedHomes.size.toString(),
+            "homes_total" to homes.size.toString(),
+            "clan_slots" to (clan.level * MEMBERS_PER_LEVEL).toString(),
+            "clan_homes" to unlockedHomes.size.toString(),
+            "prompt_seconds" to cfg.settings.invitePromptTimeoutSeconds.coerceAtLeast(MIN_PROMPT_SECONDS).toString(),
+            "leave_name" to if (isLeader) display.leaderLeaveName else display.memberLeaveName,
+            "leave_warning" to if (isLeader) display.leaderLeaveWarning else display.memberLeaveWarning
+        )
+    }
+
+    private fun animatedStars(): String {
+        val frame = (System.currentTimeMillis() / ANIMATION_FRAME_MS).toInt() % HIDDEN_BALANCE_FRAMES.size
+        return HIDDEN_BALANCE_FRAMES[frame]
+    }
+
+    private fun renderConfigItem(
+        builder: ItemBuilder,
+        player: Player,
+        itemCfg: GuiItemConfig,
+        placeholders: Map<String, String>
+    ) {
+        builder.name(clanService.plugin.configService.formatMessage(player, itemCfg.name, placeholders))
+        builder.lore(itemCfg.lore.map { line -> clanService.plugin.configService.formatMessage(player, line, placeholders) })
+        builder.glow(itemCfg.glow)
+    }
+
+    private fun parseMaterial(name: String, fallback: Material): Material =
+        runCatching { Material.valueOf(name.uppercase()) }.getOrDefault(fallback)
+
+    private companion object {
+        const val MIN_PROMPT_SECONDS = 1
+        const val TICKS_PER_SECOND = 20L
+        const val MIN_CLAN_LEVEL = 1
+        const val MAX_CLAN_LEVEL = 5
+        const val SLOTS_PER_LEVEL = 9
+        const val MEMBERS_PER_LEVEL = 5
+        const val ZERO_KDA = "0.00"
+        const val KDA_FORMAT = "%.2f"
+        const val ANIMATION_FRAME_MS = 600L
+        val HIDDEN_BALANCE_FRAMES = listOf(
+            "&#FC3737∗ &8∗ &5∗ &8∗ &6∗",
+            "&#FC3737∗ &8∗ &5∗ &6∗ &8∗",
+            "&#FC3737∗ &8∗ &6∗ &5∗ &8∗",
+            "&#FC3737∗ &6∗ &5∗ &8∗ &8∗"
+        )
     }
 }

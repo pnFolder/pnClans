@@ -1,92 +1,94 @@
 package ua.inventorytype.pnclans.impl.ux
 
 import org.bukkit.Material
+import org.bukkit.entity.Player
 import ua.inventorytype.pnclans.api.permission.ClanPerms
 import ua.inventorytype.pnclans.impl.clan.ClanService
+import ua.inventorytype.pnclans.impl.config.GuiItemConfig
+import ua.inventorytype.pnclans.impl.config.HomesEntryConfig
 import ua.inventorytype.pnclans.impl.inventory.BaseGui
-import ua.inventorytype.pnclans.impl.util.ColorUtil
+import ua.inventorytype.pnclans.impl.inventory.builder.ItemBuilder
 
 /**
- * Clan homes management GUI — 100% config-driven layout.
+ * Clan homes management GUI with level-aware pages and fully config-driven visuals.
  *
- * All text (item names, lore lines, title), materials, slot indices, and visual settings
- * are read from [ua.inventorytype.pnclans.impl.config.HomesMenuConfig] via `menus.yml`.
- * No strings or item designs are hardcoded in this class.
- *
- * **Visual design (default config):**
- * - HotWorld-style black + orange glass border on all 6 rows (54 slots).
- * - Three home slots in the content zone — unset shows coloured glass (locked look),
- *   set shows glowing coloured bed with world coordinates.
- * - Informational compass panel in the center.
- * - Back button at the bottom center.
- *
- * **Click interactions per home slot:**
- * - **LMB**: Teleport to the home (if set).
- * - **RMB**: Set home at current player location (requires [ClanPerms.Homes.SET]).
- * - **Shift+RMB**: Delete the home point (requires [ClanPerms.Homes.SET]).
- *
- * All feedback messages are dispatched via the [ua.inventorytype.pnclans.api.Action] system
- * from `messages.yml`.
+ * All item texts, lore lines, materials, slot indices, page numbers, and clan level
+ * requirements are read from [ua.inventorytype.pnclans.impl.config.HomesMenuConfig].
  *
  * @param clanService The clan service providing home data, persistence, and config access.
+ * @param requestedPage The page number to open, clamped to the configured page range.
  */
-class HomesUX(clanService: ClanService) : BaseGui(clanService) {
+class HomesUX(
+    clanService: ClanService,
+    requestedPage: Int = 1
+) : BaseGui(clanService) {
 
     init {
         val cfg = clanService.plugin.configService
         val homeCfg = cfg.menus.homesMenu
+        val maxPage = (homeCfg.homes.maxOfOrNull { it.page } ?: 1).coerceAtLeast(1)
+        val currentPage = requestedPage.coerceIn(1, maxPage)
+        val pagePlaceholders = mapOf(
+            "page" to currentPage.toString(),
+            "pages" to maxPage.toString()
+        )
 
-        title(homeCfg.title)
+        title(applyPlaceholders(homeCfg.title, pagePlaceholders))
         rows(homeCfg.rows)
         hotWorldDecor(true)
 
-        // ── Home entry slots — driven by homesMenu.homes list ─────────────────
-        homeCfg.homes.forEach { entry ->
-            val lockedMat   = parseMaterial(entry.lockedMaterial,   Material.RED_STAINED_GLASS_PANE)
-            val unlockedMat = parseMaterial(entry.unlockedMaterial, Material.RED_BED)
+        homeCfg.homes.filter { it.page == currentPage }.forEach { entry ->
+            val lockedMat = parseMaterial(entry.lockedMaterial, Material.BARRIER)
+            val unsetMat = parseMaterial(entry.unsetMaterial, Material.ENDER_EYE)
+            val setMat = parseMaterial(entry.unlockedMaterial.ifBlank { entry.setMaterial }, Material.RED_BED)
 
             slot(entry.slot) {
-
                 dynamicItem(lockedMat) { player ->
                     val clan = this@HomesUX.clanService.getClanUser(player) ?: return@dynamicItem null
-                    val loc  = clan.homes[entry.key]
+                    val loc = clan.homes[entry.key]
+                    val unlocked = clan.level >= entry.requiredLevel
+                    val placeholders = basePlaceholders(entry, clan.level, maxPage)
 
-                    if (loc != null) {
-                        // ── SET: glowing coloured bed, coordinates injected into lore ──
-                        this.type = unlockedMat
-                        name("${entry.colorCode}${entry.label}")
-                        glow(true)
-
-                        val world = loc.world?.name ?: "world"
-                        val resolvedLore = homeCfg.setLore.map { line ->
-                            line.replace("{world}", world)
-                                .replace("{x}", loc.blockX.toString())
-                                .replace("{y}", loc.blockY.toString())
-                                .replace("{z}", loc.blockZ.toString())
-                                .replace("{home}", entry.key)
+                    when {
+                        !unlocked -> {
+                            type(lockedMat)
+                            name(this@HomesUX.format(player, entry.lockedName, placeholders))
+                            lore(this@HomesUX.format(player, entry.lockedLore, placeholders))
+                            glow(false)
                         }
-                        lore(resolvedLore)
-                    } else {
-                        // ── UNSET: coloured glass pane, locked look ───────────────────
-                        this.type = lockedMat
-                        name("&#FC3737${entry.emoji} ${entry.label} &7(Не установлена)")
 
-                        val resolvedLore = homeCfg.unsetLore.map { line ->
-                            line.replace("{home}", entry.key)
+                        loc == null -> {
+                            type(unsetMat)
+                            name(this@HomesUX.format(player, entry.unsetName, placeholders))
+                            lore(this@HomesUX.format(player, entry.unsetLore, placeholders))
+                            glow(false)
                         }
-                        lore(resolvedLore)
+
+                        else -> {
+                            type(setMat)
+                            val locationPlaceholders = placeholders + mapOf(
+                                "world" to loc.world?.name.orEmpty(),
+                                "x" to loc.blockX.toString(),
+                                "y" to loc.blockY.toString(),
+                                "z" to loc.blockZ.toString()
+                            )
+                            name(this@HomesUX.format(player, entry.setName, locationPlaceholders))
+                            lore(this@HomesUX.format(player, entry.setLore, locationPlaceholders))
+                            glow(true)
+                        }
                     }
                     null
                 }
 
                 onClick { player, event ->
-                    val msgCfg  = cfg.messages
-                    val clan    = this@HomesUX.clanService.getClanUser(player) ?: return@onClick
-                    val user    = clan.users.find { it.uuid == player.uniqueId } ?: return@onClick
-                    val loc     = clan.homes[entry.key]
+                    val msgCfg = cfg.messages
+                    val clan = this@HomesUX.clanService.getClanUser(player) ?: return@onClick
+                    val user = clan.users.find { it.uuid == player.uniqueId } ?: return@onClick
+                    val loc = clan.homes[entry.key]
+
+                    if (clan.level < entry.requiredLevel) return@onClick
 
                     when {
-                        // LMB → teleport (if set)
                         event.isLeftClick && !event.isShiftClick -> {
                             if (loc != null) {
                                 player.teleport(loc)
@@ -97,7 +99,6 @@ class HomesUX(clanService: ClanService) : BaseGui(clanService) {
                             }
                         }
 
-                        // RMB (no shift) → set home
                         event.isRightClick && !event.isShiftClick -> {
                             if (!clan.hasPermission(user, ClanPerms.Homes.SET)) {
                                 cfg.send(player, msgCfg.homes.noPermissionSet)
@@ -109,7 +110,6 @@ class HomesUX(clanService: ClanService) : BaseGui(clanService) {
                             this@HomesUX.updateSlot(event.slot, player)
                         }
 
-                        // Shift+RMB → delete home
                         event.isRightClick && event.isShiftClick -> {
                             if (!clan.hasPermission(user, ClanPerms.Homes.SET)) {
                                 cfg.send(player, msgCfg.homes.noPermissionDelete)
@@ -126,28 +126,51 @@ class HomesUX(clanService: ClanService) : BaseGui(clanService) {
             }
         }
 
-        // ── Info compass panel — slot and text from config ────────────────────
         slot(homeCfg.infoSlot) {
-            dynamicItem(Material.COMPASS) { player ->
-                val clan     = this@HomesUX.clanService.getClanUser(player) ?: return@dynamicItem null
-                val setCount = homeCfg.homes.count { clan.homes.containsKey(it.key) }
-                val maxCount = homeCfg.homes.size
+            dynamicItem(parseMaterial(homeCfg.infoMaterial, Material.COMPASS)) { player ->
+                val clan = this@HomesUX.clanService.getClanUser(player) ?: return@dynamicItem null
+                val unlockedHomes = homeCfg.homes.filter { clan.level >= it.requiredLevel }
+                val setCount = unlockedHomes.count { clan.homes.containsKey(it.key) }
+                val placeholders = pagePlaceholders + mapOf(
+                    "set" to setCount.toString(),
+                    "max" to unlockedHomes.size.toString(),
+                    "total" to homeCfg.homes.size.toString(),
+                    "current_level" to clan.level.toString()
+                )
 
-                name(homeCfg.infoName)
-                val resolvedLore = homeCfg.infoLore.map { line ->
-                    line.replace("{set}", setCount.toString())
-                        .replace("{max}", maxCount.toString())
-                }
-                lore(resolvedLore)
+                name(this@HomesUX.format(player, homeCfg.infoName, placeholders))
+                lore(this@HomesUX.format(player, homeCfg.infoLore, placeholders))
+                glow(true)
                 null
             }
         }
 
-        // ── Back button — slot and text from config ───────────────────────────
-        slot(homeCfg.backSlot) {
-            item(Material.OAK_DOOR) {
-                name(homeCfg.backName)
-                lore(homeCfg.backLore)
+        val previousButton = if (currentPage > 1) homeCfg.previousPageButton else homeCfg.previousPageLockedButton
+        slot(previousButton.slot) {
+            dynamicItem(parseMaterial(previousButton.material, Material.ARROW)) { player ->
+                this@HomesUX.renderConfigItem(this, player, previousButton, pagePlaceholders)
+                null
+            }
+            onClick { player, _ ->
+                if (currentPage > 1) HomesUX(this@HomesUX.clanService, currentPage - 1).open(player)
+            }
+        }
+
+        val nextButton = if (currentPage < maxPage) homeCfg.nextPageButton else homeCfg.nextPageLockedButton
+        slot(nextButton.slot) {
+            dynamicItem(parseMaterial(nextButton.material, Material.SPECTRAL_ARROW)) { player ->
+                this@HomesUX.renderConfigItem(this, player, nextButton, pagePlaceholders)
+                null
+            }
+            onClick { player, _ ->
+                if (currentPage < maxPage) HomesUX(this@HomesUX.clanService, currentPage + 1).open(player)
+            }
+        }
+
+        slot(homeCfg.backButton.slot) {
+            dynamicItem(parseMaterial(homeCfg.backButton.material, Material.RED_CANDLE)) { player ->
+                this@HomesUX.renderConfigItem(this, player, homeCfg.backButton, pagePlaceholders)
+                null
             }
             onClick { player, _ ->
                 MainUX(this@HomesUX.clanService).open(player)
@@ -155,15 +178,47 @@ class HomesUX(clanService: ClanService) : BaseGui(clanService) {
         }
     }
 
+    private fun renderConfigItem(
+        builder: ItemBuilder,
+        player: Player,
+        item: GuiItemConfig,
+        placeholders: Map<String, String>
+    ) {
+        builder.name(format(player, item.name, placeholders))
+        builder.lore(format(player, item.lore, placeholders))
+        builder.glow(item.glow)
+    }
+
+    private fun format(player: Player, template: String, placeholders: Map<String, String>): String =
+        clanService.plugin.configService.formatMessage(player, template, placeholders)
+
+    private fun format(player: Player, templates: List<String>, placeholders: Map<String, String>): List<String> =
+        templates.map { format(player, it, placeholders) }
+
     companion object {
         /**
          * Safely parses a [Material] by name, returning [fallback] if the name is invalid.
          *
-         * @param name The uppercase material name string (e.g. `"RED_BED"`).
+         * @param name The material name string.
          * @param fallback The [Material] to use when parsing fails.
          * @return The parsed [Material], or [fallback] on error.
          */
         fun parseMaterial(name: String, fallback: Material): Material =
             runCatching { Material.valueOf(name.uppercase()) }.getOrDefault(fallback)
+
+        private fun basePlaceholders(entry: HomesEntryConfig, currentLevel: Int, maxPage: Int): Map<String, String> =
+            mapOf(
+                "home" to entry.key,
+                "label" to entry.label,
+                "emoji" to entry.emoji,
+                "color" to entry.colorCode,
+                "required_level" to entry.requiredLevel.toString(),
+                "current_level" to currentLevel.toString(),
+                "page" to entry.page.toString(),
+                "pages" to maxPage.toString()
+            )
+
+        private fun applyPlaceholders(template: String, placeholders: Map<String, String>): String =
+            placeholders.entries.fold(template) { result, (key, value) -> result.replace("{$key}", value) }
     }
 }

@@ -249,7 +249,7 @@ class HistoryUX(
 
         for (i in logSlots.indices) {
             slot(logSlots[i]) {
-                dynamicItem(Material.PAPER) { player ->
+                dynamicItemNullable(Material.PAPER) { player ->
                     val allLogs = listOf(
                         ClanLog(LogType.DEPOSIT, player.name, 1000.0, "Сегодня", "21:00")
                     )
@@ -276,7 +276,7 @@ class HistoryUX(
                         " &7- &fДата: &b${log.date}",
                         " &7- &fВремя: &b${log.time}"
                     )
-                    null
+                    build()
                 }
             }
         }
