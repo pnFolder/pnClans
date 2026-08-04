@@ -1,0 +1,23 @@
+name: pnClans
+version: '${version}'
+
+main: ua.inventorytype.pnclans.BukkitPlugin
+api-version: '26.2'
+load: POSTWORLD
+softdepend:
+  - Vault
+  - PlaceholderAPI
+
+commands:
+  clan:
+    description: Main clan command
+    usage: /clan [create <name>|list <page>|info|help]
+    aliases: [c, clans]
+
+permissions:
+  pnclans.use:
+    description: Base permission for clan commands
+    default: true
+  pnclans.admin:
+    description: Administrative access to pnClans
+    default: op
