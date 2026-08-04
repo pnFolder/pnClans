@@ -1,45 +1,47 @@
 package ua.inventorytype.pnclans
 
-import club.skidware.kgui.KGui
-import org.bukkit.entity.Player
+import org.bukkit.Bukkit
 import org.bukkit.plugin.java.JavaPlugin
 import ua.inventorytype.pnclans.api.placeholder.PlaceholderRegistry
+import ua.inventorytype.pnclans.impl.clan.ClanInviteService
 import ua.inventorytype.pnclans.impl.clan.ClanService
+import ua.inventorytype.pnclans.impl.command.ClanCommand
 import ua.inventorytype.pnclans.impl.config.ConfigService
 import ua.inventorytype.pnclans.impl.economy.EconomyService
+import ua.inventorytype.pnclans.impl.inventory.listener.GuiListener
+import ua.inventorytype.pnclans.impl.listener.ClanListener
+import ua.inventorytype.pnclans.impl.placeholder.PnClansExpansion
+import ua.inventorytype.pnclans.impl.teleport.TeleportService
 
 class BukkitPlugin : JavaPlugin() {
 
     lateinit var economyService: EconomyService
         private set
 
-    lateinit var configService : ConfigService
-    lateinit var placeholderRegistry : PlaceholderRegistry
-    lateinit var clanService : ClanService
+    lateinit var configService: ConfigService
+        private set
+
+    lateinit var placeholderRegistry: PlaceholderRegistry
+        private set
+
+    lateinit var clanService: ClanService
+        private set
+
+    lateinit var inviteService: ClanInviteService
+        private set
+
+    lateinit var teleportService: TeleportService
+        private set
+
+    lateinit var guiListener: GuiListener
+        private set
 
     override fun onEnable() {
-//        this.logger.warning(" ")
-//        this.logger.warning(" /\\_/\\   Clans - New update available!")
-//        this.logger.warning("( o.o )  Your version: 0.1")
-//        this.logger.warning(" > ^ <   New version: 0.2")
-//        this.logger.warning(" ")
-//        this.logger.warning("      Changes:  Global")
-//        this.logger.warning("      Download: https://github.com/maquqdev/Clans/releases/latest")
-//        this.logger.warning(" ")
-
-        this.logger.warning(" ")
-        this.logger.warning(" /\\_/\\   pnClans - Был включенный на сервере!")
-        this.logger.warning("( o.o )  Ваша версия: 1.0.0")
-        this.logger.warning(" > ^ <   New version: 0.2")
-        this.logger.warning(" ")
-        this.logger.warning("      Changes:  Global")
-        this.logger.warning("      Download: https://github.com/maquqdev/Clans/releases/latest")
-        this.logger.warning(" ")
-
-        KGui.setup(this)
+        logger.info("=========================================")
+        logger.info("      pnClans v${description.version} - Запуск      ")
+        logger.info("=========================================")
 
         economyService = EconomyService()
-
         if (economyService.setup()) {
             logger.info("Успешно подключено к Vault Economy!")
         } else {
@@ -47,15 +49,39 @@ class BukkitPlugin : JavaPlugin() {
         }
 
         configService = ConfigService(this)
+        configService.loadAll()
+
         placeholderRegistry = PlaceholderRegistry()
         clanService = ClanService(this)
+        placeholderRegistry.registerDefaults(clanService)
+        inviteService = ClanInviteService(clanService)
+        teleportService = TeleportService(this)
 
+        guiListener = GuiListener(this)
+        server.pluginManager.registerEvents(guiListener, this)
+        server.pluginManager.registerEvents(ClanListener(this), this)
 
+        val clanCommand = ClanCommand(this, inviteService)
+        getCommand("clan")?.let { cmd ->
+            cmd.setExecutor(clanCommand)
+            cmd.tabCompleter = clanCommand
+        }
 
+        if (Bukkit.getPluginManager().isPluginEnabled("PlaceholderAPI")) {
+            PnClansExpansion(this).register()
+            logger.info("Интеграция с PlaceholderAPI успешно зарегистрирована!")
+        }
+
+        logger.info("Плагин pnClans успешно включен и готов к работе!")
     }
 
-
     override fun onDisable() {
-
+        if (::guiListener.isInitialized) {
+            guiListener.forceCloseAll()
+        }
+        if (::clanService.isInitialized) {
+            clanService.saveAll()
+        }
+        logger.info("Плагин pnClans выключен. Все данные сохранены.")
     }
 }

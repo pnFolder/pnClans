@@ -1,29 +1,46 @@
 package ua.inventorytype.pnclans.impl.ux
 
+import org.bukkit.Bukkit
 import org.bukkit.Material
+import org.bukkit.boss.BarColor
+import org.bukkit.boss.BarStyle
 import ua.inventorytype.pnclans.api.clan.ClanRole
 import ua.inventorytype.pnclans.api.clan.ClanSetting
 import ua.inventorytype.pnclans.api.permission.ClanPerms
-import ua.inventorytype.pnclans.api.permission.Permission
-import ua.inventorytype.pnclans.api.permission.isTrue
 import ua.inventorytype.pnclans.impl.clan.ClanService
 import ua.inventorytype.pnclans.impl.inventory.BaseGui
+import ua.inventorytype.pnclans.impl.util.ChatInputPrompt
 
-class MainUX(val _clanService: ClanService) : BaseGui(_clanService) {
+/**
+ * Main clan control panel GUI — the primary entry point for all clan management features.
+ *
+ * Renders the clan dashboard with navigation slots for:
+ * - Member list ([MembersUX])
+ * - Clan statistics
+ * - Clan chest ([ClanChestUX])
+ * - Treasury ([TreasuryUX])
+ * - Clan homes ([HomesUX])
+ * - Top clans leaderboard ([TopClansUX])
+ * - Invitation flow (BossBar + chat prompt via [ChatInputPrompt])
+ * - Settings panel ([SettingsUX])
+ * - Disband/leave action
+ *
+ * All feedback messages are dispatched through the [ua.inventorytype.pnclans.api.Action] system
+ * configured in `messages.yml`.
+ *
+ * @param clanService The clan service providing all required data access.
+ */
+class MainUX(clanService: ClanService) : BaseGui(clanService) {
 
     init {
         title("Мой Клан")
         rows(5)
         border(Material.GRAY_STAINED_GLASS_PANE)
 
-        // =========================================================
-        // ВЕРХНИЙ И СРЕДНИЙ РЯД (Основная информация и доступ)
-        // =========================================================
-
         // [Слот 20] УЧАСТНИКИ
         slot(20) {
             dynamicItem(Material.PLAYER_HEAD) { player ->
-                val clan = this@MainUX.clanService.getClanUser(player)!!
+                val clan = this@MainUX.clanService.getClanUser(player) ?: return@dynamicItem null
                 val totalMembers = clan.users.size
                 val onlineMembers = clan.onlineCount
 
@@ -41,23 +58,22 @@ class MainUX(val _clanService: ClanService) : BaseGui(_clanService) {
                     "",
                     "&#FF8702➥ &fНажмите, &eЛКМ &fчтобы открыть список"
                 )
+                null
             }
             onClick { player, _ ->
-                // TODO: Открыть MembersUX(clanService).open(player)
-                player.sendMessage("&aОткрытие списка участников...")
+                MembersUX(this@MainUX.clanService).open(player)
             }
         }
 
-        // [Слот 22] СТАТИСТИКА КЛАНА (ЦЕНТР)
+        // [Слот 22] СТАТИСТИКА КЛАНА
         slot(22) {
             dynamicItem(Material.NETHER_STAR) { player ->
-                val clan = this@MainUX.clanService.getClanUser(player)!!
+                val clan = this@MainUX.clanService.getClanUser(player) ?: return@dynamicItem null
 
-                // Заглушки для твоей будущей статистики
-                val level = 1 // clan.level
-                val mmr = 1050 // clan.mmr
-                val kills = 120 // clan.kills
-                val deaths = 45 // clan.deaths
+                val level = clan.level
+                val mmr = clan.mmr
+                val kills = clan.kills
+                val deaths = clan.deaths
                 val kda = if (deaths == 0) "N/A" else String.format("%.2f", kills.toDouble() / deaths)
 
                 name("&#FC7D37${clan.name}")
@@ -73,64 +89,61 @@ class MainUX(val _clanService: ClanService) : BaseGui(_clanService) {
                     " &7- &fKDA: &e$kda",
                     ""
                 )
+                null
             }
         }
 
         // [Слот 24] КЛАНОВЫЙ СУНДУК
         slot(24) {
             dynamicItem(Material.CHEST) { player ->
-                val clan = this@MainUX.clanService.getClanUser(player)!!
-                val isS = clan.isSettingEnabled(ClanSetting.CHEST)
+                val clan = this@MainUX.clanService.getClanUser(player) ?: return@dynamicItem null
+                val isOpen = clan.isSettingEnabled(ClanSetting.CHEST)
 
                 name("&#FC7D37Клановый Сундук")
                 lore(
                     "",
                     "&#9EFC65 «Информация»",
-                    " &7- &fДоступ: ${if (isS) "&aОткрыт" else "&cЗакрыт"}",
-                    " &7- &fВместимость: &e27 слотов", // TODO: брать из уровня
+                    " &7- &fДоступ: ${if (isOpen) "&aОткрыт" else "&cЗакрыт"}",
+                    " &7- &fВместимость: &e${clan.level * 9} слотов",
                     "",
                     "&#FC65DF «Описание»",
                     " &7- &fОбщее хранилище ресурсов клана.",
                     "",
                     "&#FF8702➥ &fНажмите, &eЛКМ &fчтобы открыть склад"
                 )
+                null
             }
             onClick { player, _ ->
                 val clan = this@MainUX.clanService.getClanUser(player) ?: return@onClick
                 val user = clan.users.find { it.uuid == player.uniqueId } ?: return@onClick
+                val cfg = this@MainUX.clanService.plugin.configService
 
-                if (clan.hasPermission(user, ClanPerms.Action.OPEN_CHEST) != Permission.Flag.TRUE) {
-                    player.sendMessage("&cУ вас нет прав для доступа к сундуку.")
+                if (!clan.hasPermission(user, ClanPerms.Action.OPEN_CHEST)) {
+                    cfg.send(player, cfg.messages.chest.noPermission)
                     return@onClick
                 }
 
                 if (!clan.isSettingEnabled(ClanSetting.CHEST)) {
-                    player.sendMessage("&cСундук клана временно закрыт лидером.")
+                    cfg.send(player, cfg.messages.chest.chestDisabled)
                     return@onClick
                 }
 
-                // TODO: Открыть инвентарь сундука
-                player.sendMessage("&aОткрытие сундука...")
+                this@MainUX.clanService.openClanChest(player, clan)
             }
         }
-
-
-        // =========================================================
-        // НИЖНИЙ РЯД (Функциональные кнопки - 29, 30, 31, 32, 33)
-        // =========================================================
 
         // [Слот 29] КАЗНА
         slot(29) {
             dynamicItem(Material.GOLD_INGOT) { player ->
-                val clan = this@MainUX.clanService.getClanUser(player) ?: return@dynamicItem
-                val user = clan.users.find { it.uuid == player.uniqueId } ?: return@dynamicItem
-                val balance = 15000 // TODO: clan.bankBalance
+                val clan = this@MainUX.clanService.getClanUser(player) ?: return@dynamicItem null
+                val user = clan.users.find { it.uuid == player.uniqueId } ?: return@dynamicItem null
+                val balance = clan.bankBalance
 
                 name("&#FC7D37Казна клана")
                 lore(
                     "",
                     "&#9EFC65 «Баланс»",
-                    " &7- &fСчет: &#5EFD7D${if (clan.hasUserPermission(user, ClanPerms.Bank.SEE).isTrue) "$balance" else "*****"} ⛁",
+                    " &7- &fСчет: &#5EFD7D${if (clan.hasUserPermission(user, ClanPerms.Bank.SEE)) "$balance" else "*****"} ⛁",
                     "",
                     "&#FC65DF «Описание»",
                     " &7- &fБанк клана для покупки улучшений",
@@ -138,20 +151,23 @@ class MainUX(val _clanService: ClanService) : BaseGui(_clanService) {
                     "",
                     "&#FF8702➥ &fНажмите, &eЛКМ &fдля управления средствами"
                 )
+                null
             }
             onClick { player, _ ->
-                player.sendMessage("&aОткрытие меню банка...")
+                TreasuryUX(this@MainUX.clanService).open(player)
             }
         }
 
         // [Слот 30] КЛАНОВЫЕ ДОМА
         slot(30) {
             dynamicItem(Material.RED_BED) { player ->
+                val clan = this@MainUX.clanService.getClanUser(player) ?: return@dynamicItem null
+                val homesCount = clan.homes.size
                 name("&#FC7D37Клановые Дома")
                 lore(
                     "",
                     "&#9EFC65 «Информация»",
-                    " &7- &fУстановлено: &e1&7/&e3 точек", // TODO: брать из клана
+                    " &7- &fУстановлено: &e$homesCount&7/&e3 точек",
                     "",
                     "&#FC65DF «Описание»",
                     " &7- &fОбщие точки телепортации для",
@@ -159,64 +175,106 @@ class MainUX(val _clanService: ClanService) : BaseGui(_clanService) {
                     "",
                     "&#FF8702➥ &fНажмите, &eЛКМ &fчтобы открыть список домов"
                 )
+                null
             }
             onClick { player, _ ->
-                player.sendMessage("&aОткрытие меню домов...")
+                HomesUX(this@MainUX.clanService).open(player)
             }
         }
 
-        // [Слот 31] ТОП КЛАНОВ (Центр нижнего ряда)
+        // [Слот 31] ТОП КЛАНОВ
         slot(31) {
             dynamicItem(Material.DRAGON_EGG) { player ->
                 name("&#FC7D37Топ Кланов")
                 lore(
                     "",
-                    "&#9EFC65 «Позиция»",
-                    " &7- &fВаше место: &e#14", // TODO: считать место в топе
-                    "",
-                    "&#FC65DF «Описание»",
+                    "&#9EFC65 «Зал Славы»",
                     " &7- &fРейтинг лучших кланов сервера",
-                    " &7- &fпо количеству MMR и убийствам.",
+                    " &7- &fпо MMR и убийствам.",
                     "",
                     "&#FF8702➥ &fНажмите, &eЛКМ &fчтобы посмотреть таблицу"
                 )
+                null
             }
             onClick { player, _ ->
-                player.sendMessage("&aОткрытие зала славы...")
+                TopClansUX(this@MainUX.clanService).open(player)
             }
         }
 
-        // [Слот 32] ПРИГЛАШЕНИЯ
+        // [Слот 32] ПРИГЛАШЕНИЯ С BOSSBAR И ВАЛИДАЦИЕЙ
         slot(32) {
             dynamicItem(Material.WRITABLE_BOOK) { player ->
                 name("&#FC7D37Приглашения в клан")
                 lore(
                     "",
                     "&#9EFC65 «Информация»",
-                    " &7- &fВы можете приглашать игроков, ",
-                    " &7- &fи они смогут к вам присоединиться.",
+                    " &7- &fОтправка приглашения игроку",
+                    " &7- &fчерез ввод никнейма в чат",
                     "",
-                    "&#FC65DF «Описание»",
-                    " &7- &fУправление входящими запросами",
-                    " &7- &fи рассылка инвайтов.",
-                    "",
-                    "&#FF8702➥ &fНажмите, &eЛКМ &fчтобы управлять приглашениями"
+                    "&#FF8702➥ &fНажмите, &eЛКМ &fчтобы отправить инвайт"
                 )
+                null
             }
             onClick { player, _ ->
-                val clan = this@MainUX.clanService.getClanUser(player) ?: return@onClick
+                val service = this@MainUX.clanService
+                val cfg = service.plugin.configService
+                val clan = service.getClanUser(player) ?: return@onClick
                 val user = clan.users.find { it.uuid == player.uniqueId } ?: return@onClick
 
-                if (clan.hasPermission(user, ClanPerms.Members.INVITE) != Permission.Flag.TRUE) {
-                    player.sendMessage("&cУ вас нет прав приглашать игроков.")
+                if (!clan.hasPermission(user, ClanPerms.Members.INVITE)) {
+                    cfg.send(player, cfg.messages.invite.noPermission)
                     return@onClick
                 }
 
-                player.sendMessage("&aОткрытие меню приглашений...")
+                val bossBar = Bukkit.createBossBar(
+                    "§e💬 Введите никнейм игрока в чат (или 'отмена')",
+                    BarColor.YELLOW,
+                    BarStyle.SOLID
+                )
+                bossBar.addPlayer(player)
+
+                ChatInputPrompt.prompt(
+                    plugin = service.plugin,
+                    player = player,
+                    titleMessage = "§e💬 Напишите никнейм игрока в чат для отправки приглашения:"
+                ) { input ->
+                    bossBar.removeAll()
+                    if (input.equals("отмена", ignoreCase = true) || input.equals("cancel", ignoreCase = true)) {
+                        cfg.send(player, cfg.messages.invite.cancelled)
+                        MainUX(service).open(player)
+                        return@prompt
+                    }
+
+                    val targetPlayer = Bukkit.getPlayer(input)
+                    if (targetPlayer == null) {
+                        cfg.send(player, cfg.messages.invite.targetNotFound, mapOf("player" to input))
+                        MainUX(service).open(player)
+                        return@prompt
+                    }
+
+                    val targetClan = service.getClanUser(targetPlayer)
+                    if (targetClan != null) {
+                        if (targetClan.id == clan.id) {
+                            cfg.send(player, cfg.messages.invite.targetAlreadyInYourClan, mapOf("player" to targetPlayer.name))
+                        } else {
+                            cfg.send(player, cfg.messages.invite.targetAlreadyInOtherClan, mapOf(
+                                "player" to targetPlayer.name,
+                                "clan" to targetClan.name
+                            ))
+                        }
+                        MainUX(service).open(player)
+                        return@prompt
+                    }
+
+                    cfg.send(targetPlayer, cfg.messages.invite.inviteReceived, mapOf("clan" to clan.name))
+                    cfg.send(targetPlayer, cfg.messages.invite.inviteInstructions, mapOf("clan" to clan.name))
+                    cfg.send(player, cfg.messages.invite.inviteSent, mapOf("player" to targetPlayer.name))
+                    MainUX(service).open(player)
+                }
             }
         }
 
-        // [Слот 33] НАСТРОЙКИ (переход в SettingsUX)
+        // [Слот 33] НАСТРОЙКИ
         slot(33) {
             dynamicItem(Material.COMPARATOR) { player ->
                 name("&#FC7D37Настройки клана")
@@ -226,61 +284,58 @@ class MainUX(val _clanService: ClanService) : BaseGui(_clanService) {
                     " &7- &fУправление ролями, чатом,",
                     " &7- &fрежимом PvP и уведомлениями.",
                     "",
-                    "&#FC65DF «Требования»",
-                    " &7- &fДоступно только Лидеру и Офицерам.",
-                    "",
                     "&#FF8702➥ &fНажмите, &eЛКМ &fчтобы открыть настройки"
                 )
+                null
             }
             onClick { player, _ ->
-                // Открываем готовое меню настроек
                 SettingsUX(this@MainUX.clanService).open(player)
             }
         }
 
-        // =========================================================
-        // САМЫЙ НИЗ (Слот 40 - Выход / Расформ)
-        // =========================================================
+        // [Слот 40] ВЫХОД / РАСФОРМ
         slot(40) {
             dynamicItem(Material.BARRIER) { player ->
-                val clan = this@MainUX.clanService.getClanUser(player)!!
-                val user = clan.users.find { it.uuid == player.uniqueId }!!
+                val clan = this@MainUX.clanService.getClanUser(player) ?: return@dynamicItem null
+                val user = clan.users.find { it.uuid == player.uniqueId } ?: return@dynamicItem null
                 val isLeader = clan.getUserRole(user) == ClanRole.LEADER
 
                 if (isLeader) {
-                    name("&#FC3737Распустить клан") //TODO Ну просто так тоже удалить нельзя. Не должно остаться там ресурсов.
+                    name("&#FC3737Распустить клан")
                     lore(
                         "",
                         "&#FC65DF «Внимание»",
                         " &7- &fВы являетесь Лидером.",
-                        " &7- &fЭто действие навсегда удалит клан,",
-                        " &7- &fказну и клановые дома.",
+                        " &7- &fЭто действие навсегда удалит клан.",
                         "",
-                        "&#FF8702➥ &fНажмите, &eЛКМ &fчтобы удалить клан"
+                        "&#FF8702➥ &fНажмите, &eЛКМ &fчтобы распустить клан"
                     )
                 } else {
                     name("&#FC3737Покинуть клан")
                     lore(
                         "",
                         "&#FC65DF «Внимание»",
-                        " &7- &fВы потеряете доступ к казне,",
-                        " &7- &fсундуку и клановым домам.",
+                        " &7- &fВы потеряете доступ к клану.",
                         "",
                         "&#FF8702➥ &fНажмите, &eЛКМ &fчтобы выйти"
                     )
                 }
+                null
             }
             onClick { player, _ ->
                 val clan = this@MainUX.clanService.getClanUser(player) ?: return@onClick
                 val user = clan.users.find { it.uuid == player.uniqueId } ?: return@onClick
                 val isLeader = clan.getUserRole(user) == ClanRole.LEADER
+                val cfg = this@MainUX.clanService.plugin.configService
 
                 if (isLeader) {
-                    // TODO: Открыть меню подтверждения расформа (чтобы случайно не снес)
-                    player.sendMessage("&cОткрыто подтверждение расформа...")
+                    this@MainUX.clanService.disbandClan(clan)
+                    cfg.send(player, cfg.messages.clan.disbandedLeader, mapOf("clan" to clan.name))
+                    player.closeInventory()
                 } else {
-                    // TODO: Открыть меню подтверждения выхода
-                    player.sendMessage("&cОткрыто подтверждение выхода...")
+                    clan.removeUser(player.uniqueId)
+                    cfg.send(player, cfg.messages.clan.left, mapOf("clan" to clan.name))
+                    player.closeInventory()
                 }
             }
         }

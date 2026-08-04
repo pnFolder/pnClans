@@ -4,26 +4,39 @@ import org.bukkit.Material
 import ua.inventorytype.pnclans.api.clan.ClanRole
 import ua.inventorytype.pnclans.api.clan.ClanSetting
 import ua.inventorytype.pnclans.api.permission.ClanPerms
-import ua.inventorytype.pnclans.api.permission.Permission
 import ua.inventorytype.pnclans.impl.clan.ClanService
 import ua.inventorytype.pnclans.impl.inventory.BaseGui
 
+/**
+ * Settings panel GUI for toggling clan operational modes.
+ *
+ * Provides interactive toggles for:
+ * - **PvP mode** — enables/disables friendly fire between clan members.
+ * - **Clan chat** — opens/closes the private clan communication channel.
+ * - **Clan chest** — controls access to the shared virtual storage.
+ * - **Join/leave notifications** — toggles system messages on member connect/disconnect.
+ * - **Role editor** — opens [EditorRolesUX] to configure per-role permissions (LEADER only).
+ *
+ * All feedback messages are dispatched through the [ua.inventorytype.pnclans.api.Action] system
+ * configured in `messages.yml`.
+ *
+ * @param clanService The clan service providing data and persistence.
+ * @param editorRolesUX Optional pre-constructed role editor instance (created lazily if omitted).
+ */
 class SettingsUX(
-    val _clanService: ClanService,
-    val editorRolesUX: EditorRolesUX = EditorRolesUX(_clanService)
-) : BaseGui(_clanService) {
+    clanService: ClanService,
+    val editorRolesUX: EditorRolesUX = EditorRolesUX(clanService)
+) : BaseGui(clanService) {
 
     init {
         title("Клан > Настройки")
         rows(3)
         border(Material.GRAY_STAINED_GLASS_PANE)
 
-        // ----------------------------------------------------
-        // Slot 10: Режим ПвП
-        // ----------------------------------------------------
+        // Slot 10: PvP Mode
         slot(10) {
             dynamicItem(Material.DIAMOND_SWORD) { player ->
-                val clan = this@SettingsUX.clanService.getClanUser(player)!!
+                val clan = this@SettingsUX.clanService.getClanUser(player) ?: return@dynamicItem null
                 val isS = clan.isSettingEnabled(ClanSetting.PVP)
 
                 name("&#FC7D37Режим ПвП")
@@ -39,28 +52,29 @@ class SettingsUX(
                     "",
                     "&#FF8702➥ &fНажмите, &eЛКМ &fчтобы ${if (isS) "&cВыключить" else "&aВключить"}"
                 )
+                null
             }
 
             onClick { player, event ->
+                val cfg = this@SettingsUX.clanService.plugin.configService
                 val clan = this@SettingsUX.clanService.getClanUser(player) ?: return@onClick
                 val user = clan.users.find { it.uuid == player.uniqueId } ?: return@onClick
 
-                if (clan.hasPermission(user, ClanPerms.Settings.TOGGLE_PVP) != Permission.Flag.TRUE) {
-                    player.sendMessage("&cУ вас нет разрешения на это.")
+                if (!clan.hasPermission(user, ClanPerms.Settings.TOGGLE_PVP)) {
+                    cfg.send(player, cfg.messages.settings.noPermission)
                     return@onClick
                 }
 
                 clan.toggleSetting(ClanSetting.PVP)
+                this@SettingsUX.clanService.saveClan(clan)
                 this@SettingsUX.updateSlot(event.slot, player)
             }
         }
 
-        // ----------------------------------------------------
-        // Slot 11: Клановый Чат
-        // ----------------------------------------------------
+        // Slot 11: Clan Chat
         slot(11) {
             dynamicItem(Material.WRITABLE_BOOK) { player ->
-                val clan = this@SettingsUX.clanService.getClanUser(player)!!
+                val clan = this@SettingsUX.clanService.getClanUser(player) ?: return@dynamicItem null
                 val isS = clan.isSettingEnabled(ClanSetting.CHAT)
 
                 name("&#FC7D37Клановый Чат")
@@ -76,28 +90,29 @@ class SettingsUX(
                     "",
                     "&#FF8702➥ &fНажмите, &eЛКМ &fчтобы ${if (isS) "&cВыключить" else "&aВключить"}"
                 )
+                null
             }
 
             onClick { player, event ->
+                val cfg = this@SettingsUX.clanService.plugin.configService
                 val clan = this@SettingsUX.clanService.getClanUser(player) ?: return@onClick
                 val user = clan.users.find { it.uuid == player.uniqueId } ?: return@onClick
 
-                if (clan.hasPermission(user, ClanPerms.Settings.TOGGLE_CHAT) != Permission.Flag.TRUE) {
-                    player.sendMessage("&cУ вас нет разрешения на это.")
+                if (!clan.hasPermission(user, ClanPerms.Settings.TOGGLE_CHAT)) {
+                    cfg.send(player, cfg.messages.settings.noPermission)
                     return@onClick
                 }
 
                 clan.toggleSetting(ClanSetting.CHAT)
+                this@SettingsUX.clanService.saveClan(clan)
                 this@SettingsUX.updateSlot(event.slot, player)
             }
         }
 
-        // ----------------------------------------------------
-        // Slot 12: Клановый Сундук
-        // ----------------------------------------------------
+        // Slot 12: Clan Chest
         slot(12) {
             dynamicItem(Material.CHEST) { player ->
-                val clan = this@SettingsUX.clanService.getClanUser(player)!!
+                val clan = this@SettingsUX.clanService.getClanUser(player) ?: return@dynamicItem null
                 val isS = clan.isSettingEnabled(ClanSetting.CHEST)
 
                 name("&#FC7D37Клановый Сундук")
@@ -113,28 +128,29 @@ class SettingsUX(
                     "",
                     "&#FF8702➥ &fНажмите, &eЛКМ &fчтобы ${if (isS) "&cВыключить" else "&aВключить"}"
                 )
+                null
             }
 
             onClick { player, event ->
+                val cfg = this@SettingsUX.clanService.plugin.configService
                 val clan = this@SettingsUX.clanService.getClanUser(player) ?: return@onClick
                 val user = clan.users.find { it.uuid == player.uniqueId } ?: return@onClick
 
-                if (clan.hasPermission(user, ClanPerms.Action.OPEN_CHEST) != Permission.Flag.TRUE) {
-                    player.sendMessage("&cУ вас нет разрешения на это.")
+                if (!clan.hasPermission(user, ClanPerms.Action.OPEN_CHEST)) {
+                    cfg.send(player, cfg.messages.settings.noPermission)
                     return@onClick
                 }
 
                 clan.toggleSetting(ClanSetting.CHEST)
+                this@SettingsUX.clanService.saveClan(clan)
                 this@SettingsUX.updateSlot(event.slot, player)
             }
         }
 
-        // ----------------------------------------------------
-        // Slot 13: Оповещения о Входе
-        // ----------------------------------------------------
+        // Slot 13: Join Notifications
         slot(13) {
             dynamicItem(Material.BELL) { player ->
-                val clan = this@SettingsUX.clanService.getClanUser(player)!!
+                val clan = this@SettingsUX.clanService.getClanUser(player) ?: return@dynamicItem null
                 val isS = clan.isSettingEnabled(ClanSetting.JOIN)
 
                 val totalMembers = clan.users.size
@@ -153,29 +169,30 @@ class SettingsUX(
                     "",
                     "&#FF8702➥ &fНажмите, &eЛКМ &fчтобы ${if (isS) "&cВыключить" else "&aВключить"}"
                 )
+                null
             }
 
             onClick { player, event ->
+                val cfg = this@SettingsUX.clanService.plugin.configService
                 val clan = this@SettingsUX.clanService.getClanUser(player) ?: return@onClick
                 val user = clan.users.find { it.uuid == player.uniqueId } ?: return@onClick
 
-                if (clan.hasPermission(user, ClanPerms.Settings.TOGGLE_JOIN) != Permission.Flag.TRUE) {
-                    player.sendMessage("&cУ вас нет разрешения на это.")
+                if (!clan.hasPermission(user, ClanPerms.Settings.TOGGLE_JOIN)) {
+                    cfg.send(player, cfg.messages.settings.noPermission)
                     return@onClick
                 }
 
                 clan.toggleSetting(ClanSetting.JOIN)
+                this@SettingsUX.clanService.saveClan(clan)
                 this@SettingsUX.updateSlot(event.slot, player)
             }
         }
 
-        // ----------------------------------------------------
-        // Slot 14: Управление Ролями
-        // ----------------------------------------------------
+        // Slot 14: Role Editor
         slot(14) {
             dynamicItem(Material.ARMOR_STAND) { player ->
-                val clan = this@SettingsUX.clanService.getClanUser(player) ?: return@dynamicItem
-                val user = clan.users.find { it.uuid == player.uniqueId } ?: return@dynamicItem
+                val clan = this@SettingsUX.clanService.getClanUser(player) ?: return@dynamicItem null
+                val user = clan.users.find { it.uuid == player.uniqueId } ?: return@dynamicItem null
 
                 val totalMembers = clan.users.size
                 val rolesCount = ClanRole.entries.size
@@ -187,7 +204,7 @@ class SettingsUX(
                     "&#9EFC65 «Информация»",
                     " &7- &fДоступных ролей: &e$rolesCount рангов",
                     " &7- &fУчастников в клане: &e$totalMembers чел.",
-                    " &7- &fТвой текущий ранг: &#5EFD7D${this@SettingsUX.getDisplayNameRole(myRole)}",
+                    " &7- &fТвой текущий ранг: &b${this@SettingsUX.clanService.plugin.configService.getRoleDisplayName(myRole)}",
                     "",
                     "&#FC65DF «Описание»",
                     " &7- &fРедактирование прав для каждого ранга.",
@@ -196,28 +213,21 @@ class SettingsUX(
                     "",
                     "&#FF8702➥ &fНажмите, &eЛКМ &fчтобы открыть список ролей"
                 )
+                null
             }
 
             onClick { player, _ ->
+                val cfg = this@SettingsUX.clanService.plugin.configService
                 val clan = this@SettingsUX.clanService.getClanUser(player) ?: return@onClick
                 val user = clan.users.find { it.uuid == player.uniqueId } ?: return@onClick
 
                 if (clan.getUserRole(user) != ClanRole.LEADER) {
-                    player.sendMessage("&cУ вас нет разрешения на редактирование ролей.")
+                    cfg.send(player, cfg.messages.settings.noPermissionRoles)
                     return@onClick
                 }
 
-                this@SettingsUX.editorRolesUX.open(player)
+                EditorRolesUX(this@SettingsUX.clanService).open(player)
             }
-        }
-    }
-
-    private fun getDisplayNameRole(role: ClanRole): String { //TODO
-        return when (role) {
-            ClanRole.MEMBER -> "Участник"
-            ClanRole.ELDER -> "Старейшина"
-            ClanRole.DEPUTY -> "Заместитель"
-            ClanRole.LEADER -> "Лидер"
         }
     }
 }

@@ -5,9 +5,11 @@ import ua.inventorytype.pnclans.api.permission.ClanPerms
 import ua.inventorytype.pnclans.api.permission.Permission
 
 /**
- * Represents the hierarchical roles within a clan.
+ * Enumerates the hierarchical membership ranks within a clan.
  *
- * @property weight The hierarchical weight of the role. Higher value means higher authority.
+ * @property weight The hierarchy level of the rank. Higher weight indicates greater authority over lower ranks.
+ * @property icon The Bukkit Material item used to represent this role in role editor GUIs.
+ * @property defaultPermissions The default set of permissions automatically granted to members of this role.
  */
 enum class ClanRole(
     val weight: Int,
@@ -15,7 +17,7 @@ enum class ClanRole(
     val defaultPermissions: Set<Permission>
 ) {
 
-    /** Regular clan member with basic access. */
+    /** Regular clan member with standard entry-level privileges. */
     MEMBER(
         weight = 1,
         icon = Material.IRON_INGOT,
@@ -27,7 +29,7 @@ enum class ClanRole(
         )
     ),
 
-    /** Respected member with slightly elevated privileges. */
+    /** Senior clan member empowered to recruit new players. */
     ELDER(
         weight = 2,
         icon = Material.GOLD_INGOT,
@@ -40,12 +42,11 @@ enum class ClanRole(
         )
     ),
 
-    /** The deputy/co-leader who manages the clan when the leader is absent. */
+    /** Deputy co-leader possessing extensive management authority over lower ranks and clan treasury. */
     DEPUTY(
         weight = 3,
         icon = Material.DIAMOND,
         defaultPermissions = setOf(
-            // Зам может почти всё, кроме удаления клана
             ClanPerms.Bank.DEPOSIT,
             ClanPerms.Bank.WITHDRAW,
             ClanPerms.Bank.SEE,
@@ -60,9 +61,7 @@ enum class ClanRole(
         )
     ),
 
-    // У Лидера нет списка по умолчанию, потому что в коде
-    // мы сделаем так, чтобы Лидеру разрешалось ВСЁ автоматически.
-    /** The absolute owner and creator of the clan. */
+    /** Absolute leader and owner of the clan. Automatically possesses unrestricted access to all permissions. */
     LEADER(
         weight = 4,
         icon = Material.NETHER_STAR,

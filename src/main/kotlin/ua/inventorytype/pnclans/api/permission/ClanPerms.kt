@@ -3,14 +3,13 @@ package ua.inventorytype.pnclans.api.permission
 import org.bukkit.Material
 
 /**
- * A centralized registry containing all available clan permissions,
- * grouped by their respective modules.
+ * Centralized registry containing all available clan permissions grouped by functional modules.
+ * Includes permissions for Bank/Economy, Member Management, Clan Homes, Clan Actions, and Global Settings.
  */
 object ClanPerms {
 
-
     /**
-     * Список всех доступных прав в плагине.
+     * Immutable set containing every permission registered in the plugin.
      */
     val ALL_PERMISSIONS: Set<Permission> by lazy {
         buildSet {
@@ -23,25 +22,22 @@ object ClanPerms {
     }
 
     /**
-     * Permissions related to clan economy and banking.
+     * Permissions related to clan banking and economy operations.
      */
     enum class Bank(
-        override val flag: Permission.Flag,
         override val displayName: String,
         override val description: String,
         override val icon: Material
     ) : Permission {
         /** Allows depositing money into the clan bank. */
         DEPOSIT(
-            Permission.Flag.TRUE,
             "Пополнение казны",
             "Позволяет вносить игровые средства в банк клана.",
             Material.GOLD_INGOT
         ),
 
-        /** Allows withdrawing money from the clan bank. */
+        /** Allows withdrawing funds from the clan bank. */
         WITHDRAW(
-            Permission.Flag.FALSE,
             "Снятие с казны",
             "Позволяет снимать накопленные средства из банка клана.",
             Material.GOLD_NUGGET
@@ -49,7 +45,6 @@ object ClanPerms {
 
         /** Allows viewing the clan bank balance. */
         SEE(
-            Permission.Flag.TRUE,
             "Просмотр баланса",
             "Позволяет просматривать текущий баланс казны клана.",
             Material.EMERALD
@@ -57,25 +52,22 @@ object ClanPerms {
     }
 
     /**
-     * Permissions related to managing clan members.
+     * Permissions related to managing clan member ranks and recruitment.
      */
     enum class Members(
-        override val flag: Permission.Flag,
         override val displayName: String,
         override val description: String,
         override val icon: Material
     ) : Permission {
-        /** Allows inviting new players to the clan. */
+        /** Allows inviting new players to join the clan. */
         INVITE(
-            Permission.Flag.TRUE,
             "Приглашение игроков",
             "Позволяет отправлять игрокам приглашения на вступление.",
             Material.OAK_SIGN
         ),
 
-        /** Allows kicking existing players from the clan. */
+        /** Allows kicking subordinate members from the clan. */
         KICK(
-            Permission.Flag.FALSE,
             "Исключение участников",
             "Позволяет исключать участников из состава клана.",
             Material.LEATHER_BOOTS
@@ -83,33 +75,29 @@ object ClanPerms {
     }
 
     /**
-     * Permissions related to clan homes and teleportation points.
+     * Permissions related to clan home locations and teleportation.
      */
     enum class Homes(
-        override val flag: Permission.Flag,
         override val displayName: String,
         override val description: String,
         override val icon: Material
     ) : Permission {
-        /** Allows setting a new clan home location. */
+        /** Allows creating or relocating clan home waypoints. */
         SET(
-            Permission.Flag.FALSE,
             "Установка точки дома",
             "Позволяет устанавливать или переносить точку дома клана.",
             Material.RED_BED
         ),
 
-        /** Allows deleting only the clan homes created by the user themselves. */
+        /** Allows deleting only personal home waypoints created by the user. */
         DELETE_OWN(
-            Permission.Flag.TRUE,
             "Удаление своих точек",
             "Позволяет удалять только личные созданные точки дома.",
             Material.WOODEN_PICKAXE
         ),
 
-        /** Allows deleting ANY clan home, regardless of who created it. */
+        /** Allows deleting any clan home waypoint regardless of creator. */
         DELETE_ANY(
-            Permission.Flag.FALSE,
             "Удаление любых точек",
             "Позволяет удалять любые точки дома, созданные другими.",
             Material.DIAMOND_PICKAXE
@@ -117,25 +105,22 @@ object ClanPerms {
     }
 
     /**
-     * Permissions for various clan activities and interactions.
+     * Permissions for general clan interactions and upgrades.
      */
     enum class Action(
-        override val flag: Permission.Flag,
         override val displayName: String,
         override val description: String,
         override val icon: Material
     ) : Permission {
-        /** Allows opening and interacting with the clan chest. */
+        /** Allows opening and interacting with the clan's virtual chest storage. */
         OPEN_CHEST(
-            Permission.Flag.TRUE,
             "Доступ к хранилищу",
             "Позволяет открывать и взаимодействовать с сундуком клана.",
             Material.CHEST
         ),
 
-        /** Allows upgrading the clan's overall level. */
+        /** Allows upgrading the overall progression level of the clan. */
         UPGRADE_LEVEL(
-            Permission.Flag.FALSE,
             "Улучшение уровня",
             "Позволяет повышать общий уровень развития клана.",
             Material.NETHER_STAR
@@ -143,34 +128,29 @@ object ClanPerms {
     }
 
     /**
-     * Permissions related to toggling core clan settings.
-     * Note: These permissions allow CHANGING the setting, not the state of the setting itself.
+     * Permissions for toggling core clan operational settings.
      */
     enum class Settings(
-        override val flag: Permission.Flag,
         override val displayName: String,
         override val description: String,
         override val icon: Material
     ) : Permission {
-        /** Allows toggling friendly fire (PvP) within the clan. */
+        /** Allows toggling friendly fire (PvP) between clan members. */
         TOGGLE_PVP(
-            Permission.Flag.FALSE,
             "Переключение PvP",
             "Позволяет менять режим уронa между участниками клана.",
             Material.DIAMOND_SWORD
         ),
 
-        /** Allows toggling the availability of the clan chat. */
+        /** Allows enabling or disabling the private clan chat channel. */
         TOGGLE_CHAT(
-            Permission.Flag.FALSE,
             "Управление чатом",
             "Позволяет включать или отключать внутренний чат клана.",
             Material.WRITABLE_BOOK
         ),
 
-        /** Allows toggling clan join/leave broadcast messages. */
+        /** Allows toggling member join and quit broadcast notifications. */
         TOGGLE_JOIN(
-            Permission.Flag.FALSE,
             "Уведомления о входе",
             "Позволяет настраивать оповещения о входе и выходе участников.",
             Material.BELL

@@ -14,6 +14,7 @@ repositories {
 
     //PlaceholderApi
     maven("https://repo.extendedclip.com/content/repositories/placeholderapi/")
+    maven("https://repo.codemc.io/repository/maven-snapshots/")
 }
 
 dependencies {

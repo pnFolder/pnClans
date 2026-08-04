@@ -3,10 +3,62 @@ package ua.inventorytype.pnclans.impl.config
 import com.charleskorn.kaml.YamlComment
 import kotlinx.serialization.Serializable
 
+/**
+ * Global configuration settings for pnClans.
+ * Deserialized from `plugins/pnClans/config.yml` via kaml YAML parser.
+ *
+ * COMPLETE POLYMORPHIC ACTIONS GUIDE:
+ * You can execute polymorphic actions from GUI clicks, triggers, or rewards using YAML tags:
+ *   - !message { text: "&aYour text with {clan} placeholders" }
+ *   - !title { title: "&6КЛАНОВЫЙ ТИТУЛ", subtitle: "&eПодтитул", fadeIn: 10, stay: 70, fadeOut: 20 }
+ *   - !actionbar { text: "&aСообщение над хотбаром!" }
+ *   - !sound { sound: "ENTITY_PLAYER_LEVELUP", volume: 1.0, pitch: 1.0 }
+ *   - !particle { particle: "TOTEM_OF_UNDYING", count: 25 }
+ *   - !broadcast { text: "&8[&6Клан {clan}&8] &aДостигнут новый уровень!" }
+ *   - !command { command: "clan top", console: false }
+ *   - !open_gui { menu: "MAIN" } (Options: MAIN, MEMBERS, SETTINGS, TREASURY, UPGRADE, TOP, CHEST)
+ *   - !close {}
+ *   - !chance
+ *       percentage: 50.0
+ *       successActions:
+ *         - !title { title: "&aУСПЕХ!", subtitle: "&7Шанс сработал!" }
+ *         - !sound { sound: "ENTITY_PLAYER_LEVELUP" }
+ *       failedActions:
+ *         - !sound { sound: "ENTITY_VILLAGER_NO" }
+ *   - !barter { item: "DIAMOND", amount: 5, price: 1000.0, buy: true }
+ *   - !item_give { item: "GOLDEN_APPLE", amount: 3 }
+ *   - !mmr_add { amount: 25 }
+ */
 @Serializable
 class Settings {
 
-    @YamlComment("Количество денег, необходимое для создания клана (0 — бесплатно)")
+    @YamlComment("Тип хранилища данных кланов и сундуков: SQLITE (рекомендуется) или JSON")
+    val storageType: String = "SQLITE"
+
+    @YamlComment("Стоимость создания клана в монетах экономики Vault (0 — бесплатно)")
     val createClanCost: Double = 1000.0
 
+    @YamlComment("Названия ролей клана для отображения в чате, меню и плейсхолдерах {clan_role}")
+    val roleLeader: String = "Лидер"
+    val roleDeputy: String = "Заместитель"
+    val roleElder: String = "Старейшина"
+    val roleMember: String = "Участник"
+
+    @YamlComment("Системные сообщения плагина. Поддерживают форматирование цвета (&, HEX) и плейсхолдеры {clan}, {player}, {target}, {role}, {amount}, {cost}")
+    val msgClanCreated: String = "&aВы успешно создали клан &e{clan}&a!"
+    val msgClanDisbanded: String = "&cКлан {clan} был распущен лидером."
+    val msgAlreadyInClan: String = "&cВы уже состоите в клане."
+    val msgNoClan: String = "&cВы не состоите в клане."
+    val msgInviteSent: String = "&aВы отправили приглашение игроку &e{target}&a."
+    val msgInviteReceived: String = "&aИгрок &e{sender} &aприглашает вас в клан &e{clan}&a! Используйте &e/clan accept &aили &c/clan deny&a."
+    val msgInviteAccepted: String = "&aВы успешно вступили в клан &e{clan}&a!"
+    val msgInviteDenied: String = "&cВы отклонили приглашение в клан {clan}."
+    val msgNoMoney: String = "&cУ вас недостаточно денег (требуется {cost}$)."
+    val msgDepositSuccess: String = "&aВы внесли &e{amount} ⛁ &aв казну клана {clan}."
+    val msgWithdrawSuccess: String = "&aВы сняли &e{amount} ⛁ &aиз казны клана {clan}."
+    val msgNoPermission: String = "&cУ вас недостаточно прав для выполнения этого действия."
+    val msgPvpDisabled: String = "&c[pnClans] Урон по соклановцам отключён!"
+    val msgChatFormat: String = "&8[&6Клан &e{clan}&8] &7[{role}] &f{player}&8: &f{message}"
+    val msgJoinNotice: String = "&8[&6Клан&8] &aУчастник &e{player} &aвошёл на сервер!"
+    val msgQuitNotice: String = "&8[&6Клан&8] &cУчастник &e{player} &cвышел с сервера!"
 }
