@@ -80,7 +80,7 @@ class TopClansUX(
                             "mmr" to clan.mmr.toString(),
                             "kills" to clan.kills.toString(),
                             "deaths" to clan.deaths.toString(),
-                            "kda" to kda(clan),
+                            "kda" to this@TopClansUX.kda(clan),
                             "members" to clan.users.size.toString(),
                             "balance" to clan.bankBalance.toString()
                         )

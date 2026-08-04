@@ -47,6 +47,9 @@ class ClanListener(private val plugin: BukkitPlugin) : Listener {
         if (victimClan != null) {
             victimClan.deaths += 1
             if (victimClan.mmr > 0) victimClan.mmr -= 5
+            val victimUser = victimClan.users.find { it.uuid == victim.uniqueId } as? ua.inventorytype.pnclans.impl.clan.ClanUser
+            victimUser?.deaths = victimUser.deaths + 1
+            victimUser?.points = (victimUser.points - 1).coerceAtLeast(0)
             clanService.saveClan(victimClan)
         }
 
@@ -55,6 +58,9 @@ class ClanListener(private val plugin: BukkitPlugin) : Listener {
             if (killerClan != null) {
                 killerClan.kills += 1
                 killerClan.mmr += 10
+                val killerUser = killerClan.users.find { it.uuid == killer.uniqueId } as? ua.inventorytype.pnclans.impl.clan.ClanUser
+                killerUser?.kills = killerUser.kills + 1
+                killerUser?.points = (killerUser.points + 3).coerceAtLeast(0)
                 clanService.saveClan(killerClan)
             }
         }
@@ -106,6 +112,8 @@ class ClanListener(private val plugin: BukkitPlugin) : Listener {
             clanService.saveClan(clan)
         }
 
+        clanService.playtimeTracker.markOnline(player.uniqueId, clan.id)
+
         if (clan.isSettingEnabled(ClanSetting.JOIN)) {
             val msg = configService.formatMessage(player, cfg.msgJoinNotice, mapOf("player" to player.name))
             clan.users.forEach { member ->
@@ -120,6 +128,8 @@ class ClanListener(private val plugin: BukkitPlugin) : Listener {
     fun onQuit(event: PlayerQuitEvent) {
         val player = event.player
         val clan = clanService.getClanUser(player) ?: return
+
+        clanService.playtimeTracker.flushSession(player.uniqueId, clanService)
 
         if (clan.isSettingEnabled(ClanSetting.JOIN)) {
             val msg = configService.formatMessage(player, cfg.msgQuitNotice, mapOf("player" to player.name))

@@ -48,7 +48,7 @@ class MembersUX(
             slot(memberSlots[i]) {
                 dynamicItemNullable(Material.NAME_TAG) { viewer ->
                     val service = this@MembersUX.clanService
-                    val clan = service.getClanUser(viewer) ?: return@dynamicItem null
+                    val clan = service.getClanUser(viewer) ?: return@dynamicItemNullable null
 
                     val allMembers = clan.users.sortedWith(
                         compareByDescending<User> { clan.getUserRole(it).weight }
@@ -56,12 +56,12 @@ class MembersUX(
                     )
 
                     val index = (currentPage * memberSlots.size) + i
-                    if (index >= allMembers.size) return@dynamicItem null
+                    if (index >= allMembers.size) return@dynamicItemNullable null
 
                     val targetUser = allMembers[index]
                     val targetRole = clan.getUserRole(targetUser)
                     type(targetRole.icon)
-                    val myUser = clan.users.find { it.uuid == viewer.uniqueId } ?: return@dynamicItem null
+                    val myUser = clan.users.find { it.uuid == viewer.uniqueId } ?: return@dynamicItemNullable null
                     val myRole = clan.getUserRole(myUser)
 
                     val isMe = targetUser.uuid == viewer.uniqueId

@@ -35,8 +35,8 @@ class HelpUX(clanService: ClanService) : BaseGui(clanService) {
 
         menuCfg.items["evolution"]?.let { itemCfg ->
             slot(itemCfg.slot) {
-                dynamicItem(parseMaterial(itemCfg.material, Material.BEACON)) { player ->
-                    renderConfigItem(this, player, itemCfg, placeholders)
+                dynamicItem(this@HelpUX.parseMaterial(itemCfg.material, Material.BEACON)) { player ->
+                    this@HelpUX.renderConfigItem(this, player, itemCfg, placeholders)
                     null
                 }
             }
@@ -44,8 +44,8 @@ class HelpUX(clanService: ClanService) : BaseGui(clanService) {
 
         menuCfg.items["rewards"]?.let { itemCfg ->
             slot(itemCfg.slot) {
-                dynamicItem(parseMaterial(itemCfg.material, Material.TOTEM_OF_UNDYING)) { player ->
-                    renderConfigItem(this, player, itemCfg, placeholders)
+                dynamicItem(this@HelpUX.parseMaterial(itemCfg.material, Material.TOTEM_OF_UNDYING)) { player ->
+                    this@HelpUX.renderConfigItem(this, player, itemCfg, placeholders)
                     null
                 }
             }
@@ -53,8 +53,8 @@ class HelpUX(clanService: ClanService) : BaseGui(clanService) {
 
         menuCfg.items["earning"]?.let { itemCfg ->
             slot(itemCfg.slot) {
-                dynamicItem(parseMaterial(itemCfg.material, Material.EXPERIENCE_BOTTLE)) { player ->
-                    renderConfigItem(this, player, itemCfg, placeholders)
+                dynamicItem(this@HelpUX.parseMaterial(itemCfg.material, Material.EXPERIENCE_BOTTLE)) { player ->
+                    this@HelpUX.renderConfigItem(this, player, itemCfg, placeholders)
                     null
                 }
             }
@@ -62,8 +62,8 @@ class HelpUX(clanService: ClanService) : BaseGui(clanService) {
 
         menuCfg.items["back"]?.let { itemCfg ->
             slot(itemCfg.slot) {
-                dynamicItem(parseMaterial(itemCfg.material, Material.RED_CANDLE)) { player ->
-                    renderConfigItem(this, player, itemCfg, placeholders)
+                dynamicItem(this@HelpUX.parseMaterial(itemCfg.material, Material.RED_CANDLE)) { player ->
+                    this@HelpUX.renderConfigItem(this, player, itemCfg, placeholders)
                     null
                 }
                 onClick { player, _ -> MainUX(clanService).open(player) }

@@ -255,7 +255,7 @@ class HistoryUX(
                     )
 
                     val index = (currentPage * logSlots.size) + i
-                    if (index >= allLogs.size) return@dynamicItem null
+                    if (index >= allLogs.size) return@dynamicItemNullable null
 
                     val log = allLogs[index]
                     val (icon, titleColor, operationText, amountColor) = when (log.type) {
