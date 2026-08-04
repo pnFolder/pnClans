@@ -1,183 +1,236 @@
 package ua.inventorytype.pnclans.impl.ux
 
 import org.bukkit.Material
+import org.bukkit.entity.Player
+import ua.inventorytype.pnclans.api.clan.Clan
+import ua.inventorytype.pnclans.api.clan.ClanRole
 import ua.inventorytype.pnclans.api.permission.ClanPerms
 import ua.inventorytype.pnclans.impl.clan.ClanService
+import ua.inventorytype.pnclans.impl.config.AnimationKey
+import ua.inventorytype.pnclans.impl.config.GuiItemConfig
 import ua.inventorytype.pnclans.impl.inventory.BaseGui
+import ua.inventorytype.pnclans.impl.inventory.builder.ItemBuilder
 
 /**
- * Clan level upgrade GUI (Ritual of Elevation).
+ * Six-step clan progression screen with animated beacon state.
  *
- * Displays the full 5-level progression tree with:
- * - Current unlock status (unlocked / available / locked) per level
- * - Required clan bank balance, MMR, and completed quests for each level
- * - Upgradable perks and chest row expansion per level
+ * The overview card explains the per-level rewards (members, chest rows, homes) and pulses an
+ * animated beacon status. The five stage cards show the level requirements and the unique perk
+ * unlocked at that stage. The central beacon performs the ritual and animates its state according
+ * to the live requirements of the clan.
  *
- * The central beacon button triggers the upgrade ritual when all requirements are met,
- * deducting the bank balance and advancing [ua.inventorytype.pnclans.api.clan.Clan.level].
+ * All visible text and materials come from [ua.inventorytype.pnclans.impl.config.MenusConfig.upgradeMenu]
+ * in `menus.yml`; animation frames live in [ua.inventorytype.pnclans.impl.config.Settings.animations].
  *
- * All feedback messages are dispatched through the [ua.inventorytype.pnclans.api.Action] system
- * configured in `messages.yml`.
- *
- * @param clanService The clan service providing level and balance data.
+ * @param clanService The clan service providing live clan state.
  */
 class UpgradeUX(clanService: ClanService) : BaseGui(clanService) {
 
     init {
-        title("Эволюция Клана")
-        rows(6)
-        border(Material.BLACK_STAINED_GLASS_PANE)
+        val cfg = clanService.plugin.configService
+        val menuCfg = cfg.menus.upgradeMenu
 
-        val decorSlots = listOf(1, 7, 9, 17, 36, 44, 46, 52)
-        for (i in decorSlots) {
-            slot(i) { item(Material.ORANGE_STAINED_GLASS_PANE) { name(" ") } }
-        }
+        title(menuCfg.title)
+        rows(menuCfg.rows)
+        hotWorldDecor(true)
 
-        val centerSlots = listOf(20, 21, 22, 23, 24)
+        val levelSlots = listOf(20, 22, 24, 29, 31)
+        val levelTemplate = menuCfg.items["level"] ?: GuiItemConfig()
 
-        ClanLevels.LEVELS.values.forEachIndexed { index, levelData ->
-            slot(centerSlots[index]) {
-                dynamicItem(levelData.icon) { player ->
-                    val clan = this@UpgradeUX.clanService.getClanUser(player) ?: return@dynamicItem null
-                    val currentLevel = clan.level
-
-                    val isUnlocked = currentLevel >= levelData.level
-                    val isNext = currentLevel + 1 == levelData.level
-
-                    val statusColor = when {
-                        isUnlocked -> "&#5EFD7D"
-                        isNext -> "&#FF8702"
-                        else -> "&#FC3737"
+        ClanLevels.LEVELS.entries
+            .sortedBy { it.key }
+            .forEachIndexed { index, (_, levelData) ->
+                val slotIndex = levelSlots.getOrNull(index) ?: return@forEachIndexed
+                slot(slotIndex) {
+                    dynamicItem(this@UpgradeUX.parseMaterial(levelTemplate.material, levelData.icon)) { player ->
+                        val clan = this@UpgradeUX.clanService.getClanUser(player) ?: return@dynamicItem null
+                        this@UpgradeUX.renderConfigItem(this, player, levelTemplate, this@UpgradeUX.levelPlaceholders(levelData, clan))
+                        null
                     }
-                    val statusText = when {
-                        isUnlocked -> "&a[Разблокировано]"
-                        isNext -> "&e[Доступно для прокачки]"
-                        else -> "&c[Заблокировано]"
-                    }
-
-                    name("${statusColor}Уровень ${levelData.level}")
-                    lore(
-                        "",
-                        "&#9EFC65 «Статус»",
-                        " &7- $statusText",
-                        "",
-                        "&#FC65DF «Разблокируемые возможности»",
-                        " &7- &fВместимость состава: &b${levelData.maxMembers} чел.",
-                        " &7- &fРазмер сундука: &e${levelData.chestRows} строк(и)",
-                        " &7- &fУникальный перк: &d${levelData.unlockedPerk}",
-                        "",
-                        "&#5EA9FD «Требования для достижения»",
-                        " &7- &fКазна: &e${levelData.costMoney} ⛁",
-                        " &7- &fРейтинг: &6${levelData.requiredMmr} MMR",
-                        " &7- &fПройдено квестов: &3${levelData.requiredQuests} шт."
-                    )
-                    null
                 }
             }
 
-            slot(centerSlots[index] + 9) {
-                dynamicItem(Material.WHITE_STAINED_GLASS_PANE) { player ->
+        menuCfg.items["overview"]?.let { itemCfg ->
+            slot(itemCfg.slot) {
+                dynamicItem(this@UpgradeUX.parseMaterial(itemCfg.material, Material.EXPERIENCE_BOTTLE)) { player ->
                     val clan = this@UpgradeUX.clanService.getClanUser(player) ?: return@dynamicItem null
-                    val currentLevel = clan.level
-
-                    this.type = when {
-                        currentLevel >= levelData.level -> Material.LIME_STAINED_GLASS_PANE
-                        currentLevel + 1 == levelData.level -> Material.ORANGE_STAINED_GLASS_PANE
-                        else -> Material.RED_STAINED_GLASS_PANE
-                    }
-                    name(" ")
+                    this@UpgradeUX.renderConfigItem(this, player, itemCfg, this@UpgradeUX.overviewPlaceholders(player, clan))
                     null
                 }
             }
         }
 
-        // [Слот 40] МЕГА-КНОПКА ПРОКАЧКИ
-        slot(40) {
-            dynamicItem(Material.BEACON) { player ->
-                val clan = this@UpgradeUX.clanService.getClanUser(player) ?: return@dynamicItem null
-                val currentLevel = clan.level
-
-                if (currentLevel >= ClanLevels.MAX_LEVEL) {
-                    name("&#FC3737Абсолютное Величие")
-                    lore(
-                        "",
-                        "&#FC65DF «Информация»",
-                        " &7- &fВаш клан достиг финального уровня.",
-                        " &7- &fВы — легенды этого сервера."
-                    )
-                    return@dynamicItem null
+        menuCfg.items["upgrade"]?.let { itemCfg ->
+            slot(itemCfg.slot) {
+                dynamicItem(this@UpgradeUX.parseMaterial(itemCfg.material, Material.BEACON)) { player ->
+                    val clan = this@UpgradeUX.clanService.getClanUser(player) ?: return@dynamicItem null
+                    this@UpgradeUX.renderConfigItem(this, player, itemCfg, this@UpgradeUX.beaconPlaceholders(player, clan))
+                    null
                 }
-
-                val nextData = ClanLevels.getNext(currentLevel) ?: return@dynamicItem null
-
-                val currentMoney = clan.bankBalance
-                val currentMMR = clan.mmr
-                val completedQuests = 0
-
-                val hasMoney = currentMoney >= nextData.costMoney
-                val hasMMR = currentMMR >= nextData.requiredMmr
-                val hasQuests = completedQuests >= nextData.requiredQuests
-
-                name("&#FC7D37Провести Ритуал Возвышения")
-                lore(
-                    "",
-                    "&#9EFC65 «Ваш текущий прогресс»",
-                    " &7- &fКазна: ${if (hasMoney) "&a" else "&c"}$currentMoney &7/ &e${nextData.costMoney} ⛁",
-                    " &7- &fРейтинг: ${if (hasMMR) "&a" else "&c"}$currentMMR &7/ &6${nextData.requiredMmr} MMR",
-                    " &7- &fКвесты: ${if (hasQuests) "&a" else "&c"}$completedQuests &7/ &3${nextData.requiredQuests} шт.",
-                    "",
-                    "&#FC65DF «Условия»",
-                    " &7- &fТолько Лидер и Заместители.",
-                    " &7- &fПри улучшении средства спишутся.",
-                    "",
-                    if (hasMoney && hasMMR && hasQuests) "&#FF8702➥ &fНажмите, &eЛКМ &fчтобы улучшить клан до ${nextData.level} ур!"
-                    else "&cУ клана недостаточно ресурсов для повышения."
-                )
-                null
-            }
-
-            onClick { player, _ ->
-                val clan = this@UpgradeUX.clanService.getClanUser(player) ?: return@onClick
-                val user = clan.users.find { it.uuid == player.uniqueId } ?: return@onClick
-
-                val currentLevel = clan.level
-                if (currentLevel >= ClanLevels.MAX_LEVEL) return@onClick
-
-                val cfg = this@UpgradeUX.clanService.plugin.configService
-
-                if (!clan.hasPermission(user, ClanPerms.Action.UPGRADE_LEVEL)) {
-                    cfg.send(player, cfg.messages.upgrade.noPermission)
-                    return@onClick
-                }
-
-                val nextData = ClanLevels.getNext(currentLevel) ?: return@onClick
-
-                if (clan.bankBalance < nextData.costMoney) {
-                    cfg.send(player, cfg.messages.upgrade.insufficientFunds)
-                    return@onClick
-                }
-                if (clan.mmr < nextData.requiredMmr) {
-                    cfg.send(player, cfg.messages.upgrade.insufficientMmr)
-                    return@onClick
-                }
-
-                clan.withdrawBank(nextData.costMoney)
-                clan.level = nextData.level
-                this@UpgradeUX.clanService.saveClan(clan)
-
-                cfg.send(player, cfg.messages.upgrade.levelUp, mapOf("level" to nextData.level.toString()))
-                this@UpgradeUX.update(player)
+                onClick { player, _ -> this@UpgradeUX.performUpgrade(player) }
             }
         }
 
-        slot(49) {
-            item(Material.OAK_DOOR) {
-                name("&cВернуться в меню")
-            }
-            onClick { player, _ ->
-                MainUX(this@UpgradeUX.clanService).open(player)
+        menuCfg.items["back"]?.let { itemCfg ->
+            slot(itemCfg.slot) {
+                dynamicItem(this@UpgradeUX.parseMaterial(itemCfg.material, Material.RED_CANDLE)) { player ->
+                    this@UpgradeUX.renderConfigItem(this, player, itemCfg, emptyMap())
+                    null
+                }
+                onClick { player, _ -> MainUX(this@UpgradeUX.clanService).open(player) }
             }
         }
+    }
+
+    private fun performUpgrade(player: Player) {
+        val service = clanService
+        val cfg = service.plugin.configService
+        val clan = service.getClanUser(player) ?: return
+        val user = clan.users.find { it.uuid == player.uniqueId } ?: return
+
+        if (clan.level >= ClanLevels.MAX_LEVEL) {
+            cfg.send(player, cfg.messages.upgrade.maxLevel)
+            return
+        }
+
+        if (!clan.hasPermission(user, ClanPerms.Action.UPGRADE_LEVEL)) {
+            cfg.send(player, cfg.messages.upgrade.noPermission)
+            return
+        }
+
+        val next = ClanLevels.getNext(clan.level) ?: return
+
+        if (clan.bankBalance < next.costMoney) {
+            cfg.send(player, cfg.messages.upgrade.insufficientFunds)
+            return
+        }
+        if (clan.mmr < next.requiredMmr) {
+            cfg.send(player, cfg.messages.upgrade.insufficientMmr)
+            return
+        }
+
+        clan.withdrawBank(next.costMoney)
+        clan.level = next.level
+        service.saveClan(clan)
+        service.notifyClanUpdated(player.uniqueId)
+
+        cfg.send(player, cfg.messages.upgrade.levelUp, mapOf("level" to next.level.toString()))
+        update(player)
+    }
+
+    private fun overviewPlaceholders(player: Player, clan: Clan): Map<String, String> {
+        val cfg = clanService.plugin.configService
+        val next = ClanLevels.getNext(clan.level)
+        return mapOf(
+            "clan" to clan.name,
+            "clan_level" to clan.level.toString(),
+            "next_level" to (next?.level ?: clan.level).toString(),
+            "clan_required_money" to (next?.costMoney?.toString() ?: "0"),
+            "clan_required_mmr" to (next?.requiredMmr?.toString() ?: clan.mmr.toString()),
+            "clan_slots" to (clan.level * PER_LEVEL_MEMBERS).toString(),
+            "clan_chest_rows" to (clan.level * PER_LEVEL_CHEST_ROWS).toString(),
+            "clan_homes" to (clan.level * PER_LEVEL_HOMES).toString(),
+            "beacon_state" to cfg.animatedFrame(beaconFramesFor(clan))
+        )
+    }
+
+    private fun beaconPlaceholders(player: Player, clan: Clan): Map<String, String> {
+        val cfg = clanService.plugin.configService
+        if (clan.level >= ClanLevels.MAX_LEVEL) {
+            return mapOf(
+                "beacon_title" to "&#FFD700✦ Абсолютное Величие",
+                "beacon_state" to "&#FFD700✦ Максимальный уровень достигнут",
+                "beacon_action" to "&#FFD700➥ &fВы — легенды этого сервера.",
+                "clan_money" to clan.bankBalance.toString(),
+                "clan_money_color" to "&#FFD700",
+                "clan_mmr" to clan.mmr.toString(),
+                "clan_mmr_color" to "&#FFD700",
+                "clan_quests" to "0",
+                "clan_quests_color" to "&#FFD700",
+                "clan_required_money" to "0",
+                "clan_required_mmr" to "0",
+                "clan_required_quests" to "0"
+            )
+        }
+        val next = ClanLevels.getNext(clan.level)!!
+        val hasMoney = clan.bankBalance >= next.costMoney
+        val hasMMR = clan.mmr >= next.requiredMmr
+        val hasQuests = COMPLETED_QUESTS >= next.requiredQuests
+        val ready = hasMoney && hasMMR && hasQuests
+        val state = cfg.animatedFrame(beaconFramesFor(clan))
+
+        return mapOf(
+            "beacon_title" to (if (ready) "&#FFD700✦ Провести Ритуал Возвышения" else "&#FC7D37✦ Ритуал Возвышения"),
+            "beacon_state" to state,
+            "beacon_action" to (if (ready) {
+                "&#FF8702➥ &fНажмите, &eЛКМ &fчтобы повысить клан до &6${next.level} &fуровня!"
+            } else {
+                "&c➥ &fНедостаточно ресурсов для прокачки"
+            }),
+            "clan_money" to clan.bankBalance.toString(),
+            "clan_money_color" to (if (hasMoney) "&#5EFD7D" else "&#FC3737"),
+            "clan_mmr" to clan.mmr.toString(),
+            "clan_mmr_color" to (if (hasMMR) "&#5EFD7D" else "&#FC3737"),
+            "clan_quests" to COMPLETED_QUESTS.toString(),
+            "clan_quests_color" to (if (hasQuests) "&#5EFD7D" else "&#FC3737"),
+            "clan_required_money" to next.costMoney.toString(),
+            "clan_required_mmr" to next.requiredMmr.toString(),
+            "clan_required_quests" to next.requiredQuests.toString()
+        )
+    }
+
+    private fun levelPlaceholders(levelData: ClanLevelData, clan: Clan): Map<String, String> {
+        val unlocked = clan.level >= levelData.level
+        val isNext = clan.level + 1 == levelData.level
+        val isLeader = clan.users.find { it.uuid == clan.users.firstOrNull()?.uuid && clan.getUserRole(it) == ClanRole.LEADER } != null
+        val stateText = when {
+            unlocked -> "&#5EFD7D[Разблокировано] &7— клан уже достиг этого уровня"
+            isNext -> "&#FF8702[Доступно] &7— выполните условия и откройте ритуал"
+            else -> "&#FC3737[Закрыто] &7— сначала прокачайте предыдущий уровень"
+        }
+        return mapOf(
+            "level" to levelData.level.toString(),
+            "level_title" to levelData.title,
+            "level_state" to stateText,
+            "level_max_members" to levelData.maxMembers.toString(),
+            "level_chest_rows" to levelData.chestRows.toString(),
+            "level_perk" to levelData.unlockedPerk,
+            "level_cost" to levelData.costMoney.toString(),
+            "level_required_mmr" to levelData.requiredMmr.toString(),
+            "level_required_quests" to levelData.requiredQuests.toString()
+        ).also { if (isLeader) Unit }
+    }
+
+    private fun beaconFramesFor(clan: Clan): List<String> {
+        if (clan.level >= ClanLevels.MAX_LEVEL) return emptyList()
+        val cfg = clanService.plugin.configService
+        val next = ClanLevels.getNext(clan.level) ?: return emptyList()
+        val hasMoney = clan.bankBalance >= next.costMoney
+        val hasMMR = clan.mmr >= next.requiredMmr
+        val hasQuests = COMPLETED_QUESTS >= next.requiredQuests
+        val key = if (hasMoney && hasMMR && hasQuests) AnimationKey.UPGRADE_READY else AnimationKey.UPGRADE_BUSY
+        return cfg.animationFrames(key)
+    }
+
+    private fun renderConfigItem(
+        builder: ItemBuilder,
+        player: Player,
+        itemCfg: GuiItemConfig,
+        placeholders: Map<String, String>
+    ) {
+        builder.name(clanService.plugin.configService.formatMessage(player, itemCfg.name, placeholders))
+        builder.lore(itemCfg.lore.map { line -> clanService.plugin.configService.formatMessage(player, line, placeholders) })
+        builder.glow(itemCfg.glow)
+    }
+
+    private fun parseMaterial(name: String, fallback: Material): Material =
+        runCatching { Material.valueOf(name.uppercase()) }.getOrDefault(fallback)
+
+    private companion object {
+        const val PER_LEVEL_MEMBERS = 5
+        const val PER_LEVEL_CHEST_ROWS = 2
+        const val PER_LEVEL_HOMES = 5
+        const val COMPLETED_QUESTS = 0
     }
 }
 
@@ -201,7 +254,8 @@ data class ClanLevelData(
     val maxMembers: Int,
     val chestRows: Int,
     val unlockedPerk: String,
-    val icon: Material
+    val icon: Material,
+    val title: String = unlockedPerk
 )
 
 /**
@@ -216,11 +270,11 @@ object ClanLevels {
 
     /** Map of level number → [ClanLevelData] for all 5 clan progression stages. */
     val LEVELS = mapOf(
-        1 to ClanLevelData(1, 0.0, 0, 0, 10, 1, "Создание клана", Material.COAL),
-        2 to ClanLevelData(2, 50000.0, 1200, 5, 15, 3, "Доступ к расширению сундука", Material.IRON_INGOT),
-        3 to ClanLevelData(3, 150000.0, 1800, 15, 20, 4, "Символ клана над головой", Material.GOLD_INGOT),
-        4 to ClanLevelData(4, 500000.0, 2500, 35, 25, 5, "Вечные баффы клана", Material.DIAMOND),
-        5 to ClanLevelData(5, 1500000.0, 4000, 75, 30, 6, "Кастомные титулы и частицы", Material.NETHER_STAR)
+        1 to ClanLevelData(1, 0.0, 0, 0, 10, 1, "Создание клана", Material.COAL, "Создание клана"),
+        2 to ClanLevelData(2, 50000.0, 1200, 5, 15, 3, "Доступ к расширению сундука", Material.IRON_INGOT, "Казнохранилище"),
+        3 to ClanLevelData(3, 150000.0, 1800, 15, 20, 4, "Символ клана над головой", Material.GOLD_INGOT, "Герб клана"),
+        4 to ClanLevelData(4, 500000.0, 2500, 35, 25, 5, "Вечные баффы клана", Material.DIAMOND, "Вечные баффы"),
+        5 to ClanLevelData(5, 1500000.0, 4000, 75, 30, 6, "Кастомные титулы и частицы", Material.NETHER_STAR, "Легенда сервера")
     )
 
     /**

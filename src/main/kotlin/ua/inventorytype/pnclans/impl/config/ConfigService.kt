@@ -100,6 +100,40 @@ class ConfigService(private val plugin: Plugin) {
     }
 
     /**
+     * Returns the active animation frame for the given frame list.
+     *
+     * The frame index is computed from the current time using [AnimationConfig.frameIntervalMs]
+     * so multiple players see a synchronised animation without needing a scheduler.
+     *
+     * @param frames Frame list from [AnimationConfig]. Empty list returns the fallback text.
+     * @param fallback Text returned when [frames] is empty.
+     */
+    fun animatedFrame(frames: List<String>, fallback: String = ""): String {
+        if (frames.isEmpty()) return fallback
+        val interval = settings.animations.frameIntervalMs.toLong().coerceAtLeast(MIN_FRAME_INTERVAL_MS)
+        val frame = ((System.currentTimeMillis() / interval) % frames.size).toInt()
+        return frames[frame]
+    }
+
+    /**
+     * Convenience helper that resolves a named animation collection from [AnimationConfig].
+     *
+     * @param key One of "hiddenBalance", "upgradeIdle", "upgradeReady", "upgradeBusy".
+     * @return The matching frame list, or an empty list if the key is unknown.
+     */
+    fun animationFrames(key: String): List<String> = when (key) {
+        AnimationKey.HIDDEN_BALANCE -> settings.animations.hiddenBalance
+        AnimationKey.UPGRADE_IDLE -> settings.animations.upgradeIdle
+        AnimationKey.UPGRADE_READY -> settings.animations.upgradeReady
+        AnimationKey.UPGRADE_BUSY -> settings.animations.upgradeBusy
+        else -> emptyList()
+    }
+
+    private companion object {
+        const val MIN_FRAME_INTERVAL_MS = 100L
+    }
+
+    /**
      * Executes a list of [Action] objects for the given player, applying optional placeholder tokens.
      *
      * This is the central dispatch method for all config-driven event responses.
@@ -154,4 +188,12 @@ class ConfigService(private val plugin: Plugin) {
         val content = file.readText()
         return yaml.decodeFromString(serializer, content)
     }
+}
+
+/** Named animation slots exposed through [ConfigService.animationFrames]. */
+object AnimationKey {
+    const val HIDDEN_BALANCE = "hiddenBalance"
+    const val UPGRADE_IDLE = "upgradeIdle"
+    const val UPGRADE_READY = "upgradeReady"
+    const val UPGRADE_BUSY = "upgradeBusy"
 }

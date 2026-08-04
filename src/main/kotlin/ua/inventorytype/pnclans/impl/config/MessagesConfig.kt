@@ -562,6 +562,12 @@ class MessagesConfig {
         val levelUp: List<Action> = listOf(
             MessageAction("&a⚡ Клан возвысился до &e{level} &aуровня! Открыты новые возможности!"),
             SoundAction("ENTITY_PLAYER_LEVELUP", 1.0f, 0.7f)
+        ),
+
+        @YamlComment("Клан уже достиг максимального уровня")
+        val maxLevel: List<Action> = listOf(
+            MessageAction("&#FFD700✦ &fВаш клан уже достиг высшего уровня эволюции."),
+            SoundAction("ENTITY_PLAYER_LEVELUP", 0.7f, 1.4f)
         )
     )
 

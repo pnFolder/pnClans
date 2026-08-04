@@ -764,24 +764,76 @@ class MenusConfig {
         title = "&#FC7D37« Эволюция Клана »",
         rows = 6,
         items = mapOf(
+            "overview" to GuiItemConfig(
+                slot = 13,
+                material = "EXPERIENCE_BOTTLE",
+                name = "&#FC7D37✦ Путь эволюции клана",
+                lore = listOf(
+                    "",
+                    "&#9EFC65 «Сводка прокачки»",
+                    " &7- &fТекущий уровень: &e{clan_level} &7/ &f5",
+                    " &7- &fСледующая цель: &6{next_level}",
+                    " &7- &fСтоимость: &e{clan_required_money}⛁",
+                    " &7- &fТребуемый MMR: &#FFD700{clan_required_mmr}",
+                    "",
+                    "&#FC65DF «Награда за уровень»",
+                    " &7- &fСлотов участников: &b{clan_slots}",
+                    " &7- &fРядов сундука: &e{clan_chest_rows}",
+                    " &7- &fКлановых домов: &#5EA9FD{clan_homes}",
+                    "",
+                    "&#FF8702➥ &fАнимированный {beacon_state} показывает состояние ритуала"
+                ),
+                glow = true
+            ),
+            "level" to GuiItemConfig(
+                slot = 20,
+                material = "COAL",
+                name = "&#5EA9FDЭтап {level}: {level_title}",
+                lore = listOf(
+                    "",
+                    "&#9EFC65 «Статус»",
+                    " &7- &fСостояние: {level_state}",
+                    " &7- &fЛимит участников: &b{level_max_members}",
+                    " &7- &fРяды сундука: &e{level_chest_rows}",
+                    "",
+                    "&#FC65DF «Уникальный перк»",
+                    " &7- &f{level_perk}",
+                    "",
+                    "&#5EA9FD «Требования для перехода»",
+                    " &7- &fКазна: &e{level_cost}⛁",
+                    " &7- &fMMR: &#FFD700{level_required_mmr}",
+                    " &7- &fКвестов: &3{level_required_quests}"
+                )
+            ),
             "upgrade" to GuiItemConfig(
                 slot = 40,
                 material = "BEACON",
-                name = "&#FC7D37Провести Ритуал Возвышения",
+                name = "{beacon_title}",
                 lore = listOf(
                     "",
-                    "&#9EFC65 «Прогресс»",
-                    " &7- &fТекущий уровень: &e{clan_level} лвл.",
+                    "&#9EFC65 «Текущий прогресс»",
+                    " &7- &fКазна: {clan_money_color}{clan_money} &7/ &e{clan_required_money} ⛁",
+                    " &7- &fMMR: {clan_mmr_color}{clan_mmr} &7/ &6{clan_required_mmr}",
+                    " &7- &fКвесты: {clan_quests_color}{clan_quests} &7/ &3{clan_required_quests} шт.",
                     "",
-                    "&#FF8702➥ &fНажмите, &eЛКМ &fчтобы улучшить клан"
+                    "&#FC65DF «Состояние ритуала»",
+                    " &7- &f{beacon_state}",
+                    "",
+                    "{beacon_action}"
                 ),
                 glow = true
             ),
             "back" to GuiItemConfig(
                 slot = 49,
                 material = "RED_CANDLE",
-                name = "§x§F§F§0§0§0§0Вернуться",
-                lore = listOf("&7Вернуться в главное меню"),
+                name = "&#FC3737⏎ Вернуться в штаб",
+                lore = listOf(
+                    "",
+                    "&#FC65DF «Переход»",
+                    " &7- &fОткрывает главный штаб клана.",
+                    "",
+                    "&#FF8702➥ &fНажмите, &eЛКМ &fчтобы вернуться"
+                ),
                 actions = listOf(OpenGuiAction("MAIN"))
             )
         )

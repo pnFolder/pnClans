@@ -9,6 +9,7 @@ import ua.inventorytype.pnclans.api.clan.ClanRole
 import ua.inventorytype.pnclans.api.clan.ClanSetting
 import ua.inventorytype.pnclans.api.permission.ClanPerms
 import ua.inventorytype.pnclans.impl.clan.ClanService
+import ua.inventorytype.pnclans.impl.config.AnimationKey
 import ua.inventorytype.pnclans.impl.config.GuiItemConfig
 import ua.inventorytype.pnclans.impl.config.MainMenuConfig
 import ua.inventorytype.pnclans.impl.inventory.BaseGui
@@ -197,7 +198,7 @@ class MainUX(clanService: ClanService) : BaseGui(clanService) {
         }
         val canSeeBalance = user != null && clan.hasUserPermission(user, ClanPerms.Bank.SEE)
 
-        val hiddenStars = if (canSeeBalance) "" else animatedStars()
+        val hiddenStars = if (canSeeBalance) "" else cfg.animatedFrame(cfg.animationFrames(AnimationKey.HIDDEN_BALANCE))
         return mapOf(
             "clan" to clan.name,
             "clan_level" to clan.level.toString(),
@@ -224,8 +225,8 @@ class MainUX(clanService: ClanService) : BaseGui(clanService) {
     }
 
     private fun animatedStars(): String {
-        val frame = (System.currentTimeMillis() / ANIMATION_FRAME_MS).toInt() % HIDDEN_BALANCE_FRAMES.size
-        return HIDDEN_BALANCE_FRAMES[frame]
+        val cfg = clanService.plugin.configService
+        return cfg.animatedFrame(cfg.animationFrames(AnimationKey.HIDDEN_BALANCE))
     }
 
     private fun renderConfigItem(
@@ -251,12 +252,5 @@ class MainUX(clanService: ClanService) : BaseGui(clanService) {
         const val MEMBERS_PER_LEVEL = 5
         const val ZERO_KDA = "0.00"
         const val KDA_FORMAT = "%.2f"
-        const val ANIMATION_FRAME_MS = 600L
-        val HIDDEN_BALANCE_FRAMES = listOf(
-            "&#FC3737∗ &8∗ &5∗ &8∗ &6∗",
-            "&#FC3737∗ &8∗ &5∗ &6∗ &8∗",
-            "&#FC3737∗ &8∗ &6∗ &5∗ &8∗",
-            "&#FC3737∗ &6∗ &5∗ &8∗ &8∗"
-        )
     }
 }

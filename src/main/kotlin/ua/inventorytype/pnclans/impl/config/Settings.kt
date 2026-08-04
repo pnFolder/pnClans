@@ -64,7 +64,61 @@ class Settings {
     val msgWithdrawSuccess: String = "&aВы сняли &e{amount} ⛁ &aиз казны клана {clan}."
     val msgNoPermission: String = "&cУ вас недостаточно прав для выполнения этого действия."
     val msgPvpDisabled: String = "&c[pnClans] Урон по соклановцам отключён!"
-    val msgChatFormat: String = "&8[&6Клан &e{clan}&8] &7[{role}] &f{player}&8: &f{message}"
+    val msgChatFormat: String = "&8[&6Клан &e{clan}&8] &7[{role}] &7{player}&8: &f{message}"
     val msgJoinNotice: String = "&8[&6Клан&8] &aУчастник &e{player} &aвошёл на сервер!"
     val msgQuitNotice: String = "&8[&6Клан&8] &cУчастник &e{player} &cвышел с сервера!"
+
+    @YamlComment("Анимационные кадры, используемые в анимированных плейсхолдерах (например, скрытый баланс казны).")
+    val animations: AnimationConfig = AnimationConfig()
 }
+
+/**
+ * Configurable collection of animation frames used across the plugin.
+ *
+ * Each frame is a single-line string that replaces an animation placeholder
+ * (for example `{clan_balance_animated}`). Frame index is derived from the current
+ * time so multiple players always see a synchronised animation.
+ *
+ * @property frameIntervalMs Time between frames in milliseconds. Lower values animate faster.
+ * @property hiddenBalance Animation frames shown for a hidden treasury balance.
+ * @property upgradeIdle Frames rendered on the upgrade beacon while the ritual is ready.
+ * @property upgradeReady Frames rendered when a player can perform an upgrade.
+ * @property upgradeBusy Frames rendered while waiting for the ritual requirements.
+ */
+@Serializable
+data class AnimationConfig(
+    @YamlComment("Интервал между кадрами анимации в миллисекундах")
+    val frameIntervalMs: Int = 600,
+
+    @YamlComment("Кадры для скрытого баланса казны. Поддерживают HEX/& цвета и плейсхолдеры.")
+    val hiddenBalance: List<String> = listOf(
+        "&#FC3737∗ &8∗ &5∗ &8∗ &6∗",
+        "&#FC3737∗ &8∗ &5∗ &6∗ &8∗",
+        "&#FC3737∗ &8∗ &6∗ &5∗ &8∗",
+        "&#FC3737∗ &6∗ &5∗ &8∗ &8∗"
+    ),
+
+    @YamlComment("Кадры для светящегося маяка эволюции (ожидание ритуала).")
+    val upgradeIdle: List<String> = listOf(
+        "&#FC7D37✦ Подготовка",
+        "&#FC7D37✦ Подготовка.",
+        "&#FC7D37✦ Подготовка..",
+        "&#FC7D37✦ Подготовка..."
+    ),
+
+    @YamlComment("Кадры для маяка эволюции, когда все условия прокачки выполнены.")
+    val upgradeReady: List<String> = listOf(
+        "&#FFD700✦ Ритуал готов",
+        "&#FFD700✦ Ритуал готов.",
+        "&#FFD700✦ Ритуал готов..",
+        "&#FFD700✦ Ритуал готов..."
+    ),
+
+    @YamlComment("Кадры для маяка эволюции, когда не хватает ресурсов на прокачку.")
+    val upgradeBusy: List<String> = listOf(
+        "&#FC3737✦ Нужны ресурсы",
+        "&#FC3737✦ Нужны ресурсы.",
+        "&#FC3737✦ Нужны ресурсы..",
+        "&#FC3737✦ Нужны ресурсы..."
+    )
+)
