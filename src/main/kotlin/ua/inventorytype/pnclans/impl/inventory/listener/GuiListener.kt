@@ -1,6 +1,5 @@
 package ua.inventorytype.pnclans.impl.inventory.listener
 
-import org.bukkit.Bukkit
 import org.bukkit.entity.Player
 import org.bukkit.event.EventHandler
 import org.bukkit.event.EventPriority
@@ -12,33 +11,42 @@ import org.bukkit.event.player.PlayerQuitEvent
 import ua.inventorytype.pnclans.BukkitPlugin
 import ua.inventorytype.pnclans.impl.inventory.BaseGui
 import ua.inventorytype.pnclans.impl.inventory.HolderGui
-import ua.inventorytype.pnclans.impl.ux.TreasuryUX
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 
 /**
- * Event listener managing inventory GUI interactions, click routing, close handlers,
- * and automatic lifecycle cleanup.
+ * Event listener managing custom GUI interactions, title dynamic updates,
+ * and inventory lifecycle events.
+ *
+ * @param plugin The owning plugin instance.
  */
-class GuiListener(private val plugin: BukkitPlugin) : Listener {
+class GuiListener(val plugin: BukkitPlugin) : Listener {
 
     private val activeGuis = ConcurrentHashMap<UUID, BaseGui>()
 
     init {
         plugin.clanService.subscribe { playerUuid ->
-            plugin.server.getPlayer(playerUuid)?.let { player ->
-                val activeGui = activeGuis[player.uniqueId]
-                if (activeGui is TreasuryUX) {
-                    activeGui.updateSlot(13, player)
-                } else if (activeGui != null) {
-                    activeGui.update(player)
-                }
+            val player = plugin.server.getPlayer(playerUuid) ?: return@subscribe
+            val activeGui = activeGuis[player.uniqueId] ?: return@subscribe
+            
+            if (activeGui is ua.inventorytype.pnclans.impl.ux.TreasuryUX) {
+                val centerSlot = plugin.configService.menus.treasuryMenu.items["center"]?.slot ?: 13
+                activeGui.updateSlot(centerSlot, player)
+            } else if (activeGui !is ua.inventorytype.pnclans.impl.ux.ClanChestUX) {
+                activeGui.update(player)
             }
         }
     }
 
     fun register(player: Player, gui: BaseGui) {
         activeGuis[player.uniqueId] = gui
+    }
+
+    fun forceCloseAll() {
+        activeGuis.keys.forEach { uuid ->
+            plugin.server.getPlayer(uuid)?.closeInventory()
+        }
+        activeGuis.clear()
     }
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
@@ -53,13 +61,8 @@ class GuiListener(private val plugin: BukkitPlugin) : Listener {
         val topHolder = event.view.topInventory.holder as? HolderGui ?: return
         val gui = topHolder as BaseGui
 
-        // Prevent dragging items into/out of managed GUIs
-        event.isCancelled = true
-
         if (event.clickedInventory == null) return
-        if (event.clickedInventory == event.view.topInventory) {
-            gui.handleClick(event)
-        }
+        gui.handleClick(event)
     }
 
     @EventHandler(priority = EventPriority.HIGH)
@@ -80,18 +83,11 @@ class GuiListener(private val plugin: BukkitPlugin) : Listener {
         activeGuis.remove(event.player.uniqueId)
     }
 
-    fun forceCloseAll() {
-        for (player in Bukkit.getOnlinePlayers()) {
-            val holder = player.openInventory.topInventory.holder as? HolderGui ?: continue
-            player.closeInventory()
-            scheduleInventoryUpdate(player)
-        }
-        activeGuis.clear()
-    }
-
     private fun scheduleInventoryUpdate(player: Player) {
         plugin.server.scheduler.runTaskLater(plugin, Runnable {
-            player.updateInventory()
-        }, 2L)
+            if (player.isOnline) {
+                player.updateInventory()
+            }
+        }, 1L)
     }
 }

@@ -38,6 +38,8 @@ class ClanChestUX(
         else -> 45
     }
 
+    private val controlSlots = setOf(45, 46, 47, 48, 49, 50, 51, 52, 53)
+
     init {
         val cfg = clanService.plugin.configService
         val menuCfg = cfg.menus.chestMenu
@@ -171,20 +173,36 @@ class ClanChestUX(
     }
 
     override fun handleClick(e: InventoryClickEvent) {
-        val slot = e.slot
-        if (e.clickedInventory == inventory) {
-            if (slot in 45..53 || slot >= unlockedSlotsCount) {
+        val rawSlot = e.rawSlot
+        val topSize = inventory.size // 54
+
+        if (rawSlot in 0 until topSize) {
+            // Click is inside top inventory (Clan Chest)
+            if (rawSlot in controlSlots || rawSlot >= unlockedSlotsCount) {
                 e.isCancelled = true
+                super.handleClick(e)
             } else {
+                // Unlocked storage slot -> allow placing, taking, moving items freely
                 e.isCancelled = false
-                return
             }
         } else {
+            // Click is in player inventory (bottom inventory)
+            if (e.isShiftClick) {
+                val clickedItem = e.currentItem
+                if (clickedItem != null && clickedItem.type != Material.AIR) {
+                    val hasUnlockedSpace = (0 until unlockedSlotsCount).any { idx ->
+                        val existing = inventory.getItem(idx)
+                        existing == null || existing.type == Material.AIR || (existing.isSimilar(clickedItem) && existing.amount < existing.maxStackSize)
+                    }
+                    if (!hasUnlockedSpace) {
+                        e.isCancelled = true
+                        return
+                    }
+                }
+            }
+            // Allow player to move items in their hand / player inventory freely
             e.isCancelled = false
-            return
         }
-
-        super.handleClick(e)
     }
 
     override fun handleClose(e: InventoryCloseEvent) {
@@ -209,7 +227,11 @@ class ClanChestUX(
         return "&a" + "■".repeat(filled) + "&7" + "□".repeat(empty)
     }
 
-    private fun renderConfigItem(builder: ItemBuilder, itemCfg: GuiItemConfig, placeholders: Map<String, String>) {
+    private fun renderConfigItem(
+        builder: ItemBuilder,
+        itemCfg: GuiItemConfig,
+        placeholders: Map<String, String>
+    ) {
         builder.name(format(itemCfg.name, placeholders))
         builder.lore(itemCfg.lore.map { format(it, placeholders) })
         builder.glow(itemCfg.glow)
