@@ -9,15 +9,14 @@ import ua.inventorytype.pnclans.impl.inventory.BaseGui
 /**
  * Native, NMS-free anvil inventory GUI for numeric input prompts.
  *
- * Opens a standard Bukkit [InventoryType.ANVIL] inventory without any reflection or NMS.
- * The player renames the paper item in slot 0 (the left input slot) and clicks
- * the output item in slot 2 to confirm the entered value.
- *
- * Compatible with all Paper/Spigot server versions without external library dependencies.
+ * Compatible with all Paper/Spigot server versions. Reads typed numeric values from:
+ * 1. `AnvilView.getRenameText()` (Paper API)
+ * 2. Renamed Paper item in slot 0
+ * 3. Anvil result item in slot 2
  *
  * @param clanService The clan service providing plugin context for message dispatching.
  * @param titleText The inventory title shown above the anvil interface.
- * @param defaultText The pre-filled default text in the rename field (visible on the paper item).
+ * @param defaultText The pre-filled default text in the rename field.
  * @param onSubmit Callback invoked with the confirming player and the parsed numeric amount.
  * @param onCancel Callback invoked when the player closes the anvil without confirming.
  */
@@ -40,22 +39,40 @@ class AnvilInputUX(
         slot(0) {
             item(Material.PAPER) {
                 name(defaultText)
-                lore("&7Нажмите на галочку справа для ввода")
+                lore("&7Введите желаемую сумму выше и нажмите галочку")
             }
         }
 
         slot(2) {
             item(Material.NAME_TAG) {
-                name("&#5EFD7D✔ Подтвердить")
-                lore("&7Нажмите для завершения операции")
+                name("&#5EFD7D✔ Подтвердить ввод")
+                lore("&7Нажмите для применения суммы")
             }
             onClick { player, event ->
-                val rawInput = readAmount(event.currentItem)
-                    ?: readAmount(this@AnvilInputUX.inventory.getItem(0))
-                    ?: readAmount(this@AnvilInputUX.inventory.getItem(2))
-                    ?: defaultText
-                val amount = rawInput.toDoubleOrNull()
-                if (amount != null && amount > 0) {
+                // 1. Try reading renameText from AnvilView (Paper 1.20+)
+                var rawInput: String? = runCatching {
+                    val viewClass = Class.forName("org.bukkit.inventory.view.AnvilView")
+                    if (viewClass.isInstance(event.view)) {
+                        viewClass.getMethod("getRenameText").invoke(event.view) as? String
+                    } else null
+                }.getOrNull()
+
+                // 2. Fallback to reading renamed item meta from slot 0 or slot 2
+                if (rawInput.isNullOrBlank()) {
+                    rawInput = readAmount(this@AnvilInputUX.inventory.getItem(0))
+                        ?: readAmount(this@AnvilInputUX.inventory.getItem(2))
+                        ?: readAmount(event.currentItem)
+                        ?: defaultText
+                }
+
+                val cleaned = rawInput.orEmpty()
+                    .replace(COLOR_PATTERN, "")
+                    .replace(NON_NUMERIC_PATTERN, "")
+                    .trim()
+                    .replace(',', '.')
+
+                val amount = cleaned.toDoubleOrNull()
+                if (amount != null && amount > 0.0) {
                     this@AnvilInputUX.onSubmit(player, amount)
                 } else {
                     val cfg = this@AnvilInputUX.clanService.plugin.configService
@@ -79,10 +96,7 @@ class AnvilInputUX(
         private val NON_NUMERIC_PATTERN = Regex("[^0-9.,\\-]")
 
         /**
-         * Extracts a numeric amount from a renamed anvil item.
-         *
-         * Strips both Minecraft color codes and any non-numeric decoration, then normalizes
-         * locale-specific decimal separators to dots so values like `1 000` or `1,5` still parse.
+         * Extracts a numeric amount from an anvil item stack's display name.
          */
         fun readAmount(stack: org.bukkit.inventory.ItemStack?): String? {
             if (stack == null || !stack.hasItemMeta()) return null
