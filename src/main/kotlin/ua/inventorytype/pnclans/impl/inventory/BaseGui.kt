@@ -145,7 +145,7 @@ abstract class BaseGui(
         }
     }
 
-    fun open(player: Player) {
+    open fun open(player: Player) {
         update(player)
         player.openInventory(inventory)
     }

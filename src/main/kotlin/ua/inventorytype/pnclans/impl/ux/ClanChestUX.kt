@@ -52,7 +52,7 @@ class ClanChestUX(
         for (slotIndex in 0 until unlockedSlotsCount) {
             val item = savedItems.getOrNull(slotIndex)
             if (item != null && item.type != Material.AIR) {
-                inventory.setItem(slotIndex, item)
+                inventory.setItem(slotIndex, item.clone())
             }
         }
 
@@ -172,6 +172,20 @@ class ClanChestUX(
         } }
     }
 
+    override fun open(player: Player) {
+        updateControlSlots(player)
+        player.openInventory(inventory)
+    }
+
+    private fun updateControlSlots(player: Player) {
+        controlSlots.forEach { index ->
+            updateSlot(index, player)
+        }
+        for (slotIndex in unlockedSlotsCount until 45) {
+            updateSlot(slotIndex, player)
+        }
+    }
+
     override fun handleClick(e: InventoryClickEvent) {
         val rawSlot = e.rawSlot
         val topSize = inventory.size // 54
@@ -215,7 +229,7 @@ class ClanChestUX(
         for (i in 0 until unlockedSlotsCount) {
             val item = inventory.getItem(i)
             if (item != null && item.type != Material.AIR) {
-                items[i] = item
+                items[i] = item.clone()
             }
         }
         clanService.saveChestItems(clan.id, items)
