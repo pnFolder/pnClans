@@ -45,7 +45,11 @@ class ClanLeaveConfirmUX(clanService: ClanService) : BaseGui(clanService) {
                     val user = clan.users.find { it.uuid == player.uniqueId } ?: return@onClick
 
                     if (clan.getUserRole(user) == ClanRole.LEADER) {
-                        this@ClanLeaveConfirmUX.clanService.disbandClan(clan)
+                        val errorMsg = this@ClanLeaveConfirmUX.clanService.disbandClan(clan, player)
+                        if (errorMsg != null) {
+                            player.sendMessage(errorMsg)
+                            return@onClick
+                        }
                     } else if (clan.removeUser(player.uniqueId)) {
                         this@ClanLeaveConfirmUX.clanService.saveClan(clan)
                         this@ClanLeaveConfirmUX.clanService.notifyClanUpdated(player.uniqueId)

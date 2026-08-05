@@ -1,6 +1,7 @@
 package ua.inventorytype.pnclans.impl.clan
 
 import org.bukkit.Bukkit
+import org.bukkit.Material
 import org.bukkit.entity.Player
 import org.bukkit.inventory.ItemStack
 import ua.inventorytype.pnclans.BukkitPlugin
@@ -205,14 +206,44 @@ class ClanService(
     }
 
     /**
-     * Permanently deletes a clan, removes it from storage, and notifies all former members.
+     * Checks whether a clan storage chest currently contains stored items.
+     */
+    fun hasChestItems(clan: Clan): Boolean {
+        val chestItems = getChestItems(clan.id)
+        return chestItems.any { it != null && it.type != Material.AIR }
+    }
+
+    /**
+     * Permanently disbands a clan with safety validation:
+     * - Blocks disbanding if items remain inside the clan chest storage.
+     * - Automatically refunds any remaining treasury balance to the leader's account.
+     * - Cleans up all storage entries and notifies former members.
      *
      * @param clan The [Clan] to disband.
+     * @param leaderPlayer The leader player executing the disband action (for messages and refund).
+     * @return Error message string if disbanding was blocked, or null if successful.
      */
-    fun disbandClan(clan: Clan) {
+    fun disbandClan(clan: Clan, leaderPlayer: Player? = null): String? {
+        // 1. Safety check for stored chest items
+        if (hasChestItems(clan)) {
+            return "§c[pnClans] Ошибка: Нельзя распустить клан, пока в хранилище хранятся предметы! Заберите все вещи перед удалением."
+        }
+
+        // 2. Refund remaining treasury balance to leader
+        if (clan.bankBalance > 0.0) {
+            val refundAmount = clan.bankBalance
+            val leaderUser = clan.users.find { clan.getUserRole(it) == ClanRole.LEADER }
+            val leader = leaderPlayer ?: (leaderUser?.let { Bukkit.getPlayer(it.uuid) })
+
+            if (leader != null) {
+                economy.depositPlayer(leader, refundAmount)
+                leader.sendMessage("§a[pnClans] Средства из казны (§e${refundAmount.toBigDecimal().stripTrailingZeros().toPlainString()} ⛁§a) переведены на ваш баланс!")
+            }
+        }
+
         val disbandEvent = ClanDisbandedEvent(clan)
         Bukkit.getPluginManager().callEvent(disbandEvent)
-        if (disbandEvent.isCancelled) return
+        if (disbandEvent.isCancelled) return "§c[pnClans] Распуск клана был отменён событием."
 
         val memberUuids = clan.users.map { it.uuid }
         _clans.remove(clan)
@@ -224,6 +255,8 @@ class ClanService(
                 configService.send(member, configService.messages.clan.disbanded, mapOf("clan" to clan.name))
             }
         }
+
+        return null
     }
 
     /**
