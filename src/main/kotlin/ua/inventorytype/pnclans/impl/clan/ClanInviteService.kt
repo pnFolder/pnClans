@@ -157,7 +157,7 @@ class ClanInviteService(private val clanService: ClanService) {
             }
 
             val newUser = ClanUser(player.uniqueId, player.name)
-            if (!clan.addUser(newUser, ClanRole.MEMBER)) {
+            if (!clanService.addUserToClan(clan, newUser, ClanRole.MEMBER)) {
                 cfg.send(player, cfg.messages.invite.inviteInvalid)
                 return false
             }

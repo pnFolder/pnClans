@@ -317,6 +317,28 @@ class ClanService(
     }
 
     /**
+     * Adds a user to a clan and keeps the [_uuidToClan] index in sync.
+     *
+     * @return True if the user was successfully added.
+     */
+    fun addUserToClan(clan: Clan, user: ua.inventorytype.pnclans.api.User, role: ua.inventorytype.pnclans.api.clan.ClanRole): Boolean {
+        val added = clan.addUser(user, role)
+        if (added) _uuidToClan[user.uuid] = clan
+        return added
+    }
+
+    /**
+     * Removes a user from a clan and keeps the [_uuidToClan] index in sync.
+     *
+     * @return True if the user was removed.
+     */
+    fun removeUserFromClan(clan: Clan, uuid: UUID): Boolean {
+        val removed = clan.removeUser(uuid)
+        if (removed) _uuidToClan.remove(uuid)
+        return removed
+    }
+
+    /**
      * Persists a single [Clan] to the storage backend.
      * Should be called after any mutation to clan data (role changes, balance updates, etc.).
      *

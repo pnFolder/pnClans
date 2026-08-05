@@ -50,7 +50,7 @@ class ClanLeaveConfirmUX(clanService: ClanService) : BaseGui(clanService) {
                             player.sendMessage(errorMsg)
                             return@onClick
                         }
-                    } else if (clan.removeUser(player.uniqueId)) {
+                    } else if (this@ClanLeaveConfirmUX.clanService.removeUserFromClan(clan, player.uniqueId)) {
                         this@ClanLeaveConfirmUX.clanService.saveClan(clan)
                         this@ClanLeaveConfirmUX.clanService.notifyClanUpdated(player.uniqueId)
                         cfg.send(player, cfg.messages.clan.left, mapOf("clan" to clan.name))
