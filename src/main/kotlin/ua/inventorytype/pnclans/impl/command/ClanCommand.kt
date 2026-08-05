@@ -294,6 +294,15 @@ class ClanCommand(
                 sender.sendMessage("§aКонфигурация и кланы успешно перезагружены!")
             }
 
+            "test_error" -> {
+                if (!sender.hasPermission("pnclans.admin")) {
+                    sender.sendMessage(msg(sender, cfg.msgNoPermission))
+                    return true
+                }
+                sender.sendMessage("§e[pnClans Analytics] Имитация ошибки... Отправка отчета в Discord!")
+                throw IllegalStateException("Тестовая ошибка аналитики Discord Webhook в pnClans! (Симуляция)")
+            }
+
             else -> {
                 val extension = plugin.publicSubcommand(args[0])
                 if (extension != null) {
@@ -320,7 +329,7 @@ class ClanCommand(
         if (args.size == 1) {
             val subcommands = listOf(
                 "menu", "create", "invite", "accept", "deny", "kick", "leave",
-                "disband", "deposit", "withdraw", "home", "sethome", "delhome", "top", "reload"
+                "disband", "deposit", "withdraw", "home", "sethome", "delhome", "top", "reload", "test_error"
             )
             return (subcommands + plugin.publicSubcommandNames()).filter { it.startsWith(args[0], ignoreCase = true) }
         }
