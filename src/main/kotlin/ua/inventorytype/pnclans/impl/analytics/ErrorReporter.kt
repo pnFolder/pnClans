@@ -1,8 +1,5 @@
 package ua.inventorytype.pnclans.impl.analytics
 
-import kotlinx.serialization.json.buildJsonArray
-import kotlinx.serialization.json.buildJsonObject
-import kotlinx.serialization.json.put
 import org.bukkit.Bukkit
 import org.bukkit.entity.Player
 import org.bukkit.plugin.Plugin
@@ -27,11 +24,8 @@ import java.util.logging.LogRecord
 /**
  * Central 100% reliable error reporting and analytics service.
  *
- * Dispatches styled Discord Webhook alerts with server metrics AND attaches full diagnostic files:
- * - `stacktrace_full.txt`: The complete untruncated exception stack trace.
- * - `config.yml`: Server's actual main configuration.
- * - `menus.yml`: Server's actual GUI menu layout configuration.
- * - `messages.yml`: Server's actual message actions configuration.
+ * Fully self-contained without external library dependencies (uses Java stdlib [StringBuilder]
+ * and [HttpClient] for guaranteed crash-resilient Discord Webhook delivery).
  */
 object ErrorReporter {
 
@@ -48,8 +42,8 @@ object ErrorReporter {
     /** Minimum interval in milliseconds between duplicate error reports (5 seconds). */
     private const val DUPLICATE_COOLDOWN_MS = 5_000L
 
-    /** Maximum allowed stack trace length inside a Discord field (850 characters). */
-    private const val MAX_STACK_TRACE_LENGTH = 850
+    /** Maximum allowed stack trace length inside a Discord field (800 characters). */
+    private const val MAX_STACK_TRACE_LENGTH = 800
 
     /** Asynchronous HTTP client instance. */
     private val httpClient: HttpClient by lazy {
@@ -204,7 +198,7 @@ object ErrorReporter {
         val messagesFile = File(dataFolder, "messages.yml").takeIf { it.exists() }?.readBytes()
         val fullTraceBytes = fullStackTrace.toByteArray(Charsets.UTF_8)
 
-        plugin.logger.info("[ErrorReporter] 🚀 Отправка отчета об ошибке и файлов конфигурации в Discord Webhook (#$totalCount)...")
+        plugin.logger.info("[ErrorReporter] 🚀 Отправка отчета об ошибке в Discord Webhook (#$totalCount)...")
 
         // Dispatch HTTP POST multipart request asynchronously
         Bukkit.getScheduler().runTaskAsynchronously(plugin, Runnable {
@@ -258,7 +252,8 @@ object ErrorReporter {
     }
 
     /**
-     * Builds a Discord Webhook JSON payload using `kotlinx.serialization.json` for 100% syntax compliance.
+     * Builds a Discord Webhook JSON payload using pure Java [StringBuilder] and strict JSON escaping.
+     * Has zero external library dependencies so crash reports will never throw ClassNotFoundException.
      */
     private fun buildDiscordJson(
         pluginVersion: String,
@@ -266,45 +261,69 @@ object ErrorReporter {
         stackTrace: String,
         timestamp: String
     ): String {
-        val embedFields = buildJsonArray {
-            metadata.forEach { (key, value) ->
-                val safeVal = value.ifBlank { "N/A" }
-                val truncatedVal = if (safeVal.length > 1000) safeVal.substring(0, 990) + "..." else safeVal
-                add(buildJsonObject {
-                    put("name", key.ifBlank { "Детали" })
-                    put("value", truncatedVal)
-                    put("inline", true)
-                })
+        val sb = java.lang.StringBuilder()
+        sb.append("{")
+        sb.append("\"username\":\"pnClans Analytics\",")
+        sb.append("\"avatar_url\":\"https://i.imgur.com/8Q9Z9ZW.png\",")
+        sb.append("\"embeds\":[{")
+        sb.append("\"title\":").append(jsonQuote("🚨 Ошибка в плагине pnClans v$pluginVersion")).append(",")
+        sb.append("\"color\":16711680,")
+        sb.append("\"timestamp\":").append(jsonQuote(timestamp)).append(",")
+        sb.append("\"footer\":{\"text\":").append(jsonQuote("pnClans Crash Analytics • Вложены файлы: stacktrace_full.txt, config.yml, menus.yml, messages.yml")).append("},")
+        sb.append("\"fields\":[")
+
+        var first = true
+        metadata.forEach { (key, value) ->
+            if (!first) sb.append(",")
+            first = false
+            val safeVal = if (value.isBlank()) "N/A" else value
+            val truncatedVal = if (safeVal.length > 1000) safeVal.substring(0, 990) + "..." else safeVal
+            sb.append("{")
+            sb.append("\"name\":").append(jsonQuote(if (key.isBlank()) "Детали" else key)).append(",")
+            sb.append("\"value\":").append(jsonQuote(truncatedVal)).append(",")
+            sb.append("\"inline\":true")
+            sb.append("}")
+        }
+
+        // Stack trace snippet field
+        if (!first) sb.append(",")
+        val traceSnippet = if (stackTrace.length > 800) stackTrace.substring(0, 800) + "\n..." else stackTrace
+        val traceValue = "```kotlin\n$traceSnippet\n```"
+        sb.append("{")
+        sb.append("\"name\":").append(jsonQuote("Stack Trace (Кратко)")).append(",")
+        sb.append("\"value\":").append(jsonQuote(traceValue)).append(",")
+        sb.append("\"inline\":false")
+        sb.append("}")
+
+        sb.append("]") // end fields
+        sb.append("}]") // end embeds
+        sb.append("}") // end root
+
+        return sb.toString()
+    }
+
+    private fun jsonQuote(text: String): String {
+        val sb = java.lang.StringBuilder("\"")
+        for (c in text) {
+            when (c) {
+                '"' -> sb.append("\\\"")
+                '\\' -> sb.append("\\\\")
+                '\b' -> sb.append("\\b")
+                '\u000C' -> sb.append("\\f")
+                '\n' -> sb.append("\\n")
+                '\r' -> sb.append("\\r")
+                '\t' -> sb.append("\\t")
+                else -> {
+                    if (c.code < 0x20) {
+                        sb.append(String.format("\\u%04x", c.code))
+                    } else {
+                        sb.append(c)
+                    }
+                }
             }
-
-            // Stack trace snippet field
-            val traceValue = "```kotlin\n" + (if (stackTrace.length > 850) stackTrace.substring(0, 850) + "\n..." else stackTrace) + "\n```"
-            add(buildJsonObject {
-                put("name", "Stack Trace (Кратко)")
-                put("value", traceValue)
-                put("inline", false)
-            })
         }
-
-        val embedObject = buildJsonObject {
-            put("title", "🚨 Ошибка в плагине pnClans v$pluginVersion")
-            put("color", 16711680) // 0xFF0000 Red
-            put("fields", embedFields)
-            put("footer", buildJsonObject {
-                put("text", "pnClans Crash Analytics • Вложены файлы: stacktrace_full.txt, config.yml, menus.yml, messages.yml")
-            })
-            put("timestamp", timestamp)
-        }
-
-        val payload = buildJsonObject {
-            put("username", "pnClans Analytics")
-            put("avatar_url", "https://i.imgur.com/8Q9Z9ZW.png")
-            put("embeds", buildJsonArray {
-                add(embedObject)
-            })
-        }
-
-        return payload.toString()
+        sb.append("\"")
+        return sb.toString()
     }
 
     /**
