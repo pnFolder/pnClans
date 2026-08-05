@@ -189,6 +189,7 @@ class ClanChestUX(
     override fun handleClick(e: InventoryClickEvent) {
         val rawSlot = e.rawSlot
         val topSize = inventory.size // 54
+        val player = e.whoClicked as? Player
 
         if (rawSlot in 0 until topSize) {
             // Click is inside top inventory (Clan Chest)
@@ -198,6 +199,7 @@ class ClanChestUX(
             } else {
                 // Unlocked storage slot -> allow placing, taking, moving items freely
                 e.isCancelled = false
+                scheduleStatsUpdate(player)
             }
         } else {
             // Click is in player inventory (bottom inventory)
@@ -213,10 +215,23 @@ class ClanChestUX(
                         return
                     }
                 }
+                scheduleStatsUpdate(player)
+            } else {
+                scheduleStatsUpdate(player)
             }
             // Allow player to move items in their hand / player inventory freely
             e.isCancelled = false
         }
+    }
+
+    private fun scheduleStatsUpdate(player: Player?) {
+        if (player == null) return
+        clanService.plugin.server.scheduler.runTaskLater(clanService.plugin, Runnable {
+            if (player.isOnline && player.openInventory.topInventory.holder == this) {
+                val statsSlot = clanService.plugin.configService.menus.chestMenu.items["stats"]?.slot ?: 45
+                updateSlot(statsSlot, player)
+            }
+        }, 1L)
     }
 
     override fun handleClose(e: InventoryCloseEvent) {
