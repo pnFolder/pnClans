@@ -34,7 +34,7 @@ class PlaytimeTracker {
         val session = activeSessions.remove(playerId) ?: return
         val deltaSeconds = ((System.currentTimeMillis() - session.lastTickMs) / MILLIS_PER_SECOND).coerceAtLeast(0L)
         if (deltaSeconds == 0L) return
-        val clan = clanService.getAllClans().firstOrNull { it.id == session.clanId } ?: return
+        val clan = clanService.getClanByUuid(playerId) ?: return
         val user = (clan.users.firstOrNull { it.uuid == playerId } as? ClanUser) ?: return
         user.playtimeSeconds += deltaSeconds
         clanService.saveClan(clan)
