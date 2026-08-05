@@ -4,11 +4,13 @@ import org.bukkit.Bukkit
 import org.bukkit.entity.Player
 import org.bukkit.plugin.Plugin
 import ua.inventorytype.pnclans.BukkitPlugin
-import java.io.OutputStreamWriter
 import java.io.PrintWriter
 import java.io.StringWriter
-import java.net.HttpURLConnection
-import java.net.URL
+import java.net.URI
+import java.net.http.HttpClient
+import java.net.http.HttpRequest
+import java.net.http.HttpResponse
+import java.time.Duration
 import java.time.Instant
 import java.time.format.DateTimeFormatter
 import java.util.concurrent.ConcurrentHashMap
@@ -18,12 +20,10 @@ import java.util.logging.Level
 import java.util.logging.LogRecord
 
 /**
- * Central, 100% automatic error reporting and analytics service.
+ * Central 100% reliable error reporting and analytics service.
  *
- * Attaches a custom [Handler] to both [Plugin.getLogger] and [Bukkit.getLogger] (the root server logger).
- * Whenever Paper/Spigot logs a `CommandException`, event exception, or unhandled error belonging to
- * `pnClans`, this reporter automatically intercepts it, collects diagnostic metrics, and posts a formatted
- * embed to the Discord Webhook asynchronously.
+ * Utilizes Java 11+ [HttpClient] for asynchronous HTTP POST requests to Discord Webhooks.
+ * Intercepts uncaught errors from commands, GUIs, Bukkit event listeners, and background threads.
  */
 object ErrorReporter {
 
@@ -37,11 +37,18 @@ object ErrorReporter {
     /** Total error count during this server session. */
     private val totalErrorsCount = AtomicInteger(0)
 
-    /** Minimum interval in milliseconds between duplicate error reports (10 seconds). */
-    private const val DUPLICATE_COOLDOWN_MS = 10_000L
+    /** Minimum interval in milliseconds between duplicate error reports (5 seconds). */
+    private const val DUPLICATE_COOLDOWN_MS = 5_000L
 
-    /** Maximum allowed stack trace length inside a Discord field (1020 characters). */
-    private const val MAX_STACK_TRACE_LENGTH = 1020
+    /** Maximum allowed stack trace length inside a Discord field (1000 characters). */
+    private const val MAX_STACK_TRACE_LENGTH = 1000
+
+    /** Asynchronous HTTP client instance. */
+    private val httpClient: HttpClient by lazy {
+        HttpClient.newBuilder()
+            .connectTimeout(Duration.ofSeconds(5))
+            .build()
+    }
 
     /** The initialized plugin instance. */
     private var pluginInstance: BukkitPlugin? = null
@@ -55,7 +62,7 @@ object ErrorReporter {
     fun init(plugin: BukkitPlugin) {
         this.pluginInstance = plugin
 
-        // 1. Attach central logging handler to intercept all SEVERE errors automatically
+        // Attach logger handler for JUL loggers
         val loggerHandler = object : Handler() {
             override fun publish(record: LogRecord?) {
                 if (record == null) return
@@ -63,7 +70,6 @@ object ErrorReporter {
                     val thrown = record.thrown ?: return
                     val msg = record.message.orEmpty()
 
-                    // Intercept if message contains pnClans OR throwable stack trace references pnClans package
                     val isPnClansError = msg.contains("pnClans", ignoreCase = true) ||
                             thrown.stackTrace.any { it.className.contains("ua.inventorytype.pnclans") }
 
@@ -80,12 +86,10 @@ object ErrorReporter {
             override fun close() {}
         }
 
-        // Attach to plugin logger AND root Bukkit server logger (where Paper logs CommandExceptions)
         plugin.logger.addHandler(loggerHandler)
         Bukkit.getLogger().addHandler(loggerHandler)
-        plugin.logger.parent?.addHandler(loggerHandler)
 
-        // 2. Set default uncaught exception handler for background threads
+        // Uncaught exception handler for background threads
         val defaultHandler = Thread.getDefaultUncaughtExceptionHandler()
         Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
             val isPnClansError = throwable.stackTrace.any { it.className.contains("ua.inventorytype.pnclans") }
@@ -102,9 +106,9 @@ object ErrorReporter {
     }
 
     /**
-     * Manually reports an exception asynchronously to the Discord Webhook.
+     * Reports an exception asynchronously to the Discord Webhook.
      *
-     * @param context Description of where the error occurred.
+     * @param context High-level description of where the error occurred.
      * @param throwable The caught exception or error.
      * @param player Optional player associated with the error context.
      * @param extraData Optional key-value pairs providing extra diagnostic state.
@@ -119,7 +123,7 @@ object ErrorReporter {
     }
 
     /**
-     * Internal implementation for building metrics and dispatching the HTTP webhook.
+     * Internal implementation for building metrics and dispatching the HTTP webhook via [HttpClient].
      */
     private fun reportInternal(
         context: String,
@@ -130,7 +134,6 @@ object ErrorReporter {
         val plugin = pluginInstance ?: return
         val settings = plugin.configService.settings
 
-        // Duplicate suppression check based on exception class + top stack element
         val rootCause = getRootCause(throwable)
         val exceptionKey = "${rootCause.javaClass.name}:${rootCause.stackTrace.firstOrNull()}"
         val now = System.currentTimeMillis()
@@ -142,7 +145,7 @@ object ErrorReporter {
 
         val totalCount = totalErrorsCount.incrementAndGet()
 
-        // ── Comprehensive System & Server Analytics ──────────────────────────
+        // ── System & Server Analytics ────────────────────────────────────────
         val pluginVersion = plugin.description.version
         val serverEngine = "${Bukkit.getName()} ${Bukkit.getVersion()} (MC ${Bukkit.getMinecraftVersion()})"
         val javaVersion = System.getProperty("java.version") ?: "Unknown Java"
@@ -167,7 +170,6 @@ object ErrorReporter {
             fullStackTrace
         }
 
-        // ── Config Dump Summary ──────────────────────────────────────────────
         val configDump = "Storage: ${settings.storageType} | CreateCost: ${settings.createClanCost} | InviteTimeout: ${settings.inviteLifetimeSeconds}s"
 
         // ── Metadata Map ─────────────────────────────────────────────────────
@@ -187,62 +189,38 @@ object ErrorReporter {
 
         extraData.forEach { (k, v) -> metadata[k] = v }
 
-        // Log notification to console
         plugin.logger.info("[ErrorReporter] 🚀 Отправка отчета об ошибке в Discord Webhook (#$totalCount)...")
 
-        // Dispatch HTTP request asynchronously
+        // Dispatch HTTP POST request asynchronously using Java 11 HttpClient
         Bukkit.getScheduler().runTaskAsynchronously(plugin, Runnable {
             try {
-                sendWebhookPayload(DISCORD_WEBHOOK_URL, pluginVersion, metadata, truncatedStackTrace, timestamp)
-                plugin.logger.info("[ErrorReporter] ✔ Отчет об ошибке #$totalCount успешно доставлен в Discord!")
+                val jsonPayload = buildDiscordJson(pluginVersion, metadata, truncatedStackTrace, timestamp)
+                val httpRequest = HttpRequest.newBuilder()
+                    .uri(URI.create(DISCORD_WEBHOOK_URL))
+                    .header("Content-Type", "application/json; charset=UTF-8")
+                    .header("User-Agent", "pnClans-Analytics-Reporter/1.0")
+                    .timeout(Duration.ofSeconds(5))
+                    .POST(HttpRequest.BodyPublishers.ofString(jsonPayload, Charsets.UTF_8))
+                    .build()
+
+                val response = httpClient.send(httpRequest, HttpResponse.BodyHandlers.ofString())
+                if (response.statusCode() in 200..299) {
+                    plugin.logger.info("[ErrorReporter] ✔ Отчет об ошибке #$totalCount успешно доставлен в Discord! (HTTP ${response.statusCode()})")
+                } else {
+                    plugin.logger.warning("[ErrorReporter] ✖ Discord Webhook вернул ошибку HTTP ${response.statusCode()}: ${response.body()}")
+                }
             } catch (ex: Exception) {
-                plugin.logger.warning("[ErrorReporter] ✖ Ошибка отправки вебхука в Discord: ${ex.message}")
+                plugin.logger.warning("[ErrorReporter] ✖ Ошибка соединения с Discord Webhook: ${ex.message}")
             }
         })
     }
 
-    /**
-     * Unwraps nested causes to find the root cause exception.
-     */
     private fun getRootCause(throwable: Throwable): Throwable {
         var cause = throwable
         while (cause.cause != null && cause.cause != cause) {
             cause = cause.cause!!
         }
         return cause
-    }
-
-    /**
-     * Constructs and executes the HTTP POST request to the Discord Webhook URL.
-     */
-    private fun sendWebhookPayload(
-        webhookUrl: String,
-        pluginVersion: String,
-        metadata: Map<String, String>,
-        stackTrace: String,
-        timestamp: String
-    ) {
-        val jsonPayload = buildDiscordJson(pluginVersion, metadata, stackTrace, timestamp)
-
-        val url = URL(webhookUrl)
-        val connection = url.openConnection() as HttpURLConnection
-        connection.requestMethod = "POST"
-        connection.setRequestProperty("Content-Type", "application/json; charset=UTF-8")
-        connection.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) pnClans Analytics")
-        connection.connectTimeout = 5000
-        connection.readTimeout = 5000
-        connection.doOutput = true
-
-        OutputStreamWriter(connection.outputStream, Charsets.UTF_8).use { writer ->
-            writer.write(jsonPayload)
-            writer.flush()
-        }
-
-        val responseCode = connection.responseCode
-        if (responseCode !in 200..299) {
-            Bukkit.getLogger().warning("[pnClans ErrorReporter] Discord Webhook вернул код ответа: $responseCode")
-        }
-        connection.disconnect()
     }
 
     /**
@@ -262,7 +240,7 @@ object ErrorReporter {
         }
 
         val stackTraceFormatted = "```kotlin\n$stackTrace\n```"
-        fieldsJson.append("""",{"name": "Stack Trace", "value": ${escapeJson(stackTraceFormatted)}, "inline": false}""")
+        fieldsJson.append(""",{"name": "Stack Trace", "value": ${escapeJson(stackTraceFormatted)}, "inline": false}""")
 
         return """
         {
