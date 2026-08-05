@@ -7,6 +7,8 @@ import org.bukkit.Bukkit
 import org.bukkit.entity.Player
 import org.bukkit.plugin.Plugin
 import ua.inventorytype.pnclans.BukkitPlugin
+import java.io.ByteArrayOutputStream
+import java.io.File
 import java.io.PrintWriter
 import java.io.StringWriter
 import java.net.URI
@@ -25,8 +27,11 @@ import java.util.logging.LogRecord
 /**
  * Central 100% reliable error reporting and analytics service.
  *
- * Utilizes Java 11+ [HttpClient] and `kotlinx.serialization.json` for guaranteed valid JSON payloads
- * sent to Discord Webhooks.
+ * Dispatches styled Discord Webhook alerts with server metrics AND attaches full diagnostic files:
+ * - `stacktrace_full.txt`: The complete untruncated exception stack trace.
+ * - `config.yml`: Server's actual main configuration.
+ * - `menus.yml`: Server's actual GUI menu layout configuration.
+ * - `messages.yml`: Server's actual message actions configuration.
  */
 object ErrorReporter {
 
@@ -126,7 +131,7 @@ object ErrorReporter {
     }
 
     /**
-     * Internal implementation for building metrics and dispatching the HTTP webhook via [HttpClient].
+     * Internal implementation for building metrics, gathering YAML configs, and dispatching multipart Webhook.
      */
     private fun reportInternal(
         context: String,
@@ -163,12 +168,12 @@ object ErrorReporter {
 
         val timestamp = DateTimeFormatter.ISO_INSTANT.format(Instant.now())
 
-        // ── Stack Trace Formatting ───────────────────────────────────────────
+        // ── Full Stack Trace & Truncated Snippet ─────────────────────────────
         val stringWriter = StringWriter()
         throwable.printStackTrace(PrintWriter(stringWriter))
         val fullStackTrace = stringWriter.toString()
         val truncatedStackTrace = if (fullStackTrace.length > MAX_STACK_TRACE_LENGTH) {
-            fullStackTrace.substring(0, MAX_STACK_TRACE_LENGTH) + "\n... (truncated)"
+            fullStackTrace.substring(0, MAX_STACK_TRACE_LENGTH) + "\n... (полный стек во вложенном файле)"
         } else {
             fullStackTrace
         }
@@ -192,23 +197,49 @@ object ErrorReporter {
 
         extraData.forEach { (k, v) -> metadata[k] = v }
 
-        plugin.logger.info("[ErrorReporter] 🚀 Отправка отчета об ошибке в Discord Webhook (#$totalCount)...")
+        // Read server config files on main thread before async post
+        val dataFolder = plugin.dataFolder
+        val configFile = File(dataFolder, "config.yml").takeIf { it.exists() }?.readBytes()
+        val menusFile = File(dataFolder, "menus.yml").takeIf { it.exists() }?.readBytes()
+        val messagesFile = File(dataFolder, "messages.yml").takeIf { it.exists() }?.readBytes()
+        val fullTraceBytes = fullStackTrace.toByteArray(Charsets.UTF_8)
 
-        // Dispatch HTTP POST request asynchronously using Java 11 HttpClient
+        plugin.logger.info("[ErrorReporter] 🚀 Отправка отчета об ошибке и файлов конфигурации в Discord Webhook (#$totalCount)...")
+
+        // Dispatch HTTP POST multipart request asynchronously
         Bukkit.getScheduler().runTaskAsynchronously(plugin, Runnable {
             try {
                 val jsonPayload = buildDiscordJson(pluginVersion, metadata, truncatedStackTrace, timestamp)
+                val multipart = MultipartBuilder()
+                    .addPart("payload_json", jsonPayload)
+                    .addFile("files[0]", "stacktrace_full.txt", "text/plain; charset=utf-8", fullTraceBytes)
+
+                var fileIndex = 1
+                if (configFile != null) {
+                    multipart.addFile("files[$fileIndex]", "config.yml", "text/plain; charset=utf-8", configFile)
+                    fileIndex++
+                }
+                if (menusFile != null) {
+                    multipart.addFile("files[$fileIndex]", "menus.yml", "text/plain; charset=utf-8", menusFile)
+                    fileIndex++
+                }
+                if (messagesFile != null) {
+                    multipart.addFile("files[$fileIndex]", "messages.yml", "text/plain; charset=utf-8", messagesFile)
+                }
+
+                val (contentType, bodyBytes) = multipart.build()
+
                 val httpRequest = HttpRequest.newBuilder()
                     .uri(URI.create(DISCORD_WEBHOOK_URL))
-                    .header("Content-Type", "application/json; charset=UTF-8")
+                    .header("Content-Type", contentType)
                     .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) pnClans Analytics")
-                    .timeout(Duration.ofSeconds(5))
-                    .POST(HttpRequest.BodyPublishers.ofString(jsonPayload, Charsets.UTF_8))
+                    .timeout(Duration.ofSeconds(10))
+                    .POST(HttpRequest.BodyPublishers.ofByteArray(bodyBytes))
                     .build()
 
                 val response = httpClient.send(httpRequest, HttpResponse.BodyHandlers.ofString())
                 if (response.statusCode() in 200..299) {
-                    plugin.logger.info("[ErrorReporter] ✔ Отчет об ошибке #$totalCount успешно доставлен в Discord! (HTTP ${response.statusCode()})")
+                    plugin.logger.info("[ErrorReporter] ✔ Отчет об ошибке #$totalCount с конфигурациями успешно доставлен в Discord! (HTTP ${response.statusCode()})")
                 } else {
                     plugin.logger.warning("[ErrorReporter] ✖ Discord Webhook вернул ошибку HTTP ${response.statusCode()}: ${response.body()}")
                 }
@@ -246,10 +277,10 @@ object ErrorReporter {
                 })
             }
 
-            // Stack trace field (Discord limits field value to 1024 chars max)
+            // Stack trace snippet field
             val traceValue = "```kotlin\n" + (if (stackTrace.length > 850) stackTrace.substring(0, 850) + "\n..." else stackTrace) + "\n```"
             add(buildJsonObject {
-                put("name", "Stack Trace")
+                put("name", "Stack Trace (Кратко)")
                 put("value", traceValue)
                 put("inline", false)
             })
@@ -260,7 +291,7 @@ object ErrorReporter {
             put("color", 16711680) // 0xFF0000 Red
             put("fields", embedFields)
             put("footer", buildJsonObject {
-                put("text", "pnClans Automatic Crash Analytics")
+                put("text", "pnClans Crash Analytics • Вложены файлы: stacktrace_full.txt, config.yml, menus.yml, messages.yml")
             })
             put("timestamp", timestamp)
         }
@@ -274,5 +305,35 @@ object ErrorReporter {
         }
 
         return payload.toString()
+    }
+
+    /**
+     * Multipart form-data builder for sending HTTP POST requests with file attachments.
+     */
+    private class MultipartBuilder {
+        private val boundary = "----PnClansBoundary" + System.currentTimeMillis()
+        private val baos = ByteArrayOutputStream()
+
+        fun addPart(name: String, value: String): MultipartBuilder {
+            val header = "--$boundary\r\nContent-Disposition: form-data; name=\"$name\"\r\nContent-Type: application/json; charset=utf-8\r\n\r\n"
+            baos.write(header.toByteArray(Charsets.UTF_8))
+            baos.write(value.toByteArray(Charsets.UTF_8))
+            baos.write("\r\n".toByteArray(Charsets.UTF_8))
+            return this
+        }
+
+        fun addFile(name: String, filename: String, contentType: String, content: ByteArray): MultipartBuilder {
+            val header = "--$boundary\r\nContent-Disposition: form-data; name=\"$name\"; filename=\"$filename\"\r\nContent-Type: $contentType\r\n\r\n"
+            baos.write(header.toByteArray(Charsets.UTF_8))
+            baos.write(content)
+            baos.write("\r\n".toByteArray(Charsets.UTF_8))
+            return this
+        }
+
+        fun build(): Pair<String, ByteArray> {
+            val footer = "--$boundary--\r\n"
+            baos.write(footer.toByteArray(Charsets.UTF_8))
+            return Pair("multipart/form-data; boundary=$boundary", baos.toByteArray())
+        }
     }
 }
