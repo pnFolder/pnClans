@@ -355,9 +355,7 @@ object ErrorReporter {
             return Pair("multipart/form-data; boundary=$boundary", baos.toByteArray())
         }
     }
-    private companion object {
-        val JAVA_VERSION: String = System.getProperty("java.version") ?: "Unknown Java"
-        val OS_NAME: String = System.getProperty("os.name") ?: "Unknown OS"
-        val OS_ARCH: String = System.getProperty("os.arch") ?: "x64"
-    }
+    private val JAVA_VERSION: String = System.getProperty("java.version") ?: "Unknown Java"
+    private val OS_NAME: String = System.getProperty("os.name") ?: "Unknown OS"
+    private val OS_ARCH: String = System.getProperty("os.arch") ?: "x64"
 }
