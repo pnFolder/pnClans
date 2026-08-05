@@ -99,7 +99,7 @@ class ClanCommand(
                         sender.sendMessage(msg(sender, cfg.msgNoClan))
                         return true
                     }
-                    val myUser = clan.users.find { it.uuid == sender.uniqueId } ?: return true
+                    val myUser = clan.getMember(sender.uniqueId) ?: return true
                     if (!clan.hasPermission(myUser, ClanPerms.Homes.SET)) {
                         sender.sendMessage(msg(sender, cfg.msgNoPermission))
                         return true
@@ -123,7 +123,7 @@ class ClanCommand(
                         sender.sendMessage(msg(sender, cfg.msgNoClan))
                         return true
                     }
-                    val myUser = clan.users.find { it.uuid == sender.uniqueId } ?: return true
+                    val myUser = clan.getMember(sender.uniqueId) ?: return true
                     if (!clan.hasPermission(myUser, ClanPerms.Homes.DELETE_ANY)) {
                         sender.sendMessage(msg(sender, cfg.msgNoPermission))
                         return true

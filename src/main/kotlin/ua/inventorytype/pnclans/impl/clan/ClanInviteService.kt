@@ -47,7 +47,7 @@ class ClanInviteService(private val clanService: ClanService) {
             cfg.send(sender, cfg.messages.invite.inviterNoClan)
             return false
         }
-        val senderUser = senderClan.users.find { it.uuid == sender.uniqueId }
+        val senderUser = senderclan.getMember(sender.uniqueId)
 
         if (senderUser == null || !senderClan.hasPermission(senderUser, ClanPerms.Members.INVITE)) {
             cfg.send(sender, cfg.messages.invite.noPermission)
@@ -136,7 +136,7 @@ class ClanInviteService(private val clanService: ClanService) {
             cfg.send(player, cfg.messages.invite.inviteInvalid)
             return false
         }
-        val sender = clan.users.find { it.uuid == invite.senderUuid }
+        val sender = clan.getMember(invite.senderUuid)
         if (sender == null || !clan.hasPermission(sender, ClanPerms.Members.INVITE)) {
             cfg.send(player, cfg.messages.invite.inviteInvalid)
             return false

@@ -60,7 +60,7 @@ class MembersUX(
                     val targetUser = allMembers[index]
                     val targetRole = clan.getUserRole(targetUser)
                     type(targetRole.icon)
-                    val myUser = clan.users.find { it.uuid == viewer.uniqueId } ?: return@dynamicItemNullable null
+                    val myUser = clan.getMember(viewer.uniqueId) ?: return@dynamicItemNullable null
                     val myRole = clan.getUserRole(myUser)
 
                     val isMe = targetUser.uuid == viewer.uniqueId
@@ -100,7 +100,7 @@ class MembersUX(
                     if (index >= allMembers.size) return@onClick
 
                     val targetUser = allMembers[index]
-                    val myUser = clan.users.find { it.uuid == viewer.uniqueId } ?: return@onClick
+                    val myUser = clan.getMember(viewer.uniqueId) ?: return@onClick
 
                     val myRole = clan.getUserRole(myUser)
                     val targetRole = clan.getUserRole(targetUser)
