@@ -52,10 +52,7 @@ class MembersUX(
                     val service = this@MembersUX.clanService
                     val clan = service.getClanUser(viewer) ?: return@dynamicItemNullable null
 
-                    val allMembers = clan.users.sortedWith(
-                        compareByDescending<User> { clan.getUserRole(it).weight }
-                            .thenBy { it.playerName }
-                    )
+                    val allMembers = this@MembersUX.sortedMembers(clan)
 
                     val index = (currentPage * memberSlots.size) + i
                     if (index >= allMembers.size) return@dynamicItemNullable null
@@ -97,10 +94,7 @@ class MembersUX(
                     val service = this@MembersUX.clanService
                     val cfg = service.plugin.configService
                     val clan = service.getClanUser(viewer) ?: return@onClick
-                    val allMembers = clan.users.sortedWith(
-                        compareByDescending<User> { clan.getUserRole(it).weight }
-                            .thenBy { it.playerName }
-                    )
+                    val allMembers = this@MembersUX.sortedMembers(clan)
 
                     val index = (currentPage * memberSlots.size) + i
                     if (index >= allMembers.size) return@onClick
@@ -245,6 +239,12 @@ class MembersUX(
             }
         }
     }
+
+    private fun sortedMembers(clan: ua.inventorytype.pnclans.api.clan.Clan): List<User> =
+        clan.users.sortedWith(
+            compareByDescending<User> { clan.getUserRole(it).weight }
+                .thenBy { it.playerName }
+        )
 
     companion object {
         private fun parseMaterial(name: String?, fallback: Material): Material =
