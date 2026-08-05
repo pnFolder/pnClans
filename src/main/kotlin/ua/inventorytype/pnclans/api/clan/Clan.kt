@@ -26,6 +26,12 @@ interface Clan {
      */
     fun getMember(uuid: UUID): User? = users.find { it.uuid == uuid }
 
+    /**
+     * Returns the clan leader, or null if none assigned.
+     * Default implementation is O(N); [ua.inventorytype.pnclans.impl.clan.ClanImpl] overrides this with O(1).
+     */
+    fun getLeader(): User? = users.find { getUserRole(it) == ua.inventorytype.pnclans.api.clan.ClanRole.LEADER }
+
     /** Map of global clan settings and their active states. */
     val settings: Map<ClanSetting, Boolean>
 
