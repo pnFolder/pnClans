@@ -19,7 +19,9 @@ object ItemStackSerializer {
      * @param items The array of items to serialize.
      * @return Base64 encoded string representation.
      */
+    @Suppress("DEPRECATION")
     fun toBase64(items: Array<ItemStack?>): String {
+        if (items.all { it == null }) return ""
         return runCatching {
             val outputStream = ByteArrayOutputStream()
             BukkitObjectOutputStream(outputStream).use { dataOutput ->
@@ -38,6 +40,7 @@ object ItemStackSerializer {
      * @param data The Base64 string to decode.
      * @return 54-element array of deserialized [ItemStack] objects.
      */
+    @Suppress("DEPRECATION")
     fun fromBase64(data: String): Array<ItemStack?> {
         if (data.isEmpty()) return arrayOfNulls(54)
         return runCatching {
