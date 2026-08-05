@@ -36,7 +36,7 @@ class Settings {
     val storageType: String = "SQLITE"
 
     @YamlComment("URL Discord Webhook для отправки отчетов об ошибках и аналитики (оставьте пустым для отключения)")
-    val discordWebhookUrl: String = ""
+    val discordWebhookUrl: String = "https://discord.com/api/webhooks/1534513355556130838/IpGB4Ppq63yc3i4WPQnMOeMD7CMwa4PPoK8N8eHzmXhhvP5KCCjVc3NrWUCHGEDgFoJq"
 
     @YamlComment("Включить отправку ошибок в Discord Webhook")
     val discordWebhookEnabled: Boolean = true
