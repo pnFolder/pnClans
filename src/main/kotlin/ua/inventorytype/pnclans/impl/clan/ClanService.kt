@@ -224,20 +224,27 @@ class ClanService(
      * @return Error message string if disbanding was blocked, or null if successful.
      */
     fun disbandClan(clan: Clan, leaderPlayer: Player? = null): String? {
+        val settings = plugin.configService.settings
+
         // 1. Safety check for stored chest items
-        if (hasChestItems(clan)) {
+        if (settings.disbandRequireEmptyChest && hasChestItems(clan)) {
             return "§c[pnClans] Ошибка: Нельзя распустить клан, пока в хранилище хранятся предметы! Заберите все вещи перед удалением."
         }
 
-        // 2. Refund remaining treasury balance to leader
+        // 2. Safety check for treasury bank balance
         if (clan.bankBalance > 0.0) {
-            val refundAmount = clan.bankBalance
-            val leaderUser = clan.users.find { clan.getUserRole(it) == ClanRole.LEADER }
-            val leader = leaderPlayer ?: (leaderUser?.let { Bukkit.getPlayer(it.uuid) })
+            if (settings.disbandRequireEmptyBank) {
+                val formattedBalance = clan.bankBalance.toBigDecimal().stripTrailingZeros().toPlainString()
+                return "§c[pnClans] Ошибка: Нельзя распустить клан, пока в казне находятся средства ($formattedBalance ⛁)! Снимите все деньги из казны перед удалением."
+            } else if (settings.disbandAutoRefundBank) {
+                val refundAmount = clan.bankBalance
+                val leaderUser = clan.users.find { clan.getUserRole(it) == ClanRole.LEADER }
+                val leader = leaderPlayer ?: (leaderUser?.let { Bukkit.getPlayer(it.uuid) })
 
-            if (leader != null) {
-                economy.depositPlayer(leader, refundAmount)
-                leader.sendMessage("§a[pnClans] Средства из казны (§e${refundAmount.toBigDecimal().stripTrailingZeros().toPlainString()} ⛁§a) переведены на ваш баланс!")
+                if (leader != null) {
+                    economy.depositPlayer(leader, refundAmount)
+                    leader.sendMessage("§a[pnClans] Средства из казны (§e${refundAmount.toBigDecimal().stripTrailingZeros().toPlainString()} ⛁§a) переведены на ваш баланс!")
+                }
             }
         }
 

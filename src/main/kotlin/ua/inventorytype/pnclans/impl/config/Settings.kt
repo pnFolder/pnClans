@@ -52,6 +52,15 @@ class Settings {
     @YamlComment("Быстрые суммы снятия казны, выводятся в виде отдельных кнопок.")
     val treasuryWithdrawPresets: List<Int> = listOf(500, 1000)
 
+    @YamlComment("Требовать ли пустое хранилище предметов (Clan Chest) перед распуском клана")
+    val disbandRequireEmptyChest: Boolean = true
+
+    @YamlComment("Требовать ли лидеру вручную вывести все деньги из казны перед распуском клана (true — блокирует распуск пока есть деньги)")
+    val disbandRequireEmptyBank: Boolean = true
+
+    @YamlComment("Автоматически возвращать остаток казны на баланс лидера при распуске (актуально если disbandRequireEmptyBank = false)")
+    val disbandAutoRefundBank: Boolean = false
+
     @YamlComment("Названия ролей клана для отображения в чате, меню и плейсхолдерах {clan_role}")
     val roleLeader: String = "Лидер"
     val roleDeputy: String = "Заместитель"
