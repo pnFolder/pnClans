@@ -38,6 +38,10 @@ kotlin {
 }
 
 tasks {
+    shadowJar {
+        archiveClassifier.set("all")
+    }
+
     build {
         dependsOn(shadowJar)
     }
@@ -45,10 +49,12 @@ tasks {
     runServer {
         minecraftVersion("26.2")
         jvmArgs("-Xms2G", "-Xmx2G")
+        pluginJars.from(shadowJar.flatMap { it.archiveFile })
     }
 
     processResources {
         val props = mapOf("version" to version)
+        inputs.properties(props)
         filesMatching("plugin.yml") {
             expand(props)
         }
