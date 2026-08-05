@@ -28,7 +28,7 @@ class PnClansExpansion(private val plugin: BukkitPlugin) : PlaceholderExpansion(
             "role" -> {
                 if (clan == null) "Нет"
                 else {
-                    val user = clan.users.find { it.uuid == player.uniqueId }
+                    val user = clan.getMember(player.uniqueId)
                     if (user != null) clan.getUserRole(user).name else "Нет"
                 }
             }

@@ -86,7 +86,7 @@ class ClanListener(private val plugin: BukkitPlugin) : Listener {
         val cleanMsg = message.substring(1).trim()
         if (cleanMsg.isEmpty()) return
 
-        val user = clan.users.find { it.uuid == player.uniqueId } ?: return
+        val user = clan.getMember(player.uniqueId) ?: return
         val role = clan.getUserRole(user)
         val roleName = configService.getRoleDisplayName(role)
 
@@ -107,7 +107,7 @@ class ClanListener(private val plugin: BukkitPlugin) : Listener {
         val clan = clanService.getClanUser(player) ?: return
 
         // Обновляем сохраненный ник игрока, если он изменился в Minecraft
-        val user = clan.users.find { it.uuid == player.uniqueId }
+        val user = clan.getMember(player.uniqueId)
         if (user != null && user.playerName != player.name) {
             (user as? ua.inventorytype.pnclans.impl.clan.ClanUser)?.playerName = player.name
             clanService.saveClan(clan)

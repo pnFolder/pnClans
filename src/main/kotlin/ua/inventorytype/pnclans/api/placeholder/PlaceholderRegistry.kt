@@ -26,7 +26,7 @@ class PlaceholderRegistry {
         register("clan_role") { player ->
             val clan = clanService.getClanUser(player)
             if (clan != null) {
-                val user = clan.users.find { it.uuid == player.uniqueId }
+                val user = clan.getMember(player.uniqueId)
                 if (user != null) clanService.plugin.configService.getRoleDisplayName(clan.getUserRole(user)) else "Нет"
             } else "Нет"
         }

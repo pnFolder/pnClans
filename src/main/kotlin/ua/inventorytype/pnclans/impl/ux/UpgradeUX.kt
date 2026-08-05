@@ -86,7 +86,7 @@ class UpgradeUX(clanService: ClanService) : BaseGui(clanService) {
         val service = clanService
         val cfg = service.plugin.configService
         val clan = service.getClanUser(player) ?: return
-        val user = clan.users.find { it.uuid == player.uniqueId } ?: return
+        val user = clan.getMember(player.uniqueId) ?: return
 
         if (clan.level >= ClanLevels.MAX_LEVEL) {
             cfg.send(player, cfg.messages.upgrade.maxLevel)

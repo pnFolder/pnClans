@@ -154,7 +154,7 @@ class RolePermissionsUX(
 
                 onClick { player, event ->
                     val clan = this@RolePermissionsUX.clanService.getClanUser(player) ?: return@onClick
-                    val user = clan.users.find { it.uuid == player.uniqueId } ?: return@onClick
+                    val user = clan.getMember(player.uniqueId) ?: return@onClick
 
                     if (clan.getUserRole(user) != ClanRole.LEADER) {
                         cfg.send(player, cfg.messages.settings.noPermissionRoles)

@@ -82,7 +82,7 @@ class UserPermissionsUX(
 
                 onClick { player, event ->
                     val clan = this@UserPermissionsUX.clanService.getClanUser(player) ?: return@onClick
-                    val myUser = clan.users.find { it.uuid == player.uniqueId } ?: return@onClick
+                    val myUser = clan.getMember(player.uniqueId) ?: return@onClick
 
                     if (clan.getUserRole(myUser) != ClanRole.LEADER && !clan.hasPermission(myUser, ClanPerms.Members.INVITE)) {
                         cfg.send(player, cfg.messages.members.cannotManageHigherRank)

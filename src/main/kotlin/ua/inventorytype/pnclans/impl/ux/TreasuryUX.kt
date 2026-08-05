@@ -38,7 +38,7 @@ class TreasuryUX(clanService: ClanService) : BaseGui(clanService) {
             slot(itemCfg.slot) {
                 dynamicItem(this@TreasuryUX.parseMaterial(itemCfg.material, Material.GOLD_BLOCK)) { player ->
                     val clan = this@TreasuryUX.clanService.getClanUser(player) ?: return@dynamicItem null
-                    val user = clan.users.find { it.uuid == player.uniqueId } ?: return@dynamicItem null
+                    val user = clan.getMember(player.uniqueId) ?: return@dynamicItem null
                     val placeholders = this@TreasuryUX.placeholders(player, clan, user)
                     this@TreasuryUX.renderConfigItem(this, player, itemCfg, placeholders)
                     null
@@ -137,7 +137,7 @@ class TreasuryUX(clanService: ClanService) : BaseGui(clanService) {
         val service = clanService
         val cfg = service.plugin.configService
         val clan = service.getClanUser(player) ?: return
-        val user = clan.users.find { it.uuid == player.uniqueId } ?: return
+        val user = clan.getMember(player.uniqueId) ?: return
 
         if (!clan.hasPermission(user, ClanPerms.Bank.DEPOSIT)) {
             cfg.send(player, cfg.messages.treasury.noPermissionDeposit, mapOf("role" to cfg.getRoleDisplayName(clan.getUserRole(user))))
@@ -176,7 +176,7 @@ class TreasuryUX(clanService: ClanService) : BaseGui(clanService) {
         val service = clanService
         val cfg = service.plugin.configService
         val clan = service.getClanUser(player) ?: return
-        val user = clan.users.find { it.uuid == player.uniqueId } ?: return
+        val user = clan.getMember(player.uniqueId) ?: return
 
         if (!clan.hasPermission(user, ClanPerms.Bank.WITHDRAW)) {
             cfg.send(player, cfg.messages.treasury.noPermissionWithdraw, mapOf("role" to cfg.getRoleDisplayName(clan.getUserRole(user))))

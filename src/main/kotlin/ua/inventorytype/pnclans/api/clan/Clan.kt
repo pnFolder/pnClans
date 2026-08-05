@@ -20,6 +20,12 @@ interface Clan {
     /** Set of all current members in the clan. */
     val users: Set<User>
 
+    /**
+     * Returns the [User] with the given UUID, or null if not a member.
+     * Default implementation is O(N); [ua.inventorytype.pnclans.impl.clan.ClanImpl] overrides this with O(1).
+     */
+    fun getMember(uuid: UUID): User? = users.find { it.uuid == uuid }
+
     /** Map of global clan settings and their active states. */
     val settings: Map<ClanSetting, Boolean>
 

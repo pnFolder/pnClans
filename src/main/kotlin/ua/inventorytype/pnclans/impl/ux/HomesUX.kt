@@ -83,7 +83,7 @@ class HomesUX(
                 onClick { player, event ->
                     val msgCfg = cfg.messages
                     val clan = this@HomesUX.clanService.getClanUser(player) ?: return@onClick
-                    val user = clan.users.find { it.uuid == player.uniqueId } ?: return@onClick
+                    val user = clan.getMember(player.uniqueId) ?: return@onClick
                     val loc = clan.homes[entry.key]
 
                     if (clan.level < entry.requiredLevel) return@onClick

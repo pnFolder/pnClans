@@ -179,4 +179,10 @@ class ClanImpl(
     override fun getUserRole(user: User): ClanRole {
         return _members[user.uuid]?.role ?: ClanRole.MEMBER
     }
+
+    /** O(1) member lookup using internal [_members] HashMap. */
+    override fun getMember(uuid: UUID): User? = _members[uuid]?.user
+
+    /** Returns the [User] with the given UUID in O(1), or null if not a member. */
+    fun getUserByUuid(uuid: UUID): User? = _members[uuid]?.user
 }
