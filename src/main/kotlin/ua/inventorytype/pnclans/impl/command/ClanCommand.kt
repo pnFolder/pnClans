@@ -184,7 +184,22 @@ class ClanCommand(
                     }
                     plugin.configService.loadAll()
                     clanService.loadClans()
-                    sender.sendMessage("§a[pnClans] Конфигурация и кланы успешно перезагружены!")
+
+                    var refreshedGuis = 0
+                    for (player in Bukkit.getOnlinePlayers()) {
+                        val topInv = player.openInventory.topInventory
+                        val holder = topInv.holder
+                        if (holder is ua.inventorytype.pnclans.impl.inventory.BaseGui) {
+                            try {
+                                holder.open(player)
+                                refreshedGuis++
+                            } catch (_: Throwable) {
+                                player.closeInventory()
+                            }
+                        }
+                    }
+
+                    sender.sendMessage("§a[pnClans] Все конфигурации (config.yml, menus.yml, messages.yml, levels.yml) и $refreshedGuis активных меню успешно перезагружены!")
                 }
 
                 else -> {

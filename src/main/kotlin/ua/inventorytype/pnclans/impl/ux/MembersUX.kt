@@ -1,6 +1,7 @@
 package ua.inventorytype.pnclans.impl.ux
 
 import org.bukkit.Material
+import org.bukkit.event.inventory.ClickType
 import ua.inventorytype.pnclans.api.User
 import ua.inventorytype.pnclans.api.clan.ClanRole
 import ua.inventorytype.pnclans.api.permission.ClanPerms
@@ -111,8 +112,10 @@ class MembersUX(
                         return@onClick
                     }
 
+                    println(event.click)
+
                     // Middle-Click opens Personal Member Permissions Editor for targetUser
-                    if (event.click.name.contains("MIDDLE")) {
+                    if (event.click.isCreativeAction) {
                         if (myRole == ClanRole.LEADER) {
                             UserPermissionsUX(service, targetUser, this@MembersUX).open(viewer)
                             return@onClick
