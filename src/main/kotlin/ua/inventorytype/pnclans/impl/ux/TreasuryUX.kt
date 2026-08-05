@@ -393,8 +393,8 @@ class HistoryUX(
                         " &7- &fОперация: $amountColor$amountPrefix${log.amount.toBigDecimal().stripTrailingZeros().toPlainString()} ⛁",
                         "",
                         "&#5EA9FD «Время операции»",
-                        " &7- &fДата: &b${java.text.SimpleDateFormat("dd.MM.yyyy").format(java.util.Date(log.timestamp))}",
-                        " &7- &fВремя: &b${java.text.SimpleDateFormat("HH:mm:ss").format(java.util.Date(log.timestamp))}",
+                        " &7- &fДата: &b${DATE_FORMAT.format(java.util.Date(log.timestamp))}",
+                        " &7- &fВремя: &b${TIME_FORMAT.format(java.util.Date(log.timestamp))}",
                         "",
                         "&#FF8702➥ &fСобытие записано в историю казны"
                     )
@@ -481,5 +481,9 @@ class HistoryUX(
                 }
             }
         }
+    }
+    private companion object {
+        private val DATE_FORMAT = java.text.SimpleDateFormat("dd.MM.yyyy")
+        private val TIME_FORMAT = java.text.SimpleDateFormat("HH:mm:ss")
     }
 }
