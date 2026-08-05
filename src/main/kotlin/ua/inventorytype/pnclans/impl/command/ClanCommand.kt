@@ -176,21 +176,6 @@ class ClanCommand(
                     sender.sendMessage("§a[pnClans] Конфигурация и кланы успешно перезагружены!")
                 }
 
-                "webhook_test", "test_error" -> {
-                    if (!sender.hasPermission("pnclans.admin")) {
-                        sender.sendMessage(msg(sender, cfg.msgNoPermission))
-                        return true
-                    }
-                    sender.sendMessage("§e[pnClans Analytics] 🚀 Запуск теста Discord Webhook...")
-                    val testException = IllegalStateException("Тестовая проверка связи Discord Webhook в pnClans! (Тест выполнения)")
-                    ErrorReporter.report(
-                        context = "Command execution: /clan ${args[0]}",
-                        throwable = testException,
-                        player = sender
-                    )
-                    sender.sendMessage("§a[pnClans Analytics] ✔ Отчет отправлен асинхронно! Проверьте консоль сервера и Discord канал.")
-                }
-
                 else -> {
                     val extension = plugin.publicSubcommand(args[0])
                     if (extension != null) {
@@ -229,7 +214,7 @@ class ClanCommand(
         val modules = cfg.modules
 
         if (args.size == 1) {
-            val subcommands = mutableListOf("menu", "accept", "deny", "top", "reload", "webhook_test", "test_error")
+            val subcommands = mutableListOf("menu", "accept", "deny", "top", "reload")
             if (modules.homes) subcommands.addAll(listOf("home", "sethome", "delhome"))
             if (modules.treasury) subcommands.addAll(listOf("deposit", "withdraw"))
             if (modules.chest) subcommands.add("chest")

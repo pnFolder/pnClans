@@ -12,6 +12,7 @@ import org.bukkit.event.player.PlayerQuitEvent
 import ua.inventorytype.pnclans.BukkitPlugin
 import ua.inventorytype.pnclans.impl.inventory.BaseGui
 import ua.inventorytype.pnclans.impl.inventory.HolderGui
+import ua.inventorytype.pnclans.impl.ux.TreasuryUX
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 
@@ -26,9 +27,12 @@ class GuiListener(private val plugin: BukkitPlugin) : Listener {
     init {
         plugin.clanService.subscribe { playerUuid ->
             plugin.server.getPlayer(playerUuid)?.let { player ->
-                player.closeInventory()
-                activeGuis.remove(player.uniqueId)
-                scheduleInventoryUpdate(player)
+                val activeGui = activeGuis[player.uniqueId]
+                if (activeGui is TreasuryUX) {
+                    activeGui.updateSlot(13, player)
+                } else if (activeGui != null) {
+                    activeGui.update(player)
+                }
             }
         }
     }
