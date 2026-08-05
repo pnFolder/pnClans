@@ -112,16 +112,15 @@ class MembersUX(
                         return@onClick
                     }
 
-                    println(event.click)
-
-                    // Middle-Click opens Personal Member Permissions Editor for targetUser
-                    if (event.click.isCreativeAction) {
+                    // Shift + Left-Click opens Personal Member Permissions Editor
+                    if (event.isShiftClick && event.isLeftClick) {
                         if (myRole == ClanRole.LEADER) {
                             UserPermissionsUX(service, targetUser, this@MembersUX).open(viewer)
                             return@onClick
                         }
                     }
 
+                    // Shift + Right-Click kicks member
                     if (event.isShiftClick && event.isRightClick) {
                         if (!clan.hasPermission(myUser, ClanPerms.Members.KICK)) {
                             cfg.send(viewer, cfg.messages.members.noPermissionKick)
@@ -130,15 +129,6 @@ class MembersUX(
                         clan.removeUser(targetUser.uuid)
                         service.saveClan(clan)
                         cfg.send(viewer, cfg.messages.members.kicked, mapOf("player" to targetUser.playerName))
-                        this@MembersUX.update(viewer)
-                        return@onClick
-                    }
-
-                    if (event.isShiftClick && event.isLeftClick && myRole == ClanRole.LEADER) {
-                        clan.setUserRole(myUser, ClanRole.DEPUTY)
-                        clan.setUserRole(targetUser, ClanRole.LEADER)
-                        service.saveClan(clan)
-                        cfg.send(viewer, cfg.messages.members.leaderTransferred, mapOf("player" to targetUser.playerName))
                         this@MembersUX.update(viewer)
                         return@onClick
                     }
