@@ -78,8 +78,6 @@ class GuiListener(val plugin: BukkitPlugin) : Listener {
 
     @EventHandler
     fun onQuit(event: PlayerQuitEvent) {
-        val holder = event.player.openInventory.topInventory.holder as? HolderGui ?: return
-        event.player.closeInventory()
         activeGuis.remove(event.player.uniqueId)
     }
 
