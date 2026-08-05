@@ -1,5 +1,8 @@
 package ua.inventorytype.pnclans.impl.analytics
 
+import kotlinx.serialization.json.buildJsonArray
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 import org.bukkit.Bukkit
 import org.bukkit.entity.Player
 import org.bukkit.plugin.Plugin
@@ -22,8 +25,8 @@ import java.util.logging.LogRecord
 /**
  * Central 100% reliable error reporting and analytics service.
  *
- * Utilizes Java 11+ [HttpClient] for asynchronous HTTP POST requests to Discord Webhooks.
- * Intercepts uncaught errors from commands, GUIs, Bukkit event listeners, and background threads.
+ * Utilizes Java 11+ [HttpClient] and `kotlinx.serialization.json` for guaranteed valid JSON payloads
+ * sent to Discord Webhooks.
  */
 object ErrorReporter {
 
@@ -40,8 +43,8 @@ object ErrorReporter {
     /** Minimum interval in milliseconds between duplicate error reports (5 seconds). */
     private const val DUPLICATE_COOLDOWN_MS = 5_000L
 
-    /** Maximum allowed stack trace length inside a Discord field (1000 characters). */
-    private const val MAX_STACK_TRACE_LENGTH = 1000
+    /** Maximum allowed stack trace length inside a Discord field (850 characters). */
+    private const val MAX_STACK_TRACE_LENGTH = 850
 
     /** Asynchronous HTTP client instance. */
     private val httpClient: HttpClient by lazy {
@@ -198,7 +201,7 @@ object ErrorReporter {
                 val httpRequest = HttpRequest.newBuilder()
                     .uri(URI.create(DISCORD_WEBHOOK_URL))
                     .header("Content-Type", "application/json; charset=UTF-8")
-                    .header("User-Agent", "pnClans-Analytics-Reporter/1.0")
+                    .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) pnClans Analytics")
                     .timeout(Duration.ofSeconds(5))
                     .POST(HttpRequest.BodyPublishers.ofString(jsonPayload, Charsets.UTF_8))
                     .build()
@@ -224,7 +227,7 @@ object ErrorReporter {
     }
 
     /**
-     * Builds a Discord Webhook JSON payload with a rich styled embed layout.
+     * Builds a Discord Webhook JSON payload using `kotlinx.serialization.json` for 100% syntax compliance.
      */
     private fun buildDiscordJson(
         pluginVersion: String,
@@ -232,47 +235,44 @@ object ErrorReporter {
         stackTrace: String,
         timestamp: String
     ): String {
-        val fieldsJson = StringBuilder()
-
-        metadata.entries.forEachIndexed { index, (key, value) ->
-            if (index > 0) fieldsJson.append(",")
-            fieldsJson.append("""{"name": ${escapeJson(key)}, "value": ${escapeJson(value)}, "inline": true}""")
-        }
-
-        val stackTraceFormatted = "```kotlin\n$stackTrace\n```"
-        fieldsJson.append(""",{"name": "Stack Trace", "value": ${escapeJson(stackTraceFormatted)}, "inline": false}""")
-
-        return """
-        {
-          "username": "pnClans Analytics",
-          "avatar_url": "https://i.imgur.com/8Q9Z9ZW.png",
-          "embeds": [
-            {
-              "title": "🚨 Ошибка в плагине pnClans v$pluginVersion",
-              "color": 16711680,
-              "fields": [$fieldsJson],
-              "footer": {
-                "text": "pnClans Automatic Crash Analytics"
-              },
-              "timestamp": "$timestamp"
+        val embedFields = buildJsonArray {
+            metadata.forEach { (key, value) ->
+                val safeVal = value.ifBlank { "N/A" }
+                val truncatedVal = if (safeVal.length > 1000) safeVal.substring(0, 990) + "..." else safeVal
+                add(buildJsonObject {
+                    put("name", key.ifBlank { "Детали" })
+                    put("value", truncatedVal)
+                    put("inline", true)
+                })
             }
-          ]
-        }
-        """.trimIndent()
-    }
 
-    /**
-     * Escapes standard JSON special characters for raw string injection.
-     */
-    private fun escapeJson(text: String): String {
-        val escaped = text
-            .replace("\\", "\\\\")
-            .replace("\"", "\\\"")
-            .replace("\b", "\\b")
-            .replace("\u000C", "\\f")
-            .replace("\n", "\\n")
-            .replace("\r", "\\r")
-            .replace("\t", "\\t")
-        return "\"$escaped\""
+            // Stack trace field (Discord limits field value to 1024 chars max)
+            val traceValue = "```kotlin\n" + (if (stackTrace.length > 850) stackTrace.substring(0, 850) + "\n..." else stackTrace) + "\n```"
+            add(buildJsonObject {
+                put("name", "Stack Trace")
+                put("value", traceValue)
+                put("inline", false)
+            })
+        }
+
+        val embedObject = buildJsonObject {
+            put("title", "🚨 Ошибка в плагине pnClans v$pluginVersion")
+            put("color", 16711680) // 0xFF0000 Red
+            put("fields", embedFields)
+            put("footer", buildJsonObject {
+                put("text", "pnClans Automatic Crash Analytics")
+            })
+            put("timestamp", timestamp)
+        }
+
+        val payload = buildJsonObject {
+            put("username", "pnClans Analytics")
+            put("avatar_url", "https://i.imgur.com/8Q9Z9ZW.png")
+            put("embeds", buildJsonArray {
+                add(embedObject)
+            })
+        }
+
+        return payload.toString()
     }
 }
