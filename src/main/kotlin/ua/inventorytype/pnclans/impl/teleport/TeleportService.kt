@@ -18,8 +18,9 @@ class TeleportService(private val plugin: BukkitPlugin) {
         val delaySeconds = (6 - clan.level).coerceAtLeast(1)
         val cfg = plugin.configService
 
-        val startLocation = player.location.clone()
-        val startHealth = player.health
+        val startX = startLocation.x
+        val startY = startLocation.y
+        val startZ = startLocation.z
 
         cfg.send(player, cfg.messages.teleport.started, mapOf(
             "home" to homeName,
@@ -35,7 +36,13 @@ class TeleportService(private val plugin: BukkitPlugin) {
                     return
                 }
 
-                if (player.world != startLocation.world || player.location.distanceSquared(startLocation) > MAX_MOVE_DISTANCE_SQUARED || player.health < startHealth) {
+                val currentLoc = player.location
+                val dx = currentLoc.x - startX
+                val dy = currentLoc.y - startY
+                val dz = currentLoc.z - startZ
+                val distSq = dx * dx + dy * dy + dz * dz
+
+                if (currentLoc.world != startLocation.world || distSq > MAX_MOVE_DISTANCE_SQUARED || player.health < startHealth) {
                     cfg.send(player, cfg.messages.teleport.cancelled)
                     cancelTeleport(player.uniqueId)
                     return
@@ -44,7 +51,9 @@ class TeleportService(private val plugin: BukkitPlugin) {
                 secondsLeft--
 
                 if (secondsLeft <= 0) {
-                    player.teleport(targetLocation)
+                    if (runCatching { player.teleportAsync(targetLocation) }.isFailure) {
+                        player.teleport(targetLocation)
+                    }
                     cfg.send(player, cfg.messages.teleport.completed, mapOf("home" to homeName))
                     pendingTeleports.remove(player.uniqueId)
                     cancel()
