@@ -1,0 +1,5 @@
+name: ClanMissions
+version: '1.0.0'
+main: dev.pnclans.missions.ClanMissionsAddon
+api-version: '26.2'
+depend: [pnClans]

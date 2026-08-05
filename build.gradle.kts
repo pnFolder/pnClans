@@ -5,6 +5,8 @@ plugins {
     id("xyz.jpenilla.run-paper") version "3.0.2"
 }
 
+version = "1.0.1"
+
 repositories {
     mavenCentral()
     maven("https://repo.papermc.io/repository/maven-public/")
