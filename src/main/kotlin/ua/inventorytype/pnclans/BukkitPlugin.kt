@@ -19,6 +19,7 @@ import ua.inventorytype.pnclans.impl.placeholder.PnClansExpansion
 import ua.inventorytype.pnclans.impl.teleport.TeleportService
 import ua.inventorytype.pnclans.impl.ux.TimedBossBarService
 import ua.inventorytype.pnclans.impl.util.ChatInputPrompt
+import ua.inventorytype.pnclans.impl.util.PluginBanner
 
 class BukkitPlugin : JavaPlugin() {
 
@@ -60,51 +61,61 @@ class BukkitPlugin : JavaPlugin() {
     fun publicMainMenuButtons(): Collection<ClanMainMenuButton> = publicApi.menus.mainButtons()
 
     override fun onEnable() {
-        logger.info("=========================================")
-        logger.info("      pnClans v${description.version} - Запуск      ")
-        logger.info("=========================================")
-
+        // 1. Setup Economy
         economyService = EconomyService()
-        if (economyService.setup()) {
-            logger.info("Успешно подключено к Vault Economy!")
-        } else {
-            logger.warning("Vault или плагин экономики не найдены! Платные функции отключены.")
-        }
+        val economyConnected = economyService.setup()
 
+        // 2. Load Configurations
         configService = ConfigService(this)
         configService.loadAll()
 
+        // 3. Initialize Error Analytics Reporter
         ua.inventorytype.pnclans.impl.analytics.ErrorReporter.init(this)
 
+        // 4. Initialize Core Clan Services
         placeholderRegistry = PlaceholderRegistry()
         clanService = ClanService(this)
         placeholderRegistry.registerDefaults(clanService)
         publicApi = PnClansApiImpl(clanService)
         server.servicesManager.register(PnClansApi::class.java, publicApi, this, ServicePriority.Normal)
-        publicApi.addons.loadDirectory().forEach { result -> logger.info("Addon load: ${result.message}") }
+
+        val addonResults = publicApi.addons.loadDirectory()
         inviteService = ClanInviteService(clanService)
         teleportService = TeleportService(this)
         timedBossBarService = TimedBossBarService(this)
 
+        // 5. Register Event Listeners
         guiListener = GuiListener(this)
         server.pluginManager.registerEvents(guiListener, this)
         server.pluginManager.registerEvents(ClanListener(this), this)
 
+        // 6. Register Commands
         val clanCommand = ClanCommand(this, inviteService)
         getCommand("clan")?.let { cmd ->
             cmd.setExecutor(clanCommand)
             cmd.tabCompleter = clanCommand
         }
 
+        // 7. Register PlaceholderAPI Expansion
+        var papiConnected = false
         if (Bukkit.getPluginManager().isPluginEnabled("PlaceholderAPI")) {
             PnClansExpansion(this).register()
-            logger.info("Интеграция с PlaceholderAPI успешно зарегистрирована!")
+            papiConnected = true
         }
 
-        logger.info("Плагин pnClans успешно включен и готов к работе!")
+        // 8. Print Rich Startup ASCII Audit Banner
+        PluginBanner.printEnableBanner(
+            plugin = this,
+            economyConnected = economyConnected,
+            papiConnected = papiConnected,
+            loadedClansCount = clanService.getAllClans().size,
+            loadedAddonsCount = addonResults.size
+        )
     }
 
     override fun onDisable() {
+        val savedClansCount = if (::clanService.isInitialized) clanService.getAllClans().size else 0
+
         server.servicesManager.unregister(PnClansApi::class.java, publicApi)
         ChatInputPrompt.shutdown()
         if (::timedBossBarService.isInitialized) {
@@ -119,6 +130,8 @@ class BukkitPlugin : JavaPlugin() {
         if (::clanService.isInitialized) {
             clanService.saveAll()
         }
-        logger.info("Плагин pnClans выключен. Все данные сохранены.")
+
+        // Print Rich Shutdown Banner
+        PluginBanner.printDisableBanner(this, savedClansCount)
     }
 }
