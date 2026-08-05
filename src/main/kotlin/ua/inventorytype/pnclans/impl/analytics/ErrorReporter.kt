@@ -150,9 +150,9 @@ object ErrorReporter {
         // ── System & Server Analytics ────────────────────────────────────────
         val pluginVersion = plugin.description.version
         val serverEngine = "${Bukkit.getName()} ${Bukkit.getVersion()} (MC ${Bukkit.getMinecraftVersion()})"
-        val javaVersion = System.getProperty("java.version") ?: "Unknown Java"
-        val osName = System.getProperty("os.name") ?: "Unknown OS"
-        val osArch = System.getProperty("os.arch") ?: "x64"
+        val javaVersion = JAVA_VERSION
+        val osName = OS_NAME
+        val osArch = OS_ARCH
         val onlinePlayers = "${Bukkit.getOnlinePlayers().size} / ${Bukkit.getMaxPlayers()}"
 
         val runtime = Runtime.getRuntime()
@@ -261,7 +261,7 @@ object ErrorReporter {
         stackTrace: String,
         timestamp: String
     ): String {
-        val sb = java.lang.StringBuilder()
+        val sb = StringBuilder()
         sb.append("{")
         sb.append("\"username\":\"pnClans Analytics\",")
         sb.append("\"avatar_url\":\"https://i.imgur.com/8Q9Z9ZW.png\",")
@@ -303,7 +303,7 @@ object ErrorReporter {
     }
 
     private fun jsonQuote(text: String): String {
-        val sb = java.lang.StringBuilder("\"")
+        val sb = StringBuilder("\"")
         for (c in text) {
             when (c) {
                 '"' -> sb.append("\\\"")
@@ -354,5 +354,10 @@ object ErrorReporter {
             baos.write(footer.toByteArray(Charsets.UTF_8))
             return Pair("multipart/form-data; boundary=$boundary", baos.toByteArray())
         }
+    }
+    private companion object {
+        val JAVA_VERSION: String = System.getProperty("java.version") ?: "Unknown Java"
+        val OS_NAME: String = System.getProperty("os.name") ?: "Unknown OS"
+        val OS_ARCH: String = System.getProperty("os.arch") ?: "x64"
     }
 }
