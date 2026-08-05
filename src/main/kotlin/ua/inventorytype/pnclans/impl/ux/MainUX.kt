@@ -268,11 +268,6 @@ class MainUX(clanService: ClanService) : BaseGui(clanService) {
         )
     }
 
-    private fun animatedStars(): String {
-        val cfg = clanService.plugin.configService
-        return cfg.animatedFrame(cfg.animationFrames(AnimationKey.HIDDEN_BALANCE))
-    }
-
     private fun renderConfigItem(
         builder: ItemBuilder,
         player: Player,
