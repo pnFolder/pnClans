@@ -446,6 +446,35 @@ class MenusConfig {
                     "&#FF8702➥ &fИспользуйте клики для управления"
                 )
             ),
+            "member_self" to GuiItemConfig(
+                slot = 0,
+                material = "NAME_TAG",
+                name = "&#FC7D37{player} &7• {role}",
+                lore = listOf(
+                    "",
+                    "&#9EFC65 «Профиль»",
+                    " &7- &fДолжность: &#5EA9FD{role}",
+                    " &7- &fСтатус: {status}",
+                    " &7- &fИерархия: &e{weight}",
+                    "",
+                    "&#FC65DF «Личный профиль»",
+                    " &7- &fЭто ваш профиль в составе клана."
+                )
+            ),
+            "member_no_permission" to GuiItemConfig(
+                slot = 0,
+                material = "NAME_TAG",
+                name = "&#FC7D37{player} &7• {role}",
+                lore = listOf(
+                    "",
+                    "&#9EFC65 «Профиль»",
+                    " &7- &fДолжность: &#5EA9FD{role}",
+                    " &7- &fСтатус: {status}",
+                    " &7- &fИерархия: &e{weight}",
+                    "",
+                    "&c➥ У вас недостаточно прав для управления"
+                )
+            ),
             "previous" to GuiItemConfig(
                 slot = 47,
                 material = "ARROW",

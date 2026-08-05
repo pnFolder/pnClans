@@ -73,7 +73,12 @@ class MembersUX(
                     val isOnline = targetUser.isOnline
                     val roleDisplayName = service.plugin.configService.getRoleDisplayName(targetRole)
 
-                    val memberTemplate = menuCfg.items["member"] ?: GuiItemConfig()
+                    val memberTemplate = when {
+                        isMe -> menuCfg.items["member_self"] ?: menuCfg.items["member"] ?: GuiItemConfig()
+                        canManage -> menuCfg.items["member"] ?: GuiItemConfig()
+                        else -> menuCfg.items["member_no_permission"] ?: menuCfg.items["member"] ?: GuiItemConfig()
+                    }
+
                     val placeholders = mapOf(
                         "player" to targetUser.playerName,
                         "role" to roleDisplayName,
@@ -107,10 +112,7 @@ class MembersUX(
                     val targetRole = clan.getUserRole(targetUser)
 
                     if (targetUser.uuid == viewer.uniqueId) return@onClick
-                    if (myRole.weight <= targetRole.weight) {
-                        cfg.send(viewer, cfg.messages.members.cannotManageHigherRank)
-                        return@onClick
-                    }
+                    if (myRole.weight <= targetRole.weight) return@onClick
 
                     // Shift + Left-Click opens Personal Member Permissions Editor
                     if (event.isShiftClick && event.isLeftClick) {
