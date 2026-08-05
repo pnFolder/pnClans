@@ -83,13 +83,16 @@ class MembersUX(
 
                     if (canManage) {
                         loreLines.add("&#FC65DF «Управление»")
-                        loreLines.add(" &7- &fЛКМ: &#5EFD7DПовысить")
-                        loreLines.add(" &7- &fПКМ: &#FC3737Понизить")
-                        loreLines.add(" &7- &fShift+ПКМ: &#FC3737Исключить")
-
-                        if (isLeader) {
-                            loreLines.add(" &7- &fShift+ЛКМ: &#FFD700Передать лидерство")
+                        if (targetRole == ClanRole.DEPUTY && isLeader) {
+                            loreLines.add(" &7- &fЛКМ / Shift+ЛКМ: &#FFD700Передать лидерство")
+                        } else {
+                            loreLines.add(" &7- &fЛКМ: &#5EFD7DПовысить в должности")
                         }
+                        loreLines.add(" &7- &fПКМ: &#FC3737Понизить в должности")
+                        if (isLeader) {
+                            loreLines.add(" &7- &fСКМ: &#5EA9FDНастроить права роли ($roleDisplayName)")
+                        }
+                        loreLines.add(" &7- &fShift+ПКМ: &#FC3737Исключить из клана")
                         loreLines.add("")
                         loreLines.add("&#FF8702➥ &fИспользуйте клики для управления")
                     } else if (isMe) {
@@ -128,6 +131,14 @@ class MembersUX(
                         return@onClick
                     }
 
+                    // Middle-Click opens Role Permissions Editor for target member's role
+                    if (event.click.name.contains("MIDDLE")) {
+                        if (myRole == ClanRole.LEADER && targetRole != ClanRole.LEADER) {
+                            RolePermissionsUX(service, targetRole, EditorRolesUX(service)).open(viewer)
+                            return@onClick
+                        }
+                    }
+
                     if (event.isShiftClick && event.isRightClick) {
                         if (!clan.hasPermission(myUser, ClanPerms.Members.KICK)) {
                             cfg.send(viewer, cfg.messages.members.noPermissionKick)
@@ -145,7 +156,7 @@ class MembersUX(
                         clan.setUserRole(targetUser, ClanRole.LEADER)
                         service.saveClan(clan)
                         cfg.send(viewer, cfg.messages.members.leaderTransferred, mapOf("player" to targetUser.playerName))
-                        viewer.closeInventory()
+                        this@MembersUX.update(viewer)
                         return@onClick
                     }
 
@@ -155,17 +166,32 @@ class MembersUX(
                     if (event.isLeftClick && !event.isShiftClick) {
                         if (currentRoleIndex + 1 < rolesSorted.size) {
                             val nextRole = rolesSorted[currentRoleIndex + 1]
-                            if (nextRole.weight >= myRole.weight && myRole != ClanRole.LEADER) {
-                                cfg.send(viewer, cfg.messages.members.cannotPromote)
-                                return@onClick
+                            if (nextRole == ClanRole.LEADER) {
+                                // Promoting to LEADER automatically transfers leadership!
+                                if (myRole == ClanRole.LEADER) {
+                                    clan.setUserRole(myUser, ClanRole.DEPUTY)
+                                    clan.setUserRole(targetUser, ClanRole.LEADER)
+                                    service.saveClan(clan)
+                                    cfg.send(viewer, cfg.messages.members.leaderTransferred, mapOf("player" to targetUser.playerName))
+                                    this@MembersUX.update(viewer)
+                                    return@onClick
+                                } else {
+                                    cfg.send(viewer, cfg.messages.members.cannotPromote)
+                                    return@onClick
+                                }
+                            } else {
+                                if (nextRole.weight >= myRole.weight) {
+                                    cfg.send(viewer, cfg.messages.members.cannotPromote)
+                                    return@onClick
+                                }
+                                clan.setUserRole(targetUser, nextRole)
+                                service.saveClan(clan)
+                                cfg.send(viewer, cfg.messages.members.promoted, mapOf(
+                                    "player" to targetUser.playerName,
+                                    "role" to cfg.getRoleDisplayName(nextRole)
+                                ))
+                                this@MembersUX.update(viewer)
                             }
-                            clan.setUserRole(targetUser, nextRole)
-                            service.saveClan(clan)
-                            cfg.send(viewer, cfg.messages.members.promoted, mapOf(
-                                "player" to targetUser.playerName,
-                                "role" to cfg.getRoleDisplayName(nextRole)
-                            ))
-                            this@MembersUX.updateSlot(event.slot, viewer)
                         }
                     }
 
@@ -178,7 +204,7 @@ class MembersUX(
                                 "player" to targetUser.playerName,
                                 "role" to cfg.getRoleDisplayName(prevRole)
                             ))
-                            this@MembersUX.updateSlot(event.slot, viewer)
+                            this@MembersUX.update(viewer)
                         }
                     }
                 }
