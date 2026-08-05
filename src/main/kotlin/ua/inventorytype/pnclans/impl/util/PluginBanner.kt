@@ -5,20 +5,16 @@ import org.bukkit.plugin.Plugin
 import ua.inventorytype.pnclans.BukkitPlugin
 
 /**
- * Beautiful ASCII Banner and System Diagnostic Logger for startup (`onEnable`)
- * and shutdown (`onDisable`) status reporting.
+ * Premium console banner and diagnostic status renderer.
+ *
+ * Utilizes [Bukkit.getConsoleSender] with full HEX color formatting (`&#RRGGBB`)
+ * and Unicode box-drawing characters for stunning console output during plugin lifecycle events.
  */
 object PluginBanner {
 
     /**
-     * Prints a visually rich ASCII banner, system diagnostic audit, and integration status
-     * to the server console during plugin startup.
-     *
-     * @param plugin The owning [BukkitPlugin] instance.
-     * @param economyConnected Whether Vault Economy setup succeeded.
-     * @param papiConnected Whether PlaceholderAPI expansion was registered.
-     * @param loadedClansCount The number of clans loaded from the database.
-     * @param loadedAddonsCount The number of public API addons loaded.
+     * Renders a stunning HEX-colored ASCII banner and full diagnostic audit checklist
+     * to the server console during plugin startup (`onEnable`).
      */
     fun printEnableBanner(
         plugin: BukkitPlugin,
@@ -27,108 +23,115 @@ object PluginBanner {
         loadedClansCount: Int,
         loadedAddonsCount: Int
     ) {
-        val logger = plugin.logger
         val version = plugin.description.version
         val serverEngine = "${Bukkit.getName()} (MC ${Bukkit.getMinecraftVersion()})"
         val javaVer = System.getProperty("java.version") ?: "Java 21"
         val storageType = plugin.configService.settings.storageType.uppercase()
         val webhookConfigured = plugin.configService.settings.discordWebhookUrl.isNotBlank()
 
-        logger.info(" ")
-        logger.info("  ____  _   _  ____ _     _   _  ____ ")
-        logger.info(" |  _ \\| \\ | |/ ___| |   / \\ | \\ | / ___|")
-        logger.info(" | |_) |  \\| | |   | |  / _ \\|  \\| \\___ \\")
-        logger.info(" |  __/| |\\  | |___| |_/ ___ \\ |\\  |___) |")
-        logger.info(" |_|   |_| \\_|\\____|_____/_/   \\_\\_| \\_|____/  v$version")
-        logger.info(" ")
-        logger.info(" /\\_/\\   pnClans — Advanced Clan Management Core")
-        logger.info("( o.o )  Author: overdyn | Engine: $serverEngine")
-        logger.info(" > ^ <   Java: $javaVer | Storage: $storageType")
-        logger.info(" ")
-        logger.info("================== SYSTEM AUDIT ==================")
+        val runtime = Runtime.getRuntime()
+        val usedMemMb = (runtime.totalMemory() - runtime.freeMemory()) / 1024 / 1024
+        val maxMemMb = runtime.maxMemory() / 1024 / 1024
 
-        // 1. Config Audit
-        logger.info(" [✔] Configurations : config.yml, menus.yml, messages.yml (Loaded)")
+        val sender = Bukkit.getConsoleSender()
 
-        // 2. Storage Audit
-        logger.info(" [✔] Database Storage: $storageType ($loadedClansCount clans loaded)")
+        fun log(msg: String) {
+            sender.sendMessage(ColorUtil.color(msg))
+        }
 
-        // 3. Economy Integration Audit
+        log("")
+        log("&#FC7D37╔════════════════════════════════════════════════════════════════════════════════╗")
+        log("&#FC7D37║  &#FFD700 /\\_/\\   &#FC7D37&lpnClans &#9EFC65v$version &#787878— Advanced Clan Engine Framework              &#FC7D37║")
+        log("&#FC7D37║ &#FFD700( o.o )  &#5EFD7DAuthor: overdyn  &#787878|  &#5EA9FDEngine: $serverEngine               &#FC7D37║")
+        log("&#FC7D37║  &#FFD700> ^ <   &#FC65DF$javaVer &#787878| &#FFD700Storage: $storageType &#787878| &#5EFD7DRAM: ${usedMemMb}MB / ${maxMemMb}MB             &#FC7D37║")
+        log("&#FC7D37╠════════════════════════════════════════════════════════════════════════════════╣")
+
+        // 1. Configurations Audit
+        log("&#FC7D37║  &#9EFC65❖ CONFIGURATIONS &#ffffff: config.yml, menus.yml, messages.yml       &#9EFC65[ACTIVE ✔]  &#FC7D37║")
+
+        // 2. Database Audit
+        log("&#FC7D37║  &#5EFD7D❖ DATABASE       &#ffffff: $storageType Storage ($loadedClansCount clans loaded)         &#5EFD7D[READY ✔]   &#FC7D37║")
+
+        // 3. Vault Economy Audit
         if (economyConnected) {
-            logger.info(" [✔] Vault Economy   : Connected (Paid features enabled)")
+            log("&#FC7D37║  &#FFD700❖ VAULT ECONOMY  &#ffffff: Vault Economy Integration Connected        &#9EFC65[LINKED ✔]  &#FC7D37║")
         } else {
-            logger.warning(" [✘] Vault Economy   : Not Found! (Paid features disabled)")
+            log("&#FC7D37║  &#FC3737❖ VAULT ECONOMY  &#ffffff: Vault Plugin Missing (Paid features off)     &#FC3737[FAILED ✘]  &#FC7D37║")
         }
 
-        // 4. PlaceholderAPI Integration Audit
+        // 4. PlaceholderAPI Audit
         if (papiConnected) {
-            logger.info(" [✔] PlaceholderAPI  : Integration Registered")
+            log("&#FC7D37║  &#5EA9FD❖ PLACEHOLDERAPI &#ffffff: PnClans Placeholder Expansion           &#5EA9FD[HOOKED ✔]  &#FC7D37║")
         } else {
-            logger.info(" [!] PlaceholderAPI  : Not Detected (Optional)")
+            log("&#FC7D37║  &#787878❖ PLACEHOLDERAPI &#ffffff: PlaceholderAPI Plugin Not Found         &#787878[SKIPPED !] &#FC7D37║")
         }
 
-        // 5. Discord Webhook Analytics Audit
+        // 5. Discord Webhook Audit
         if (webhookConfigured) {
-            logger.info(" [✔] Discord Webhook : Analytics & Error Tracking Active")
+            log("&#FC7D37║  &#FC65DF❖ DISCORD ERROR  &#ffffff: Webhook Crash Analytics Service           &#9EFC65[ONLINE ✔]  &#FC7D37║")
         } else {
-            logger.info(" [!] Discord Webhook : Not Configured (Skipped)")
+            log("&#FC7D37║  &#787878❖ DISCORD ERROR  &#ffffff: Webhook URL Not Set in config.yml         &#787878[SKIPPED !] &#FC7D37║")
         }
 
         // 6. Public Addon API Audit
-        logger.info(" [✔] Public Addon API: Active ($loadedAddonsCount addons loaded)")
+        log("&#FC7D37║  &#FFD700❖ ADDON FRAMEWORK&#ffffff: Public Addon API Service                 &#FFD700[$loadedAddonsCount LOADED] &#FC7D37║")
 
-        logger.info("==================================================")
-        logger.info(" [🚀] pnClans v$version has been successfully launched!")
-        logger.info(" ")
+        log("&#FC7D37╠════════════════════════════════════════════════════════════════════════════════╣")
+        log("&#FC7D37║  &#9EFC65&l⚡ STATUS: pnClans v$version is initialized and ready for production!         &#FC7D37║")
+        log("&#FC7D37╚════════════════════════════════════════════════════════════════════════════════╝")
+        log("")
     }
 
     /**
-     * Prints a clean shutdown diagnostic status banner during plugin disable.
-     *
-     * @param plugin The owning [BukkitPlugin] instance.
-     * @param savedClansCount Number of clans saved to storage.
+     * Renders a clean shutdown diagnostic status banner during plugin disable (`onDisable`).
      */
     fun printDisableBanner(plugin: BukkitPlugin, savedClansCount: Int) {
-        val logger = plugin.logger
         val version = plugin.description.version
+        val sender = Bukkit.getConsoleSender()
 
-        logger.info(" ")
-        logger.info("================ SHUTDOWN DIAGNOSTICS ================")
-        logger.info(" [✔] Saved Database  : $savedClansCount clans persisted to storage")
-        logger.info(" [✔] Public Addon API: Services & listeners unregistered")
-        logger.info(" [✔] Active GUI Menus: Force-closed all open clan inventories")
-        logger.info(" [✔] System Cleanup  : Timed BossBars & invite prompts cleared")
-        logger.info("======================================================")
-        logger.info(" /\\_/\\   pnClans v$version disabled cleanly. Goodbye!")
-        logger.info("( -.- )  See you next time!")
-        logger.info(" > ^ <")
-        logger.info(" ")
+        fun log(msg: String) {
+            sender.sendMessage(ColorUtil.color(msg))
+        }
+
+        log("")
+        log("&#FC3737╔════════════════════════ SHUTDOWN DIAGNOSTICS ════════════════════════╗")
+        log("&#FC3737║  &#9EFC65✔ DATABASE SAVED  &#ffffff: $savedClansCount clans persisted to storage backend       &#FC3737║")
+        log("&#FC3737║  &#9EFC65✔ ADDON API CLEAN  &#ffffff: Services and event listeners unregistered cleanly    &#FC3737║")
+        log("&#FC3737║  &#9EFC65✔ GUI INVENTORIES &#ffffff: Force-closed all open clan player inventories       &#FC3737║")
+        log("&#FC3737║  &#9EFC65✔ SYSTEM CLEANUP   &#ffffff: Timed BossBars and invite prompts cleared            &#FC3737║")
+        log("&#FC3737╠═════════════════════════════════════════════════════════════════════════╣")
+        log("&#FC3737║  &#FFD700 /\\_/\\   &#FC3737pnClans v$version disabled cleanly. Goodbye!                  &#FC3737║")
+        log("&#FC3737║ &#FFD700( -.- )  &#787878See you next time!                                           &#FC3737║")
+        log("&#FC3737║  &#FFD700> ^ <                                                                   &#FC3737║")
+        log("&#FC3737╚═════════════════════════════════════════════════════════════════════════╝")
+        log("")
     }
 
     /**
-     * Prints a styled update notification banner to the console if a new version is available.
-     *
-     * @param plugin The owning [Plugin] instance.
-     * @param currentVersion The current version of the plugin running on the server.
-     * @param latestVersion The latest version detected from the repository/release server.
-     * @param downloadUrl The direct URL to download the updated release.
-     * @param changelog Brief description of changes in the new version.
+     * Renders a styled update notification box when a new version is detected.
      */
     fun printUpdateNotice(
         plugin: Plugin,
         currentVersion: String,
         latestVersion: String,
         downloadUrl: String,
-        changelog: String = "Performance improvements and bug fixes"
+        changelog: String = "Global performance improvements and feature updates"
     ) {
-        val logger = plugin.logger
-        logger.warning(" ")
-        logger.warning(" /\\_/\\   pnClans - New Update Available!")
-        logger.warning("( o.o )  Your version : v$currentVersion")
-        logger.warning(" > ^ <   New version  : v$latestVersion")
-        logger.warning(" ")
-        logger.warning("      Changes : $changelog")
-        logger.warning("      Download: $downloadUrl")
-        logger.warning(" ")
+        val sender = Bukkit.getConsoleSender()
+
+        fun log(msg: String) {
+            sender.sendMessage(ColorUtil.color(msg))
+        }
+
+        log("")
+        log("&#FFD700╔══════════════════════ NEW UPDATE AVAILABLE ══════════════════════╗")
+        log("&#FFD700║  &#FFD700 /\\_/\\   &#FC7D37pnClans Update Notification!                          &#FFD700║")
+        log("&#FFD700║ &#FFD700( o.o )  &#787878Your version : &#FC3737v$currentVersion                                   &#FFD700║")
+        log("&#FFD700║  &#FFD700> ^ <   &#9EFC65New version  : &#9EFC65v$latestVersion                                   &#FFD700║")
+        log("&#FFD700╠═════════════════════════════════════════════════════════════════════╣")
+        log("&#FFD700║  &#5EA9FD❖ Changes  : &#ffffff$changelog                                  &#FFD700║")
+        log("&#FFD700║  &#5EFD7D❖ Download : &#5EFD7D$downloadUrl                    &#FFD700║")
+        log("&#FFD700╚═════════════════════════════════════════════════════════════════════╝")
+        log("")
     }
 }
