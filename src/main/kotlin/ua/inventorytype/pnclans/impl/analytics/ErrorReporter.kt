@@ -13,17 +13,25 @@ import java.time.Instant
 import java.time.format.DateTimeFormatter
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicInteger
+import java.util.logging.Handler
+import java.util.logging.Level
+import java.util.logging.LogRecord
 
 /**
- * Asynchronous error reporting and analytics service for dispatching exception tracebacks
- * and diagnostic details to a configured Discord Webhook.
+ * Central, 100% automatic error reporting and analytics service.
  *
- * Designed for real-time monitoring and crash diagnostics without affecting server performance.
- * Features:
- * - Fully asynchronous HTTP POST delivery (runs on Bukkit async scheduler).
- * - Automatic rate-limiting and duplicate suppression (cooldown per exception pattern).
- * - Styled Discord Embed formatting with server specs, Java version, OS, context, and stack trace.
- * - Graceful fallback: silently logs to console if webhook URL is empty, invalid, or disabled.
+ * Attaches a custom [Handler] to the plugin's [java.util.logging.Logger] upon initialization.
+ * Whenever Bukkit/Paper or any plugin component logs a [Level.SEVERE] message with a [Throwable],
+ * this reporter automatically intercepts it, collects full diagnostic metrics, and posts a formatted
+ * embed to the configured Discord Webhook asynchronously.
+ *
+ * **Metrics automatically collected:**
+ * - Exception type, message, and formatted stack trace.
+ * - Java version, OS info, CPU architecture.
+ * - Server engine (Paper/Spigot), Minecraft version, online player count vs max.
+ * - Memory usage (used RAM / max RAM).
+ * - Plugin version and current `config.yml` settings dump.
+ * - Timestamp in ISO-8601 format.
  */
 object ErrorReporter {
 
@@ -36,29 +44,79 @@ object ErrorReporter {
     /** Minimum interval in milliseconds between duplicate error reports (10 seconds). */
     private const val DUPLICATE_COOLDOWN_MS = 10_000L
 
-    /** Maximum allowed stack trace length inside a Discord field (1000 characters). */
-    private const val MAX_STACK_TRACE_LENGTH = 1000
+    /** Maximum allowed stack trace length inside a Discord field (1020 characters). */
+    private const val MAX_STACK_TRACE_LENGTH = 1020
+
+    /** The initialized plugin instance. */
+    private var pluginInstance: BukkitPlugin? = null
 
     /**
-     * Reports an exception asynchronously to the Discord Webhook specified in `config.yml`.
+     * Initializes automatic error logging hooks on the plugin's logger and thread context.
+     * Called once during [ua.inventorytype.pnclans.BukkitPlugin.onEnable].
      *
      * @param plugin The owning [BukkitPlugin] instance.
-     * @param context High-level description of where the error occurred (e.g. `"Event: InventoryClickEvent"`).
+     */
+    fun init(plugin: BukkitPlugin) {
+        this.pluginInstance = plugin
+
+        // 1. Attach central logging handler to intercept all SEVERE errors automatically
+        val loggerHandler = object : Handler() {
+            override fun publish(record: LogRecord?) {
+                if (record == null) return
+                if (record.level == Level.SEVERE && record.thrown != null) {
+                    reportInternal(
+                        context = record.message ?: "Automatic Logger Intercept",
+                        throwable = record.thrown
+                    )
+                }
+            }
+
+            override fun flush() {}
+            override fun close() {}
+        }
+        plugin.logger.addHandler(loggerHandler)
+
+        // 2. Set default uncaught exception handler for background threads
+        val defaultHandler = Thread.getDefaultUncaughtExceptionHandler()
+        Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
+            reportInternal(
+                context = "Uncaught Thread Exception (${thread.name})",
+                throwable = throwable
+            )
+            defaultHandler?.uncaughtException(thread, throwable)
+        }
+
+        plugin.logger.info("[ErrorReporter] Автоматическая система сбора ошибок и аналитики Discord подключена!")
+    }
+
+    /**
+     * Manually reports an exception asynchronously to the Discord Webhook.
+     *
+     * @param context Description of where the error occurred.
      * @param throwable The caught exception or error.
      * @param player Optional player associated with the error context.
      * @param extraData Optional key-value pairs providing extra diagnostic state.
      */
     fun report(
-        plugin: Plugin,
         context: String,
         throwable: Throwable,
         player: Player? = null,
         extraData: Map<String, String> = emptyMap()
     ) {
-        val totalCount = totalErrorsCount.incrementAndGet()
+        reportInternal(context, throwable, player, extraData)
+    }
 
-        val bukkitPlugin = plugin as? BukkitPlugin ?: return
-        val settings = bukkitPlugin.configService.settings
+    /**
+     * Internal implementation for building metrics and dispatching the HTTP webhook.
+     */
+    private fun reportInternal(
+        context: String,
+        throwable: Throwable,
+        player: Player? = null,
+        extraData: Map<String, String> = emptyMap()
+    ) {
+        val plugin = pluginInstance ?: return
+        val settings = plugin.configService.settings
 
         if (!settings.discordWebhookEnabled) return
         val webhookUrl = settings.discordWebhookUrl.trim()
@@ -73,13 +131,24 @@ object ErrorReporter {
         }
         lastReportTimes[exceptionKey] = now
 
-        // Gather diagnostic metadata on the current thread
+        val totalCount = totalErrorsCount.incrementAndGet()
+
+        // ── Comprehensive System & Server Analytics ──────────────────────────
         val pluginVersion = plugin.description.version
-        val serverVersion = "${Bukkit.getName()} ${Bukkit.getVersion()} (MC ${Bukkit.getMinecraftVersion()})"
+        val serverEngine = "${Bukkit.getName()} ${Bukkit.getVersion()} (MC ${Bukkit.getMinecraftVersion()})"
         val javaVersion = System.getProperty("java.version") ?: "Unknown Java"
-        val osInfo = "${System.getProperty("os.name")} ${System.getProperty("os.arch")}"
+        val osName = System.getProperty("os.name") ?: "Unknown OS"
+        val osArch = System.getProperty("os.arch") ?: "x64"
+        val onlinePlayers = "${Bukkit.getOnlinePlayers().size} / ${Bukkit.getMaxPlayers()}"
+
+        val runtime = Runtime.getRuntime()
+        val usedMemMb = (runtime.totalMemory() - runtime.freeMemory()) / 1024 / 1024
+        val maxMemMb = runtime.maxMemory() / 1024 / 1024
+        val ramStats = "${usedMemMb}MB / ${maxMemMb}MB"
+
         val timestamp = DateTimeFormatter.ISO_INSTANT.format(Instant.now())
 
+        // ── Stack Trace Formatting ───────────────────────────────────────────
         val stringWriter = StringWriter()
         throwable.printStackTrace(PrintWriter(stringWriter))
         val fullStackTrace = stringWriter.toString()
@@ -89,11 +158,18 @@ object ErrorReporter {
             fullStackTrace
         }
 
+        // ── Config Dump Summary ──────────────────────────────────────────────
+        val configDump = "Storage: ${settings.storageType} | CreateCost: ${settings.createClanCost} | InviteTimeout: ${settings.inviteLifetimeSeconds}s"
+
+        // ── Metadata Map ─────────────────────────────────────────────────────
         val metadata = mutableMapOf<String, String>()
         metadata["Контекст"] = context
         metadata["Исключение"] = "${throwable.javaClass.simpleName}: ${throwable.message ?: "Без сообщения"}"
-        metadata["Сервер"] = serverVersion
-        metadata["Java / OS"] = "$javaVersion ($osInfo)"
+        metadata["Сервер"] = serverEngine
+        metadata["Онлайн"] = onlinePlayers
+        metadata["ОЗУ (RAM)"] = ramStats
+        metadata["Java / OS"] = "$javaVersion ($osName $osArch)"
+        metadata["Конфигурация"] = configDump
         metadata["Всего ошибок"] = "#$totalCount"
 
         if (player != null) {
@@ -146,7 +222,7 @@ object ErrorReporter {
     }
 
     /**
-     * Builds a Discord Webhook JSON payload with a styled embed layout.
+     * Builds a Discord Webhook JSON payload with a rich styled embed layout.
      */
     private fun buildDiscordJson(
         pluginVersion: String,
@@ -174,7 +250,7 @@ object ErrorReporter {
               "color": 16711680,
               "fields": [$fieldsJson],
               "footer": {
-                "text": "pnClans Analytics System"
+                "text": "pnClans Automatic Crash Analytics"
               },
               "timestamp": "$timestamp"
             }

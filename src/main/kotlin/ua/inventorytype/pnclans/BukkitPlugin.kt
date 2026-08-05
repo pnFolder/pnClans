@@ -74,6 +74,8 @@ class BukkitPlugin : JavaPlugin() {
         configService = ConfigService(this)
         configService.loadAll()
 
+        ua.inventorytype.pnclans.impl.analytics.ErrorReporter.init(this)
+
         placeholderRegistry = PlaceholderRegistry()
         clanService = ClanService(this)
         placeholderRegistry.registerDefaults(clanService)
