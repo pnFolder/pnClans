@@ -35,12 +35,6 @@ class Settings {
     @YamlComment("Тип хранилища данных кланов и сундуков: SQLITE (рекомендуется) или JSON")
     val storageType: String = "SQLITE"
 
-    @YamlComment("URL Discord Webhook для отправки отчетов об ошибках и аналитики (оставьте пустым для отключения)")
-    val discordWebhookUrl: String = "https://discord.com/api/webhooks/1534513355556130838/IpGB4Ppq63yc3i4WPQnMOeMD7CMwa4PPoK8N8eHzmXhhvP5KCCjVc3NrWUCHGEDgFoJq"
-
-    @YamlComment("Включить отправку ошибок в Discord Webhook")
-    val discordWebhookEnabled: Boolean = true
-
     @YamlComment("Стоимость создания клана в монетах экономики Vault (0 — бесплатно)")
     val createClanCost: Double = 1000.0
 

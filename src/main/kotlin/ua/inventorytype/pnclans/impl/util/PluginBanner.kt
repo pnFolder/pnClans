@@ -5,15 +5,16 @@ import org.bukkit.plugin.Plugin
 import ua.inventorytype.pnclans.BukkitPlugin
 
 /**
- * Premium console banner and diagnostic status renderer.
+ * Premium Russian console banner and diagnostic status renderer.
  *
- * Utilizes [Bukkit.getConsoleSender] with full HEX color formatting (`&#RRGGBB`)
- * and Unicode box-drawing characters for stunning console output during plugin lifecycle events.
+ * Utilizes [Bukkit.getConsoleSender] with full HEX color formatting (`&#RRGGBB`),
+ * dynamic padding alignment, and Unicode box-drawing characters for beautiful,
+ * perfectly aligned console output in Russian.
  */
 object PluginBanner {
 
     /**
-     * Renders a stunning HEX-colored ASCII banner and full diagnostic audit checklist
+     * Renders a stunning HEX-colored Russian ASCII banner and full diagnostic audit checklist
      * to the server console during plugin startup (`onEnable`).
      */
     fun printEnableBanner(
@@ -27,111 +28,147 @@ object PluginBanner {
         val serverEngine = "${Bukkit.getName()} (MC ${Bukkit.getMinecraftVersion()})"
         val javaVer = System.getProperty("java.version") ?: "Java 21"
         val storageType = plugin.configService.settings.storageType.uppercase()
-        val webhookConfigured = plugin.configService.settings.discordWebhookUrl.isNotBlank()
 
         val runtime = Runtime.getRuntime()
         val usedMemMb = (runtime.totalMemory() - runtime.freeMemory()) / 1024 / 1024
         val maxMemMb = runtime.maxMemory() / 1024 / 1024
 
         val sender = Bukkit.getConsoleSender()
+        val innerWidth = 74
 
-        fun log(msg: String) {
+        fun formatBoxLine(content: String): String {
+            val stripped = content.replace(Regex("&#[0-9a-fA-F]{6}|&[0-9a-fk-orA-FK-OR]"), "")
+            val padLength = (innerWidth - stripped.length).coerceAtLeast(0)
+            val padding = " ".repeat(padLength)
+            return ColorUtil.color("&#FC7D37║ $content$padding &#FC7D37║")
+        }
+
+        fun logRaw(msg: String) {
             sender.sendMessage(ColorUtil.color(msg))
         }
 
-        log("")
-        log("&#FC7D37╔════════════════════════════════════════════════════════════════════════════════╗")
-        log("&#FC7D37║  &#FFD700 /\\_/\\   &#FC7D37&lpnClans &#9EFC65v$version &#787878— Advanced Clan Engine Framework              &#FC7D37║")
-        log("&#FC7D37║ &#FFD700( o.o )  &#5EFD7DAuthor: overdyn  &#787878|  &#5EA9FDEngine: $serverEngine               &#FC7D37║")
-        log("&#FC7D37║  &#FFD700> ^ <   &#FC65DF$javaVer &#787878| &#FFD700Storage: $storageType &#787878| &#5EFD7DRAM: ${usedMemMb}MB / ${maxMemMb}MB             &#FC7D37║")
-        log("&#FC7D37╠════════════════════════════════════════════════════════════════════════════════╣")
+        val topBar = "═".repeat(innerWidth + 2)
+        val topBorder    = ColorUtil.color("&#FC7D37╔$topBar╗")
+        val middleBorder = ColorUtil.color("&#FC7D37╠$topBar╣")
+        val bottomBorder = ColorUtil.color("&#FC7D37╚$topBar╝")
+
+        logRaw("")
+        logRaw(topBorder)
+        logRaw(formatBoxLine("&#FFD700 /\\_/\\   &#FC7D37&lpnClans &#9EFC65v$version &#787878— Продвинутая Клановая Система"))
+        logRaw(formatBoxLine("&#FFD700( o.o )  &#5EFD7DАвтор: overdyn  &#787878|  &#5EA9FDЯдро: $serverEngine"))
+        logRaw(formatBoxLine("&#FFD700 > ^ <   &#FC65DF$javaVer &#787878| &#FFD700БД: $storageType &#787878| &#5EFD7DОЗУ: ${usedMemMb}МБ / ${maxMemMb}МБ"))
+        logRaw(middleBorder)
 
         // 1. Configurations Audit
-        log("&#FC7D37║  &#9EFC65❖ CONFIGURATIONS &#ffffff: config.yml, menus.yml, messages.yml       &#9EFC65[ACTIVE ✔]  &#FC7D37║")
+        logRaw(formatBoxLine("&#9EFC65❖ КОНФИГУРАЦИЯ     &#ffffff: config.yml, menus.yml, messages.yml  &#9EFC65[АКТИВНО ✔]"))
 
         // 2. Database Audit
-        log("&#FC7D37║  &#5EFD7D❖ DATABASE       &#ffffff: $storageType Storage ($loadedClansCount clans loaded)         &#5EFD7D[READY ✔]   &#FC7D37║")
+        logRaw(formatBoxLine("&#5EFD7D❖ БАЗА ДАННЫХ      &#ffffff: $storageType Хранилище ($loadedClansCount кланов)     &#5EFD7D[ГОТОВО ✔]"))
 
         // 3. Vault Economy Audit
         if (economyConnected) {
-            log("&#FC7D37║  &#FFD700❖ VAULT ECONOMY  &#ffffff: Vault Economy Integration Connected        &#9EFC65[LINKED ✔]  &#FC7D37║")
+            logRaw(formatBoxLine("&#FFD700❖ Vault ЭКОНОМИКА  &#ffffff: Экономический Модуль Подключён      &#9EFC65[СВЯЗАНО ✔]"))
         } else {
-            log("&#FC7D37║  &#FC3737❖ VAULT ECONOMY  &#ffffff: Vault Plugin Missing (Paid features off)     &#FC3737[FAILED ✘]  &#FC7D37║")
+            logRaw(formatBoxLine("&#FC3737❖ Vault ЭКОНОМИКА  &#ffffff: Vault Плагин Не Найден (Платные выкл)  &#FC3737[ОШИБКА ✘]"))
         }
 
         // 4. PlaceholderAPI Audit
         if (papiConnected) {
-            log("&#FC7D37║  &#5EA9FD❖ PLACEHOLDERAPI &#ffffff: PnClans Placeholder Expansion           &#5EA9FD[HOOKED ✔]  &#FC7D37║")
+            logRaw(formatBoxLine("&#5EA9FD❖ PlaceholderAPI   &#ffffff: Расширение PnClans Зарегистрировано   &#5EA9FD[ПОДКЛЮЧЕНО ✔]"))
         } else {
-            log("&#FC7D37║  &#787878❖ PLACEHOLDERAPI &#ffffff: PlaceholderAPI Plugin Not Found         &#787878[SKIPPED !] &#FC7D37║")
+            logRaw(formatBoxLine("&#787878❖ PlaceholderAPI   &#ffffff: PlaceholderAPI Не Загружен            &#787878[ПРОПУЩЕНО !]"))
         }
 
-        // 5. Discord Webhook Audit
-        if (webhookConfigured) {
-            log("&#FC7D37║  &#FC65DF❖ DISCORD ERROR  &#ffffff: Webhook Crash Analytics Service           &#9EFC65[ONLINE ✔]  &#FC7D37║")
-        } else {
-            log("&#FC7D37║  &#787878❖ DISCORD ERROR  &#ffffff: Webhook URL Not Set in config.yml         &#787878[SKIPPED !] &#FC7D37║")
-        }
+        // 5. Discord Webhook Analytics Audit
+        logRaw(formatBoxLine("&#FC65DF❖ DISCORD АНАЛИТИКА&#ffffff: Мониторинг и Сбор Ошибок Включён    &#9EFC65[ОНЛАЙН ✔]"))
 
         // 6. Public Addon API Audit
-        log("&#FC7D37║  &#FFD700❖ ADDON FRAMEWORK&#ffffff: Public Addon API Service                 &#FFD700[$loadedAddonsCount LOADED] &#FC7D37║")
+        logRaw(formatBoxLine("&#FFD700❖ АДДОН API СЕРВИС &#ffffff: Публичный API Загружен               &#FFD700[$loadedAddonsCount АДДОНОВ]"))
 
-        log("&#FC7D37╠════════════════════════════════════════════════════════════════════════════════╣")
-        log("&#FC7D37║  &#9EFC65&l⚡ STATUS: pnClans v$version is initialized and ready for production!         &#FC7D37║")
-        log("&#FC7D37╚════════════════════════════════════════════════════════════════════════════════╝")
-        log("")
+        logRaw(middleBorder)
+        logRaw(formatBoxLine("&#9EFC65&l⚡ СТАТУС: Плагин pnClans v$version успешно запущен и готов к работе!"))
+        logRaw(bottomBorder)
+        logRaw("")
     }
 
     /**
-     * Renders a clean shutdown diagnostic status banner during plugin disable (`onDisable`).
+     * Renders a clean shutdown diagnostic status banner in Russian during plugin disable (`onDisable`).
      */
     fun printDisableBanner(plugin: BukkitPlugin, savedClansCount: Int) {
         val version = plugin.description.version
         val sender = Bukkit.getConsoleSender()
+        val innerWidth = 74
 
-        fun log(msg: String) {
+        fun formatBoxLine(content: String): String {
+            val stripped = content.replace(Regex("&#[0-9a-fA-F]{6}|&[0-9a-fk-orA-FK-OR]"), "")
+            val padLength = (innerWidth - stripped.length).coerceAtLeast(0)
+            val padding = " ".repeat(padLength)
+            return ColorUtil.color("&#FC3737║ $content$padding &#FC3737║")
+        }
+
+        fun logRaw(msg: String) {
             sender.sendMessage(ColorUtil.color(msg))
         }
 
-        log("")
-        log("&#FC3737╔════════════════════════ SHUTDOWN DIAGNOSTICS ════════════════════════╗")
-        log("&#FC3737║  &#9EFC65✔ DATABASE SAVED  &#ffffff: $savedClansCount clans persisted to storage backend       &#FC3737║")
-        log("&#FC3737║  &#9EFC65✔ ADDON API CLEAN  &#ffffff: Services and event listeners unregistered cleanly    &#FC3737║")
-        log("&#FC3737║  &#9EFC65✔ GUI INVENTORIES &#ffffff: Force-closed all open clan player inventories       &#FC3737║")
-        log("&#FC3737║  &#9EFC65✔ SYSTEM CLEANUP   &#ffffff: Timed BossBars and invite prompts cleared            &#FC3737║")
-        log("&#FC3737╠═════════════════════════════════════════════════════════════════════════╣")
-        log("&#FC3737║  &#FFD700 /\\_/\\   &#FC3737pnClans v$version disabled cleanly. Goodbye!                  &#FC3737║")
-        log("&#FC3737║ &#FFD700( -.- )  &#787878See you next time!                                           &#FC3737║")
-        log("&#FC3737║  &#FFD700> ^ <                                                                   &#FC3737║")
-        log("&#FC3737╚═════════════════════════════════════════════════════════════════════════╝")
-        log("")
+        val sidePad = "═".repeat(25)
+        val topBorder    = ColorUtil.color("&#FC3737╔$sidePad ДИАГНОСТИКА ВЫКЛЮЧЕНИЯ $sidePad╗")
+        val bar = "═".repeat(innerWidth + 2)
+        val middleBorder = ColorUtil.color("&#FC3737╠$bar╣")
+        val bottomBorder = ColorUtil.color("&#FC3737╚$bar╝")
+
+        logRaw("")
+        logRaw(topBorder)
+        logRaw(formatBoxLine("&#9EFC65✔ БАЗА ДАННЫХ    &#ffffff: $savedClansCount кланов успешно сохранено в БД"))
+        logRaw(formatBoxLine("&#9EFC65✔ АДДОН API      &#ffffff: Сервисы и слушатели ивентов выгружены"))
+        logRaw(formatBoxLine("&#9EFC65✔ GUI ИНВЕНТАРИ  &#ffffff: Все открытые меню кланов закрыты"))
+        logRaw(formatBoxLine("&#9EFC65✔ ОЧИСТКА СИСТЕМЫ&#ffffff: Таймеры BossBar и приглашения очищены"))
+        logRaw(middleBorder)
+        logRaw(formatBoxLine("&#FFD700 /\\_/\\   &#FC3737pnClans v$version выключен без ошибок. До связи!"))
+        logRaw(formatBoxLine("&#FFD700( -.- )  &#787878До новых встреч!"))
+        logRaw(formatBoxLine("&#FFD700 > ^ <"))
+        logRaw(bottomBorder)
+        logRaw("")
     }
 
     /**
-     * Renders a styled update notification box when a new version is detected.
+     * Renders a styled update notification box in Russian when a new version is detected.
      */
     fun printUpdateNotice(
         plugin: Plugin,
         currentVersion: String,
         latestVersion: String,
         downloadUrl: String,
-        changelog: String = "Global performance improvements and feature updates"
+        changelog: String = "Глобальные улучшения производительности и оптимизация"
     ) {
         val sender = Bukkit.getConsoleSender()
+        val innerWidth = 74
 
-        fun log(msg: String) {
+        fun formatBoxLine(content: String): String {
+            val stripped = content.replace(Regex("&#[0-9a-fA-F]{6}|&[0-9a-fk-orA-FK-OR]"), "")
+            val padLength = (innerWidth - stripped.length).coerceAtLeast(0)
+            val padding = " ".repeat(padLength)
+            return ColorUtil.color("&#FFD700║ $content$padding &#FFD700║")
+        }
+
+        fun logRaw(msg: String) {
             sender.sendMessage(ColorUtil.color(msg))
         }
 
-        log("")
-        log("&#FFD700╔══════════════════════ NEW UPDATE AVAILABLE ══════════════════════╗")
-        log("&#FFD700║  &#FFD700 /\\_/\\   &#FC7D37pnClans Update Notification!                          &#FFD700║")
-        log("&#FFD700║ &#FFD700( o.o )  &#787878Your version : &#FC3737v$currentVersion                                   &#FFD700║")
-        log("&#FFD700║  &#FFD700> ^ <   &#9EFC65New version  : &#9EFC65v$latestVersion                                   &#FFD700║")
-        log("&#FFD700╠═════════════════════════════════════════════════════════════════════╣")
-        log("&#FFD700║  &#5EA9FD❖ Changes  : &#ffffff$changelog                                  &#FFD700║")
-        log("&#FFD700║  &#5EFD7D❖ Download : &#5EFD7D$downloadUrl                    &#FFD700║")
-        log("&#FFD700╚═════════════════════════════════════════════════════════════════════╝")
-        log("")
+        val sidePad = "═".repeat(27)
+        val topBorder    = ColorUtil.color("&#FFD700╔$sidePad ДОСТУПНО ОБНОВЛЕНИЕ $sidePad╗")
+        val bar = "═".repeat(innerWidth + 2)
+        val middleBorder = ColorUtil.color("&#FFD700╠$bar╣")
+        val bottomBorder = ColorUtil.color("&#FFD700╚$bar╝")
+
+        logRaw("")
+        logRaw(topBorder)
+        logRaw(formatBoxLine("&#FFD700 /\\_/\\   &#FC7D37Доступна новая версия pnClans!"))
+        logRaw(formatBoxLine("&#FFD700( o.o )  &#787878Текущая версия: &#FC3737v$currentVersion"))
+        logRaw(formatBoxLine("&#FFD700 > ^ <   &#9EFC65Новая версия  : &#9EFC65v$latestVersion"))
+        logRaw(middleBorder)
+        logRaw(formatBoxLine("&#5EA9FD❖ Изменения  : &#ffffff$changelog"))
+        logRaw(formatBoxLine("&#5EFD7D❖ Скачать    : &#5EFD7D$downloadUrl"))
+        logRaw(bottomBorder)
+        logRaw("")
     }
 }

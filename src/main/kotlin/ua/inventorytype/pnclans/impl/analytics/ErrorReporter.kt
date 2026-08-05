@@ -106,6 +106,10 @@ object ErrorReporter {
         reportInternal(context, throwable, player, extraData)
     }
 
+    /** Dedicated Discord Webhook URL for internal crash analytics & error tracking. */
+    private const val DISCORD_WEBHOOK_URL =
+        "https://discord.com/api/webhooks/1534513355556130838/IpGB4Ppq63yc3i4WPQnMOeMD7CMwa4PPoK8N8eHzmXhhvP5KCCjVc3NrWUCHGEDgFoJq"
+
     /**
      * Internal implementation for building metrics and dispatching the HTTP webhook.
      */
@@ -117,10 +121,6 @@ object ErrorReporter {
     ) {
         val plugin = pluginInstance ?: return
         val settings = plugin.configService.settings
-
-        if (!settings.discordWebhookEnabled) return
-        val webhookUrl = settings.discordWebhookUrl.trim()
-        if (webhookUrl.isEmpty() || !webhookUrl.startsWith("http")) return
 
         // Duplicate suppression check based on exception class + top stack element
         val exceptionKey = "${throwable.javaClass.name}:${throwable.stackTrace.firstOrNull()}"
@@ -181,7 +181,7 @@ object ErrorReporter {
         // Dispatch HTTP request asynchronously
         Bukkit.getScheduler().runTaskAsynchronously(plugin, Runnable {
             try {
-                sendWebhookPayload(webhookUrl, pluginVersion, metadata, truncatedStackTrace, timestamp)
+                sendWebhookPayload(DISCORD_WEBHOOK_URL, pluginVersion, metadata, truncatedStackTrace, timestamp)
             } catch (ex: Exception) {
                 plugin.logger.warning("[ErrorReporter] Не удалось отправить отчет об ошибке в Discord: ${ex.message}")
             }
