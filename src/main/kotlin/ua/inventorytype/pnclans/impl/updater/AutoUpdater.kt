@@ -9,14 +9,14 @@ import java.net.URL
 import java.util.logging.Level
 
 /**
- * Asynchronous background updater for pnClans.
+ * Asynchronous background updater and cleanup engine for pnClans.
  *
- * Checks GitHub Releases API (`https://api.github.com/repos/overdyn/pnClans/releases/latest`)
- * for newer plugin versions upon server startup.
- *
- * If a newer version is detected and `autoUpdate` is enabled in `config.yml`, downloads the
- * updated Fat JAR into the Bukkit update folder (`/plugins/update/pnClans.jar`), allowing
- * Paper/Spigot to automatically apply the update on the next server restart.
+ * - Checks GitHub Releases API (`https://api.github.com/repos/overdyn/pnClans/releases/latest`)
+ *   for newer plugin versions upon server startup.
+ * - Downloads the updated Fat JAR into the Bukkit update folder (`/plugins/update/pnClans.jar`),
+ *   allowing Paper/Spigot to automatically swap it on the next server restart.
+ * - Automatically scans and deletes leftover older JAR files (e.g. `pnClans-1.0.0-all.jar`) from `/plugins/`
+ *   once the new version is active.
  *
  * @param plugin The main Bukkit plugin instance.
  */
@@ -26,10 +26,14 @@ class AutoUpdater(private val plugin: BukkitPlugin) {
     private val repo: String = "overdyn/pnClans"
 
     /**
-     * Schedules an asynchronous update check on server startup.
+     * Schedules asynchronous update check and old JAR cleanup on server startup.
      */
     fun checkForUpdatesAsync() {
         val settings = plugin.configService.settings
+
+        // Always attempt old JAR cleanup first
+        cleanupOldJarsAsync()
+
         if (!settings.checkUpdates && !settings.autoUpdate) return
 
         plugin.server.scheduler.runTaskAsynchronously(plugin, Runnable {
@@ -37,6 +41,41 @@ class AutoUpdater(private val plugin: BukkitPlugin) {
                 performCheck()
             } catch (e: Exception) {
                 plugin.logger.log(Level.WARNING, "[pnClans] Не удалось проверить обновления на GitHub: ${e.message}")
+            }
+        })
+    }
+
+    /**
+     * Scans the `/plugins/` folder for any obsolete versioned `pnClans-*.jar` files and deletes them.
+     */
+    fun cleanupOldJarsAsync() {
+        plugin.server.scheduler.runTaskAsynchronously(plugin, Runnable {
+            try {
+                val pluginsFolder = plugin.dataFolder.parentFile ?: return@Runnable
+                val cleanCurrent = currentVersion.removePrefix("v").removePrefix("V").trim()
+
+                val jarFiles = pluginsFolder.listFiles { file ->
+                    file.isFile && file.name.endsWith(".jar") && file.name.contains("pnClans", ignoreCase = true)
+                } ?: return@Runnable
+
+                for (jar in jarFiles) {
+                    val name = jar.name
+                    if (name.equals("pnClans.jar", ignoreCase = true)) continue
+
+                    val verMatch = Regex("""pnClans[^\d]*(\d+\.\d+\.\d+).*""", RegexOption.IGNORE_CASE).find(name)
+                    if (verMatch != null) {
+                        val verInFile = verMatch.groupValues[1]
+                        if (isNewerVersion(cleanCurrent, verInFile)) {
+                            if (jar.delete()) {
+                                plugin.logger.info("[pnClans] 🧹 Автоматически удален устаревший файл плагина: ${jar.name}")
+                            } else {
+                                jar.deleteOnExit()
+                            }
+                        }
+                    }
+                }
+            } catch (_: Exception) {
+                // Ignore cleanup errors
             }
         })
     }
@@ -105,7 +144,7 @@ class AutoUpdater(private val plugin: BukkitPlugin) {
             }
 
             plugin.logger.info("[pnClans] ✔ Обновление v$version успешно скачано в папку ${updateFolder.name}/!")
-            plugin.logger.info("[pnClans] 🔄 Новая версия автоматически вступит в силу при следующем перезапуске сервера!")
+            plugin.logger.info("[pnClans] 🔄 Новая версия автоматически заменит текущий JAR при перезапуске сервера!")
         } catch (e: Exception) {
             plugin.logger.log(Level.SEVERE, "[pnClans] Ошибка при скачивании авто-обновления: ${e.message}", e)
         }
