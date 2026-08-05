@@ -99,12 +99,18 @@ class TimedBossBarService(private val plugin: BukkitPlugin) : Listener {
     }
 
     private fun parseColor(value: String): BarColor =
-        runCatching { BarColor.valueOf(value.uppercase()) }.getOrDefault(BarColor.YELLOW)
+        COLOR_CACHE.computeIfAbsent(value.uppercase()) { key ->
+            runCatching { BarColor.valueOf(key) }.getOrDefault(BarColor.YELLOW)
+        }
 
     private fun parseStyle(value: String): BarStyle =
-        runCatching { BarStyle.valueOf(value.uppercase()) }.getOrDefault(BarStyle.SOLID)
+        STYLE_CACHE.computeIfAbsent(value.uppercase()) { key ->
+            runCatching { BarStyle.valueOf(key) }.getOrDefault(BarStyle.SOLID)
+        }
 
     private companion object {
         const val TICKS_PER_SECOND = 20L
+        private val COLOR_CACHE = ConcurrentHashMap<String, BarColor>()
+        private val STYLE_CACHE = ConcurrentHashMap<String, BarStyle>()
     }
 }

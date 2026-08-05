@@ -121,24 +121,6 @@ class RolePermissionsUX(
     val editorRolesUX: EditorRolesUX
 ) : BaseGui(clanService) {
 
-    companion object {
-        private val cache = EnumMap<ClanRole, RolePermissionsUX>(ClanRole::class.java)
-
-        operator fun invoke(clanService: ClanService, role: ClanRole, editorRolesUX: EditorRolesUX): RolePermissionsUX {
-            return cache.getOrPut(role) { RolePermissionsUX.create(clanService, role, editorRolesUX) }
-        }
-
-        private fun create(clanService: ClanService, role: ClanRole, editorRolesUX: EditorRolesUX): RolePermissionsUX =
-            RolePermissionsUX(clanService, role, editorRolesUX, Unit)
-    }
-
-    private constructor(
-        clanService: ClanService,
-        targetRole: ClanRole,
-        editorRolesUX: EditorRolesUX,
-        @Suppress("UNUSED_PARAMETER") marker: Unit
-    ) : this(clanService, targetRole, editorRolesUX)
-
     init {
         val cfg = clanService.plugin.configService
         val menuCfg = cfg.menus.editorRolesMenu
@@ -172,7 +154,7 @@ class RolePermissionsUX(
 
                 onClick { player, event ->
                     val clan = this@RolePermissionsUX.clanService.getClanUser(player) ?: return@onClick
-                    val user = clan.users.find { it.uuid == player.uniqueId } ?: return@onClick
+                    val user = clan.getMember(player.uniqueId) ?: return@onClick
 
                     if (clan.getUserRole(user) != ClanRole.LEADER) {
                         cfg.send(player, cfg.messages.settings.noPermissionRoles)

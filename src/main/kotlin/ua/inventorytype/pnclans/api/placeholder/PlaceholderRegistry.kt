@@ -26,7 +26,7 @@ class PlaceholderRegistry {
         register("clan_role") { player ->
             val clan = clanService.getClanUser(player)
             if (clan != null) {
-                val user = clan.users.find { it.uuid == player.uniqueId }
+                val user = clan.getMember(player.uniqueId)
                 if (user != null) clanService.plugin.configService.getRoleDisplayName(clan.getUserRole(user)) else "Нет"
             } else "Нет"
         }
@@ -43,21 +43,33 @@ class PlaceholderRegistry {
      * Замена всех зарегистрированных плейсхолдеров и кастомных ключей в тексте
      */
     fun process(player: Player, text: String, customPlaceholders: Map<String, String> = emptyMap()): String {
+        if (text.isEmpty()) return ""
+
         var result = text
 
-        customPlaceholders.forEach { (key, value) ->
-            result = result.replace("{$key}", value)
-        }
-
-        placeholders.forEach { (key, provider) ->
-            if (result.contains("{$key}")) {
-                result = result.replace("{$key}", provider(player))
+        if (customPlaceholders.isNotEmpty()) {
+            customPlaceholders.forEach { (key, value) ->
+                val token = "{$key}"
+                if (result.contains(token)) {
+                    result = result.replace(token, value)
+                }
             }
         }
 
-        result = ColorUtil.color(result)
+        if (result.contains('{')) {
+            placeholders.forEach { (key, provider) ->
+                val token = "{$key}"
+                if (result.contains(token)) {
+                    result = result.replace(token, provider(player))
+                }
+            }
+        }
 
-        if (Bukkit.getPluginManager().isPluginEnabled("PlaceholderAPI")) {
+        if (result.contains('&') || result.contains('§') || result.contains('#')) {
+            result = ColorUtil.color(result)
+        }
+
+        if (result.contains('%') && Bukkit.getPluginManager().isPluginEnabled("PlaceholderAPI")) {
             result = me.clip.placeholderapi.PlaceholderAPI.setPlaceholders(player, result)
         }
 

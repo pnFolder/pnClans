@@ -27,15 +27,21 @@ class ItemBuilder(initialMaterial: Material) {
         this.type = material
     }
 
+    @Suppress("DEPRECATION")
     fun name(displayName: String) {
+        if (displayName.isEmpty()) return
         itemMeta?.setDisplayName(ColorUtil.color(displayName))
     }
 
+    @Suppress("DEPRECATION")
     fun lore(vararg lines: String) {
+        if (lines.isEmpty()) return
         itemMeta?.lore = lines.map { ColorUtil.color(it) }
     }
 
+    @Suppress("DEPRECATION")
     fun lore(lines: List<String>) {
+        if (lines.isEmpty()) return
         itemMeta?.lore = lines.map { ColorUtil.color(it) }
     }
 

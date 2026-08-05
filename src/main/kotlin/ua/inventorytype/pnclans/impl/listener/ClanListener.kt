@@ -47,7 +47,7 @@ class ClanListener(private val plugin: BukkitPlugin) : Listener {
         if (victimClan != null) {
             victimClan.deaths += 1
             if (victimClan.mmr > 0) victimClan.mmr -= 5
-            val victimUser = victimClan.users.find { it.uuid == victim.uniqueId } as? ua.inventorytype.pnclans.impl.clan.ClanUser
+            val victimUser = victimClan.getMember(victim.uniqueId) as? ua.inventorytype.pnclans.impl.clan.ClanUser
             victimUser?.deaths = victimUser.deaths + 1
             victimUser?.points = (victimUser.points - 1).coerceAtLeast(0)
             clanService.saveClan(victimClan)
@@ -58,7 +58,7 @@ class ClanListener(private val plugin: BukkitPlugin) : Listener {
             if (killerClan != null) {
                 killerClan.kills += 1
                 killerClan.mmr += 10
-                val killerUser = killerClan.users.find { it.uuid == killer.uniqueId } as? ua.inventorytype.pnclans.impl.clan.ClanUser
+                val killerUser = killerClan.getMember(killer.uniqueId) as? ua.inventorytype.pnclans.impl.clan.ClanUser
                 killerUser?.kills = killerUser.kills + 1
                 killerUser?.points = (killerUser.points + 3).coerceAtLeast(0)
                 clanService.saveClan(killerClan)
@@ -66,6 +66,7 @@ class ClanListener(private val plugin: BukkitPlugin) : Listener {
         }
     }
 
+    @Suppress("DEPRECATION")
     @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = true)
     fun onChat(event: AsyncPlayerChatEvent) {
         val message = event.message
@@ -85,7 +86,7 @@ class ClanListener(private val plugin: BukkitPlugin) : Listener {
         val cleanMsg = message.substring(1).trim()
         if (cleanMsg.isEmpty()) return
 
-        val user = clan.users.find { it.uuid == player.uniqueId } ?: return
+        val user = clan.getMember(player.uniqueId) ?: return
         val role = clan.getUserRole(user)
         val roleName = configService.getRoleDisplayName(role)
 
@@ -106,7 +107,7 @@ class ClanListener(private val plugin: BukkitPlugin) : Listener {
         val clan = clanService.getClanUser(player) ?: return
 
         // Обновляем сохраненный ник игрока, если он изменился в Minecraft
-        val user = clan.users.find { it.uuid == player.uniqueId }
+        val user = clan.getMember(player.uniqueId)
         if (user != null && user.playerName != player.name) {
             (user as? ua.inventorytype.pnclans.impl.clan.ClanUser)?.playerName = player.name
             clanService.saveClan(clan)

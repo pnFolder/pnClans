@@ -50,8 +50,12 @@ class ClanImpl(
     private val _rolePermissions = ConcurrentHashMap<ClanRole, MutableSet<Pair<Permission, Boolean>>>()
     private val _userPermissions = ConcurrentHashMap<UUID, MutableSet<Pair<Permission, Boolean>>>()
 
-    private val _users: MutableSet<Pair<User, ClanRole>> = ConcurrentHashMap.newKeySet<Pair<User, ClanRole>>().apply {
-        addAll(initialUsers)
+    data class MemberEntry(val user: User, var role: ClanRole)
+
+    private val _members = ConcurrentHashMap<UUID, MemberEntry>().apply {
+        initialUsers.forEach { (user, role) ->
+            put(user.uuid, MemberEntry(user, role))
+        }
     }
 
     override val settings: Map<ClanSetting, Boolean>
@@ -64,21 +68,20 @@ class ClanImpl(
         get() = _userPermissions.toMap()
 
     override val users: Set<User>
-        get() = _users.map { it.first }.toSet()
+        get() = _members.values.map { it.user }.toSet()
 
     override fun addUser(user: User, role: ClanRole): Boolean {
-        if (_users.any { it.first.uuid == user.uuid }) return false
-        return _users.add(user to role)
+        return _members.putIfAbsent(user.uuid, MemberEntry(user, role)) == null
     }
 
     override fun removeUser(uuid: UUID): Boolean {
-        return _users.removeIf { it.first.uuid == uuid }
+        return _members.remove(uuid) != null
     }
 
     override fun setUserRole(user: User, role: ClanRole): Boolean {
-        val existing = _users.find { it.first.uuid == user.uuid } ?: return false
-        _users.remove(existing)
-        return _users.add(user to role)
+        val entry = _members[user.uuid] ?: return false
+        entry.role = role
+        return true
     }
 
     override fun depositBank(amount: Double) {
@@ -174,6 +177,12 @@ class ClanImpl(
     }
 
     override fun getUserRole(user: User): ClanRole {
-        return _users.find { it.first.uuid == user.uuid }?.second ?: ClanRole.MEMBER
+        return _members[user.uuid]?.role ?: ClanRole.MEMBER
     }
+
+    /** O(1) member lookup using internal [_members] HashMap. */
+    override fun getMember(uuid: UUID): User? = _members[uuid]?.user
+
+    /** Returns the [User] with the given UUID in O(1), or null if not a member. */
+    fun getUserByUuid(uuid: UUID): User? = _members[uuid]?.user
 }

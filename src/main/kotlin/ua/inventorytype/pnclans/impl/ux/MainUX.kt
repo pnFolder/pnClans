@@ -50,7 +50,7 @@ class MainUX(clanService: ClanService) : BaseGui(clanService) {
         if (modules.chest) {
             addMenuItem(menuCfg, "chest") { player, itemCfg ->
                 val clan = this@MainUX.clanService.getClanUser(player) ?: return@addMenuItem
-                val user = clan.users.find { it.uuid == player.uniqueId } ?: return@addMenuItem
+                val user = clan.getMember(player.uniqueId) ?: return@addMenuItem
 
                 if (!clan.hasPermission(user, ClanPerms.Action.OPEN_CHEST)) {
                     cfg.send(player, cfg.messages.chest.noPermission)
@@ -166,7 +166,7 @@ class MainUX(clanService: ClanService) : BaseGui(clanService) {
         val service = clanService
         val cfg = service.plugin.configService
         val clan = service.getClanUser(player) ?: return
-        val user = clan.users.find { it.uuid == player.uniqueId } ?: return
+        val user = clan.getMember(player.uniqueId) ?: return
 
         if (!clan.hasPermission(user, ClanPerms.Members.INVITE)) {
             cfg.send(player, cfg.messages.invite.noPermission)
@@ -231,7 +231,7 @@ class MainUX(clanService: ClanService) : BaseGui(clanService) {
     private fun mainPlaceholders(player: Player, clan: Clan): Map<String, String> {
         val cfg = clanService.plugin.configService
         val display = cfg.menus.mainMenu.display
-        val user = clan.users.find { it.uuid == player.uniqueId }
+        val user = clan.getMember(player.uniqueId)
         val homes = cfg.menus.homesMenu.homes
         val unlockedHomes = homes.filter { clan.level >= it.requiredLevel }
         val isLeader = user != null && clan.getUserRole(user) == ClanRole.LEADER
@@ -266,11 +266,6 @@ class MainUX(clanService: ClanService) : BaseGui(clanService) {
             "leave_name" to if (isLeader) display.leaderLeaveName else display.memberLeaveName,
             "leave_warning" to if (isLeader) display.leaderLeaveWarning else display.memberLeaveWarning
         )
-    }
-
-    private fun animatedStars(): String {
-        val cfg = clanService.plugin.configService
-        return cfg.animatedFrame(cfg.animationFrames(AnimationKey.HIDDEN_BALANCE))
     }
 
     private fun renderConfigItem(

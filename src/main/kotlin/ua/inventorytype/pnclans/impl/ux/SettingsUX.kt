@@ -74,7 +74,7 @@ class SettingsUX(
             slot(itemCfg.slot) {
                 dynamicItem(parseMaterial(itemCfg.material, Material.NETHER_STAR)) { player ->
                     val clan = this@SettingsUX.clanService.getClanUser(player) ?: return@dynamicItem null
-                    val user = clan.users.find { it.uuid == player.uniqueId } ?: return@dynamicItem null
+                    val user = clan.getMember(player.uniqueId) ?: return@dynamicItem null
                     val placeholders = this@SettingsUX.commonPlaceholders(player, clan) + mapOf(
                         "roles" to ClanRole.entries.size.toString(),
                         "role" to cfg.getRoleDisplayName(clan.getUserRole(user))
@@ -87,7 +87,7 @@ class SettingsUX(
                 }
                 onClick { player, _ ->
                     val clan = this@SettingsUX.clanService.getClanUser(player) ?: return@onClick
-                    val user = clan.users.find { it.uuid == player.uniqueId } ?: return@onClick
+                    val user = clan.getMember(player.uniqueId) ?: return@onClick
 
                     if (clan.getUserRole(user) != ClanRole.LEADER) {
                         cfg.send(player, cfg.messages.settings.noPermissionRoles)
@@ -135,7 +135,7 @@ class SettingsUX(
 
             onClick { player, event ->
                 val clan = this@SettingsUX.clanService.getClanUser(player) ?: return@onClick
-                val user = clan.users.find { it.uuid == player.uniqueId } ?: return@onClick
+                val user = clan.getMember(player.uniqueId) ?: return@onClick
 
                 if (!clan.hasPermission(user, permission)) {
                     cfg.send(player, cfg.messages.settings.noPermission)
@@ -156,7 +156,7 @@ class SettingsUX(
         slot(itemCfg.slot) {
             dynamicItem(parseMaterial(itemCfg.material, Material.PAPER)) { player ->
                 val clan = this@SettingsUX.clanService.getClanUser(player) ?: return@dynamicItem null
-                val user = clan.users.find { it.uuid == player.uniqueId }
+                val user = clan.getMember(player.uniqueId)
                 val placeholders = this@SettingsUX.commonPlaceholders(player, clan) + mapOf(
                     "role" to if (user != null) cfg.getRoleDisplayName(clan.getUserRole(user)) else "-"
                 )

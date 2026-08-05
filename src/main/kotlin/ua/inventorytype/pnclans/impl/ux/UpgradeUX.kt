@@ -86,7 +86,7 @@ class UpgradeUX(clanService: ClanService) : BaseGui(clanService) {
         val service = clanService
         val cfg = service.plugin.configService
         val clan = service.getClanUser(player) ?: return
-        val user = clan.users.find { it.uuid == player.uniqueId } ?: return
+        val user = clan.getMember(player.uniqueId) ?: return
 
         if (clan.level >= ClanLevels.MAX_LEVEL) {
             cfg.send(player, cfg.messages.upgrade.maxLevel)
@@ -182,7 +182,6 @@ class UpgradeUX(clanService: ClanService) : BaseGui(clanService) {
     private fun levelPlaceholders(levelData: ClanLevelData, clan: Clan): Map<String, String> {
         val unlocked = clan.level >= levelData.level
         val isNext = clan.level + 1 == levelData.level
-        val isLeader = clan.users.find { it.uuid == clan.users.firstOrNull()?.uuid && clan.getUserRole(it) == ClanRole.LEADER } != null
         val stateText = when {
             unlocked -> "&#5EFD7D[Разблокировано] &7— клан уже достиг этого уровня"
             isNext -> "&#FF8702[Доступно] &7— выполните условия и откройте ритуал"
@@ -198,7 +197,7 @@ class UpgradeUX(clanService: ClanService) : BaseGui(clanService) {
             "level_cost" to levelData.costMoney.toString(),
             "level_required_mmr" to levelData.requiredMmr.toString(),
             "level_required_quests" to levelData.requiredQuests.toString()
-        ).also { if (isLeader) Unit }
+        )
     }
 
     private fun beaconFramesFor(clan: Clan): List<String> {

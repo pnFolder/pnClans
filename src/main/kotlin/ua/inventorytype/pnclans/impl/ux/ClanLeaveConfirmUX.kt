@@ -33,7 +33,7 @@ class ClanLeaveConfirmUX(clanService: ClanService) : BaseGui(clanService) {
             slot(confirmLeader.slot) {
                 dynamicItem(this@ClanLeaveConfirmUX.parseMaterial(confirmLeader.material, Material.RED_DYE)) { player ->
                     val clan = this@ClanLeaveConfirmUX.clanService.getClanUser(player) ?: return@dynamicItem null
-                    val user = clan.users.find { it.uuid == player.uniqueId } ?: return@dynamicItem null
+                    val user = clan.getMember(player.uniqueId) ?: return@dynamicItem null
                     val itemCfg = if (clan.getUserRole(user) == ClanRole.LEADER) confirmLeader else confirmMember
 
                     type(this@ClanLeaveConfirmUX.parseMaterial(itemCfg.material, Material.RED_DYE))
@@ -42,7 +42,7 @@ class ClanLeaveConfirmUX(clanService: ClanService) : BaseGui(clanService) {
                 }
                 onClick { player, _ ->
                     val clan = this@ClanLeaveConfirmUX.clanService.getClanUser(player) ?: return@onClick
-                    val user = clan.users.find { it.uuid == player.uniqueId } ?: return@onClick
+                    val user = clan.getMember(player.uniqueId) ?: return@onClick
 
                     if (clan.getUserRole(user) == ClanRole.LEADER) {
                         val errorMsg = this@ClanLeaveConfirmUX.clanService.disbandClan(clan, player)
@@ -50,7 +50,7 @@ class ClanLeaveConfirmUX(clanService: ClanService) : BaseGui(clanService) {
                             player.sendMessage(errorMsg)
                             return@onClick
                         }
-                    } else if (clan.removeUser(player.uniqueId)) {
+                    } else if (this@ClanLeaveConfirmUX.clanService.removeUserFromClan(clan, player.uniqueId)) {
                         this@ClanLeaveConfirmUX.clanService.saveClan(clan)
                         this@ClanLeaveConfirmUX.clanService.notifyClanUpdated(player.uniqueId)
                         cfg.send(player, cfg.messages.clan.left, mapOf("clan" to clan.name))

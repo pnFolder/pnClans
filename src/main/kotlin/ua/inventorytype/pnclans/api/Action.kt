@@ -73,6 +73,7 @@ data class TitleAction(
     val stay: Int = 70,
     val fadeOut: Int = 20
 ) : Action {
+    @Suppress("DEPRECATION")
     override fun execute(context: ActionContext) {
         val formattedTitle = context.placeholderRegistry.process(context.player, title, context.placeholders)
         val formattedSubtitle = context.placeholderRegistry.process(context.player, subtitle, context.placeholders)
@@ -89,6 +90,7 @@ data class TitleAction(
 data class ActionBarAction(
     val text: String
 ) : Action {
+    @Suppress("DEPRECATION")
     override fun execute(context: ActionContext) {
         val formatted = context.placeholderRegistry.process(context.player, text, context.placeholders)
         context.player.spigot().sendMessage(ChatMessageType.ACTION_BAR, *TextComponent.fromLegacyText(formatted))
@@ -132,6 +134,7 @@ data class SoundAction(
     val volume: Float = 1.0f,
     val pitch: Float = 1.0f
 ) : Action {
+    @Suppress("DEPRECATION")
     override fun execute(context: ActionContext) {
         runCatching {
             val soundEnum = Sound.valueOf(sound.uppercase())
@@ -167,6 +170,7 @@ data class ParticleAction(
 data class BroadcastAction(
     val text: String
 ) : Action {
+    @Suppress("DEPRECATION")
     override fun execute(context: ActionContext) {
         val formatted = context.placeholderRegistry.process(context.player, text, context.placeholders)
         Bukkit.broadcastMessage(formatted)

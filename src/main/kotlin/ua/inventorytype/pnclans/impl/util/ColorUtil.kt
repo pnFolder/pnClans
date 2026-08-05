@@ -8,10 +8,9 @@ object ColorUtil {
 
     fun color(text: String?): String {
         if (text.isNullOrEmpty()) return ""
+        if (!text.contains('#')) return text.replace('&', '§')
 
         var formatted = text
-
-        // 1. Парсим HEX (#FFFFFF, &#FFFFFF, <#FFFFFF>)
         val matcher = HEX_PATTERN.matcher(formatted)
         val buffer = StringBuffer()
 
