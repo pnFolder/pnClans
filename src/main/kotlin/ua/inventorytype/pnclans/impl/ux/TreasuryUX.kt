@@ -150,7 +150,7 @@ class TreasuryUX(clanService: ClanService) : BaseGui(clanService) {
         ChatInputPrompt.prompt(
             plugin = service.plugin,
             player = player,
-            timeoutTicks = 600L, // 30 seconds
+            timeoutTicks = 600L,
             onInput = { input ->
                 if (input.equals("cancel", ignoreCase = true)) {
                     player.sendMessage("§c[pnClans] Ввод суммы отменён.")
@@ -189,7 +189,7 @@ class TreasuryUX(clanService: ClanService) : BaseGui(clanService) {
         ChatInputPrompt.prompt(
             plugin = service.plugin,
             player = player,
-            timeoutTicks = 600L, // 30 seconds
+            timeoutTicks = 600L,
             onInput = { input ->
                 if (input.equals("cancel", ignoreCase = true)) {
                     player.sendMessage("§c[pnClans] Ввод суммы отменён.")
@@ -339,7 +339,8 @@ class TreasuryUX(clanService: ClanService) : BaseGui(clanService) {
  * Provides:
  * - 6-row HotWorld border.
  * - 28 transaction logs per page.
- * - Beautiful navigation arrows (slots 48 & 50) that remain visible and cleanly formatted across all pages.
+ * - Dynamic page switching across arbitrary number of log pages.
+ * - Clean border blending when navigation arrows are inactive.
  * - Back button door (slot 49) returning to [TreasuryUX].
  *
  * @param clanService The clan service providing log access.
@@ -404,30 +405,30 @@ class HistoryUX(
 
         // ── Previous Page Arrow (Slot 48) ─────────────────────────────────────
         slot(48) {
-            dynamicItem(Material.ARROW) {
+            dynamicItem(Material.ARROW) { player ->
+                val totalLogs = this@HistoryUX.clanService.getClanUser(player)?.treasuryLogs?.size ?: 0
+                val maxPages = maxOf(1, (totalLogs + 27) / 28)
+
                 if (currentPage > 0) {
                     this.type = Material.ARROW
                     name("&#5EFD7D← Предыдущая страница")
                     lore(
                         "",
                         "&#9EFC65 «Навигация»",
-                        " &7- &fПерейти на страницу &e${currentPage}",
+                        " &7- &fПерейти на страницу &e${currentPage} &7/ &f$maxPages",
                         "",
                         "&#FF8702➥ &fНажмите &eЛКМ &fдля перехода"
                     )
                     glow(true)
                 } else {
-                    this.type = Material.GRAY_STAINED_GLASS_PANE
-                    name("&7← Первая страница")
-                    lore("&7Вы находитесь на первой странице.")
-                    glow(false)
+                    this.type = Material.BLACK_STAINED_GLASS_PANE
+                    name(" ")
                 }
                 null
             }
             onClick { player, _ ->
-                if (this@HistoryUX.page > 0) {
-                    this@HistoryUX.page--
-                    this@HistoryUX.update(player)
+                if (currentPage > 0) {
+                    HistoryUX(this@HistoryUX.clanService, currentPage - 1).open(player)
                 }
             }
         }
@@ -452,31 +453,31 @@ class HistoryUX(
         // ── Next Page Arrow (Slot 50) ─────────────────────────────────────────
         slot(50) {
             dynamicItem(Material.ARROW) { player ->
-                val maxPages = ((this@HistoryUX.clanService.getClanUser(player)?.treasuryLogs?.size ?: 0) + 27) / 28
+                val totalLogs = this@HistoryUX.clanService.getClanUser(player)?.treasuryLogs?.size ?: 0
+                val maxPages = maxOf(1, (totalLogs + 27) / 28)
+
                 if (currentPage + 1 < maxPages) {
                     this.type = Material.ARROW
                     name("&#5EFD7DСледующая страница →")
                     lore(
                         "",
                         "&#9EFC65 «Навигация»",
-                        " &7- &fПерейти на страницу &e${currentPage + 2}",
+                        " &7- &fПерейти на страницу &e${currentPage + 2} &7/ &f$maxPages",
                         "",
                         "&#FF8702➥ &fНажмите &eЛКМ &fдля перехода"
                     )
                     glow(true)
                 } else {
-                    this.type = Material.GRAY_STAINED_GLASS_PANE
-                    name("&7Последняя страница →")
-                    lore("&7Больше нет записей в истории.")
-                    glow(false)
+                    this.type = Material.BLACK_STAINED_GLASS_PANE
+                    name(" ")
                 }
                 null
             }
             onClick { player, _ ->
-                val maxPages = ((this@HistoryUX.clanService.getClanUser(player)?.treasuryLogs?.size ?: 0) + 27) / 28
-                if (this@HistoryUX.page + 1 < maxPages) {
-                    this@HistoryUX.page++
-                    this@HistoryUX.update(player)
+                val totalLogs = this@HistoryUX.clanService.getClanUser(player)?.treasuryLogs?.size ?: 0
+                val maxPages = maxOf(1, (totalLogs + 27) / 28)
+                if (currentPage + 1 < maxPages) {
+                    HistoryUX(this@HistoryUX.clanService, currentPage + 1).open(player)
                 }
             }
         }
