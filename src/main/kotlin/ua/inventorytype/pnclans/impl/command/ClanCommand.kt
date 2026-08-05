@@ -48,7 +48,7 @@ class ClanCommand(
 
         try {
             // Main /clan entry point opens GUI directly
-            if (args.isEmpty() || args[0].equalsIgnoreCase("menu")) {
+            if (args.isEmpty() || args[0].equals("menu", ignoreCase = true)) {
                 MainUX(clanService).open(sender)
                 return true
             }
@@ -228,7 +228,6 @@ class ClanCommand(
         return true
     }
 
-    private fun String.equalsIgnoreCase(other: String): Boolean = this.equals(other, ignoreCase = true)
 
     private fun configuredHome(key: String) =
         configService.menus.homesMenu.homes.firstOrNull { it.key.equals(key, ignoreCase = true) }
