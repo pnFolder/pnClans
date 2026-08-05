@@ -90,7 +90,7 @@ class MembersUX(
                         }
                         loreLines.add(" &7- &fПКМ: &#FC3737Понизить в должности")
                         if (isLeader) {
-                            loreLines.add(" &7- &fСКМ: &#5EA9FDНастроить права роли ($roleDisplayName)")
+                            loreLines.add(" &7- &fСКМ: &#5EA9FDПерсональные права игрока")
                         }
                         loreLines.add(" &7- &fShift+ПКМ: &#FC3737Исключить из клана")
                         loreLines.add("")
@@ -131,10 +131,10 @@ class MembersUX(
                         return@onClick
                     }
 
-                    // Middle-Click opens Role Permissions Editor for target member's role
+                    // Middle-Click opens Personal Member Permissions Editor for targetUser
                     if (event.click.name.contains("MIDDLE")) {
-                        if (myRole == ClanRole.LEADER && targetRole != ClanRole.LEADER) {
-                            RolePermissionsUX(service, targetRole, EditorRolesUX(service)).open(viewer)
+                        if (myRole == ClanRole.LEADER) {
+                            UserPermissionsUX(service, targetUser, this@MembersUX).open(viewer)
                             return@onClick
                         }
                     }
