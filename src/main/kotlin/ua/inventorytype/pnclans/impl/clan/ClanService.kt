@@ -40,6 +40,9 @@ class ClanService(
 
     private val _clans = ConcurrentHashMap.newKeySet<Clan>()
 
+    /** O(1) player UUID → Clan lookup index, kept in sync with [_clans]. */
+    private val _uuidToClan = ConcurrentHashMap<UUID, Clan>()
+
     /** Tracks online playtime for each member while they remain in a clan. */
     internal val playtimeTracker: PlaytimeTracker = PlaytimeTracker()
 
@@ -66,7 +69,10 @@ class ClanService(
      */
     fun loadClans() {
         _clans.clear()
-        _clans.addAll(storage.loadAllClans())
+        _uuidToClan.clear()
+        val loaded = storage.loadAllClans()
+        _clans.addAll(loaded)
+        loaded.forEach { clan -> clan.users.forEach { user -> _uuidToClan[user.uuid] = clan } }
         playtimeTracker.clear()
         plugin.logger.info("Загружено кланов из хранилища (${storage::class.simpleName}): ${_clans.size}")
     }
@@ -129,8 +135,7 @@ class ClanService(
      * @param player The Bukkit player to look up.
      * @return The player's [Clan], or null if they are not in any clan.
      */
-    fun getClanUser(player: Player): Clan? =
-        _clans.find { clan -> clan.users.any { user -> user.uuid == player.uniqueId } }
+    fun getClanUser(player: Player): Clan? = _uuidToClan[player.uniqueId]
 
     /**
      * Finds the clan that a player with the given UUID belongs to.
@@ -138,8 +143,7 @@ class ClanService(
      * @param uuid The UUID of the player to look up.
      * @return The player's [Clan], or null if they are not in any clan.
      */
-    fun getClanByUuid(uuid: UUID): Clan? =
-        _clans.find { clan -> clan.users.any { user -> user.uuid == uuid } }
+    fun getClanByUuid(uuid: UUID): Clan? = _uuidToClan[uuid]
 
     /**
      * Creates a new clan with the given name, assigning [leader] as the LEADER.
@@ -164,8 +168,7 @@ class ClanService(
             return null
         }
 
-        val nameRegex = Regex("^[a-zA-Z0-9_а-яА-Я]+$")
-        if (!nameRegex.matches(cleanName)) {
+        if (!NAME_REGEX.matches(cleanName)) {
             cfg.send(leader, cfg.messages.clan.nameInvalidChars)
             return null
         }
@@ -198,6 +201,7 @@ class ClanService(
         }
 
         _clans.add(clan)
+        clan.users.forEach { user -> _uuidToClan[user.uuid] = clan }
         saveClan(clan)
         configService.send(leader, configService.messages.clan.created, mapOf("clan" to cleanName))
 
@@ -253,6 +257,7 @@ class ClanService(
         if (disbandEvent.isCancelled) return "§c[pnClans] Распуск клана был отменён событием."
 
         val memberUuids = clan.users.map { it.uuid }
+        memberUuids.forEach { _uuidToClan.remove(it) }
         _clans.remove(clan)
         storage.deleteClan(clan)
         notifyClanDisbanded(memberUuids)
@@ -320,5 +325,9 @@ class ClanService(
     fun saveClan(clan: Clan) {
         storage.saveClan(clan)
         Bukkit.getPluginManager().callEvent(ClanSavedEvent(clan))
+    }
+
+    private companion object {
+        val NAME_REGEX = Regex("^[a-zA-Z0-9_а-яА-Я]+$")
     }
 }
