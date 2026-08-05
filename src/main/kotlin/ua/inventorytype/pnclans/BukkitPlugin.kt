@@ -18,23 +18,6 @@ class BukkitPlugin : JavaPlugin() {
     lateinit var clanService : ClanService
 
     override fun onEnable() {
-//        this.logger.warning(" ")
-//        this.logger.warning(" /\\_/\\   Clans - New update available!")
-//        this.logger.warning("( o.o )  Your version: 0.1")
-//        this.logger.warning(" > ^ <   New version: 0.2")
-//        this.logger.warning(" ")
-//        this.logger.warning("      Changes:  Global")
-//        this.logger.warning("      Download: https://github.com/maquqdev/Clans/releases/latest")
-//        this.logger.warning(" ")
-
-        this.logger.warning(" ")
-        this.logger.warning(" /\\_/\\   pnClans - Был включенный на сервере!")
-        this.logger.warning("( o.o )  Ваша версия: 1.0.0")
-        this.logger.warning(" > ^ <   New version: 0.2")
-        this.logger.warning(" ")
-        this.logger.warning("      Changes:  Global")
-        this.logger.warning("      Download: https://github.com/maquqdev/Clans/releases/latest")
-        this.logger.warning(" ")
 
         KGui.setup(this)
 
