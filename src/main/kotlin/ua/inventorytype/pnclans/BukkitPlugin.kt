@@ -103,7 +103,10 @@ class BukkitPlugin : JavaPlugin() {
             papiConnected = true
         }
 
-        // 8. Print Rich Startup ASCII Audit Banner
+        // 8. Schedule Async Auto-Updater
+        ua.inventorytype.pnclans.impl.updater.AutoUpdater(this).checkForUpdatesAsync()
+
+        // 9. Print Rich Startup ASCII Audit Banner
         PluginBanner.printEnableBanner(
             plugin = this,
             economyConnected = economyConnected,

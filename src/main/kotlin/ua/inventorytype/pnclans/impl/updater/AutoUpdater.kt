@@ -1,0 +1,188 @@
+package ua.inventorytype.pnclans.impl.updater
+
+import org.bukkit.Bukkit
+import ua.inventorytype.pnclans.BukkitPlugin
+import java.io.File
+import java.io.FileOutputStream
+import java.net.HttpURLConnection
+import java.net.URL
+import java.util.logging.Level
+
+/**
+ * Asynchronous background updater for pnClans.
+ *
+ * Checks GitHub Releases API (`https://api.github.com/repos/overdyn/pnClans/releases/latest`)
+ * for newer plugin versions upon server startup.
+ *
+ * If a newer version is detected and `autoUpdate` is enabled in `config.yml`, downloads the
+ * updated Fat JAR into the Bukkit update folder (`/plugins/update/pnClans.jar`), allowing
+ * Paper/Spigot to automatically apply the update on the next server restart.
+ *
+ * @param plugin The main Bukkit plugin instance.
+ */
+class AutoUpdater(private val plugin: BukkitPlugin) {
+
+    private val currentVersion: String = plugin.description.version
+    private val repo: String = "overdyn/pnClans"
+
+    /**
+     * Schedules an asynchronous update check on server startup.
+     */
+    fun checkForUpdatesAsync() {
+        val settings = plugin.configService.settings
+        if (!settings.checkUpdates && !settings.autoUpdate) return
+
+        plugin.server.scheduler.runTaskAsynchronously(plugin, Runnable {
+            try {
+                performCheck()
+            } catch (e: Exception) {
+                plugin.logger.log(Level.WARNING, "[pnClans] Не удалось проверить обновления на GitHub: ${e.message}")
+            }
+        })
+    }
+
+    private fun performCheck() {
+        val settings = plugin.configService.settings
+        val apiUrl = "https://api.github.com/repos/$repo/releases/latest"
+
+        val connection = URL(apiUrl).openConnection() as HttpURLConnection
+        connection.requestMethod = "GET"
+        connection.setRequestProperty("User-Agent", "pnClans-AutoUpdater")
+        connection.setRequestProperty("Accept", "application/json")
+        connection.connectTimeout = 10000
+        connection.readTimeout = 10000
+
+        if (connection.responseCode != 200) {
+            plugin.logger.warning("[pnClans] GitHub API вернул статус ${connection.responseCode} при проверке обновлений.")
+            return
+        }
+
+        val responseText = connection.inputStream.bufferedReader().use { it.readText() }
+        val latestTag = extractJsonField(responseText, "tag_name") ?: return
+        val downloadUrl = extractJarDownloadUrl(responseText)
+
+        val cleanLatest = latestTag.removePrefix("v").removePrefix("V").trim()
+        val cleanCurrent = currentVersion.removePrefix("v").removePrefix("V").trim()
+
+        if (isNewerVersion(cleanLatest, cleanCurrent)) {
+            plugin.logger.info("=======================================================")
+            plugin.logger.info("[pnClans] 🚀 ОБНАРУЖЕНО НОВОЕ ОБНОВЛЕНИЕ ПЛАГИНА!")
+            plugin.logger.info("[pnClans] Текущая версия: v$cleanCurrent ➜ Новая версия: v$cleanLatest")
+            plugin.logger.info("[pnClans] Ссылка на релиз: https://github.com/$repo/releases/tag/$latestTag")
+
+            if (settings.autoUpdate && downloadUrl != null) {
+                plugin.logger.info("[pnClans] 📥 Начинаем автоматическую загрузку обновления...")
+                downloadUpdate(downloadUrl, cleanLatest)
+            } else {
+                plugin.logger.info("[pnClans] Авто-скачивание отключено в config.yml (autoUpdate: false).")
+            }
+            plugin.logger.info("=======================================================")
+        } else {
+            plugin.logger.info("[pnClans] Вы используете актуальную версию плагина (v$cleanCurrent).")
+        }
+    }
+
+    private fun downloadUpdate(downloadUrl: String, version: String) {
+        try {
+            val updateFolder = Bukkit.getUpdateFolderFile()
+            if (!updateFolder.exists()) {
+                updateFolder.mkdirs()
+            }
+
+            val targetFile = File(updateFolder, "pnClans.jar")
+            val targetFileNamed = File(updateFolder, "pnClans-$version-all.jar")
+
+            val urlConnection = followRedirects(downloadUrl)
+            urlConnection.inputStream.use { input ->
+                FileOutputStream(targetFile).use { output ->
+                    input.copyTo(output)
+                }
+            }
+
+            // Also save a copy with full version name for clarity
+            if (targetFile.exists()) {
+                targetFile.copyTo(targetFileNamed, overwrite = true)
+            }
+
+            plugin.logger.info("[pnClans] ✔ Обновление v$version успешно скачано в папку ${updateFolder.name}/!")
+            plugin.logger.info("[pnClans] 🔄 Новая версия автоматически вступит в силу при следующем перезапуске сервера!")
+        } catch (e: Exception) {
+            plugin.logger.log(Level.SEVERE, "[pnClans] Ошибка при скачивании авто-обновления: ${e.message}", e)
+        }
+    }
+
+    private fun followRedirects(initialUrl: String): HttpURLConnection {
+        var currentUrl = initialUrl
+        var redirects = 0
+        while (redirects < 5) {
+            val conn = URL(currentUrl).openConnection() as HttpURLConnection
+            conn.requestMethod = "GET"
+            conn.setRequestProperty("User-Agent", "pnClans-AutoUpdater")
+            conn.instanceFollowRedirects = false
+            conn.connectTimeout = 15000
+            conn.readTimeout = 15000
+
+            val code = conn.responseCode
+            if (code == HttpURLConnection.HTTP_MOVED_PERM || code == HttpURLConnection.HTTP_MOVED_TEMP || code == 307 || code == 308) {
+                val loc = conn.getHeaderField("Location")
+                if (loc != null) {
+                    currentUrl = loc
+                    redirects++
+                    continue
+                }
+            }
+            return conn
+        }
+        throw IllegalStateException("Too many HTTP redirects following $initialUrl")
+    }
+
+    private fun isNewerVersion(latest: String, current: String): Boolean {
+        val latestParts = latest.split('.').mapNotNull { it.toIntOrNull() }
+        val currentParts = current.split('.').mapNotNull { it.toIntOrNull() }
+
+        val maxLen = maxOf(latestParts.size, currentParts.size)
+        for (i in 0 until maxLen) {
+            val l = latestParts.getOrElse(i) { 0 }
+            val c = currentParts.getOrElse(i) { 0 }
+            if (l > c) return true
+            if (l < c) return false
+        }
+        return false
+    }
+
+    private fun extractJsonField(json: String, fieldName: String): String? {
+        val key = "\"$fieldName\":"
+        val index = json.indexOf(key)
+        if (index == -1) return null
+
+        val startQuote = json.indexOf('"', index + key.length)
+        if (startQuote == -1) return null
+
+        val endQuote = json.indexOf('"', startQuote + 1)
+        if (endQuote == -1) return null
+
+        return json.substring(startQuote + 1, endQuote)
+    }
+
+    private fun extractJarDownloadUrl(json: String): String? {
+        val key = "\"browser_download_url\":"
+        var searchIndex = 0
+        while (searchIndex < json.length) {
+            val index = json.indexOf(key, searchIndex)
+            if (index == -1) break
+
+            val startQuote = json.indexOf('"', index + key.length)
+            if (startQuote != -1) {
+                val endQuote = json.indexOf('"', startQuote + 1)
+                if (endQuote != -1) {
+                    val url = json.substring(startQuote + 1, endQuote)
+                    if (url.endsWith(".jar")) {
+                        return url
+                    }
+                }
+            }
+            searchIndex = index + key.length
+        }
+        return null
+    }
+}
