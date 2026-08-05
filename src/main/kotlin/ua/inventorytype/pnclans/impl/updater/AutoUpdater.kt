@@ -129,22 +129,26 @@ class AutoUpdater(private val plugin: BukkitPlugin) {
             }
 
             val targetFile = File(updateFolder, "pnClans.jar")
-            val targetFileNamed = File(updateFolder, "pnClans-$version-all.jar")
+            val tempFile = File(updateFolder, "pnClans.jar.tmp")
+
+            if (tempFile.exists()) tempFile.delete()
 
             val urlConnection = followRedirects(downloadUrl)
             urlConnection.inputStream.use { input ->
-                FileOutputStream(targetFile).use { output ->
+                FileOutputStream(tempFile).use { output ->
                     input.copyTo(output)
                 }
             }
 
-            // Also save a copy with full version name for clarity
-            if (targetFile.exists()) {
-                targetFile.copyTo(targetFileNamed, overwrite = true)
+            if (tempFile.exists() && tempFile.length() > 0) {
+                if (targetFile.exists()) targetFile.delete()
+                tempFile.renameTo(targetFile)
+                plugin.logger.info("[pnClans] ✔ Обновление v$version успешно скачано в папку ${updateFolder.name}/pnClans.jar!")
+                plugin.logger.info("[pnClans] 🔄 Новая версия автоматически заменит текущий JAR при перезапуске сервера!")
+            } else {
+                tempFile.delete()
+                plugin.logger.warning("[pnClans] ✖ Скачанный файл авто-обновления v$version оказался пустым или повреждённым.")
             }
-
-            plugin.logger.info("[pnClans] ✔ Обновление v$version успешно скачано в папку ${updateFolder.name}/!")
-            plugin.logger.info("[pnClans] 🔄 Новая версия автоматически заменит текущий JAR при перезапуске сервера!")
         } catch (e: Exception) {
             plugin.logger.log(Level.SEVERE, "[pnClans] Ошибка при скачивании авто-обновления: ${e.message}", e)
         }

@@ -104,7 +104,7 @@ class BukkitPlugin : JavaPlugin() {
         }
 
         // 8. Schedule Async Auto-Updater
-//        ua.inventorytype.pnclans.impl.updater.AutoUpdater(this).checkForUpdatesAsync()
+        ua.inventorytype.pnclans.impl.updater.AutoUpdater(this).checkForUpdatesAsync()
 
         // 9. Print Rich Startup ASCII Audit Banner
         PluginBanner.printEnableBanner(
