@@ -8,6 +8,9 @@ import ua.inventorytype.pnclans.api.clan.Clan
 import ua.inventorytype.pnclans.api.clan.ClanRole
 import ua.inventorytype.pnclans.api.clan.ClanSetting
 import ua.inventorytype.pnclans.api.permission.ClanPerms
+import ua.inventorytype.pnclans.api.event.ClanMainMenuItemClickEvent
+import ua.inventorytype.pnclans.api.event.ClanMainMenuItemRenderEvent
+import ua.inventorytype.pnclans.api.menu.ClanMainMenuContext
 import ua.inventorytype.pnclans.impl.clan.ClanService
 import ua.inventorytype.pnclans.impl.config.AnimationKey
 import ua.inventorytype.pnclans.impl.config.GuiItemConfig
@@ -97,6 +100,21 @@ class MainUX(clanService: ClanService) : BaseGui(clanService) {
             clickEffects(player, itemCfg)
             ClanLeaveConfirmUX(this@MainUX.clanService).open(player)
         }
+
+        clanService.plugin.publicMainMenuButtons().forEach { button ->
+            slot(button.slot) {
+                dynamicItemNullable(Material.PAPER) { player ->
+                    val clan = this@MainUX.clanService.getClanUser(player) ?: return@dynamicItemNullable null
+                    val context = ClanMainMenuContext(player, clan)
+                    if (!button.isVisible(context)) return@dynamicItemNullable null
+                    button.createItem(context)
+                }
+                onClick { player, _ ->
+                    val clan = this@MainUX.clanService.getClanUser(player) ?: return@onClick
+                    button.onClick(ClanMainMenuContext(player, clan))
+                }
+            }
+        }
     }
 
     private fun addMenuItem(
@@ -109,11 +127,19 @@ class MainUX(clanService: ClanService) : BaseGui(clanService) {
         slot(itemCfg.slot) {
             dynamicItem(this@MainUX.parseMaterial(itemCfg.material, Material.STONE)) { player ->
                 val clan = this@MainUX.clanService.getClanUser(player) ?: return@dynamicItem null
+                val renderEvent = ClanMainMenuItemRenderEvent(player, clan, key)
+                Bukkit.getPluginManager().callEvent(renderEvent)
+                if (renderEvent.isCancelled) return@dynamicItem null
                 this@MainUX.renderConfigItem(this, player, itemCfg, this@MainUX.mainPlaceholders(player, clan))
                 null
             }
             if (onClick != null) {
-                onClick { player, _ -> onClick(player, itemCfg) }
+                onClick { player, _ ->
+                    val clan = this@MainUX.clanService.getClanUser(player) ?: return@onClick
+                    val clickEvent = ClanMainMenuItemClickEvent(player, clan, key)
+                    Bukkit.getPluginManager().callEvent(clickEvent)
+                    if (!clickEvent.isCancelled) onClick(player, itemCfg)
+                }
             }
         }
     }

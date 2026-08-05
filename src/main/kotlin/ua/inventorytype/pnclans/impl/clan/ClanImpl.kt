@@ -8,6 +8,7 @@ import ua.inventorytype.pnclans.api.clan.ClanSetting
 import ua.inventorytype.pnclans.api.permission.Permission
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
+import ua.inventorytype.pnclans.api.clan.TreasuryTransaction
 
 /**
  * High-performance, thread-safe implementation of the [Clan] contract.
@@ -28,6 +29,17 @@ class ClanImpl(
     override var kills: Int = 0
     override var deaths: Int = 0
     override var bankBalance: Double = 0.0
+
+    private val _treasuryLogs = java.util.Collections.synchronizedList(mutableListOf<TreasuryTransaction>())
+    override val treasuryLogs: List<TreasuryTransaction>
+        get() = synchronized(_treasuryLogs) { _treasuryLogs.toList() }
+
+    override fun addTreasuryLog(log: TreasuryTransaction) {
+        synchronized(_treasuryLogs) {
+            _treasuryLogs.add(log)
+            if (_treasuryLogs.size > 500) _treasuryLogs.removeAt(0)
+        }
+    }
 
     private val _homes = ConcurrentHashMap<String, Location>()
     override val homes: Map<String, Location>

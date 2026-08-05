@@ -38,6 +38,10 @@ interface Clan {
     /** Current monetary balance stored in the clan bank. */
     var bankBalance: Double
 
+    val treasuryLogs: List<TreasuryTransaction>
+
+    fun addTreasuryLog(log: TreasuryTransaction)
+
     /** Map of clan home waypoint names to their Bukkit locations. */
     val homes: Map<String, Location>
 

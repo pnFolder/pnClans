@@ -491,39 +491,39 @@ class MessagesConfig {
      */
     @Serializable
     data class TreasuryMessages(
-        @YamlComment("Нет прав на пополнение казны")
+        @YamlComment("Нет прав на пополнение казны. Переменная: {role}")
         val noPermissionDeposit: List<Action> = listOf(
-            MessageAction("&cУ вас нет прав на пополнение казны."),
+            MessageAction("&#FC3737✖ &fУ роли &e{role} &fнет права пополнять казну."),
             SoundAction("ENTITY_VILLAGER_NO", 1.0f, 1.2f)
         ),
 
-        @YamlComment("Нет прав на снятие средств из казны")
+        @YamlComment("Нет прав на снятие средств из казны. Переменная: {role}")
         val noPermissionWithdraw: List<Action> = listOf(
-            MessageAction("&cУ вас нет прав на снятие средств из казны."),
+            MessageAction("&#FC3737✖ &fУ роли &e{role} &fнет права снимать средства из казны."),
             SoundAction("ENTITY_VILLAGER_NO", 1.0f, 1.2f)
         ),
 
-        @YamlComment("Средства успешно внесены в казну. Переменная: {amount}")
+        @YamlComment("Средства успешно внесены в казну. Переменные: {amount}, {balance}")
         val deposited: List<Action> = listOf(
-            MessageAction("&aВы внесли &e{amount} ⛁ &aв казну клана!"),
+            MessageAction("&#5EFD7D✔ &fВы пополнили казну на &e{amount} ⛁&f. Баланс: &a{balance}⛁"),
             SoundAction("ENTITY_EXPERIENCE_ORB_PICKUP", 1.0f, 1.2f)
         ),
 
-        @YamlComment("Средства успешно сняты с казны. Переменная: {amount}")
+        @YamlComment("Средства успешно сняты с казны. Переменные: {amount}, {balance}")
         val withdrawn: List<Action> = listOf(
-            MessageAction("&aВы сняли &e{amount} ⛁ &aиз казны клана!"),
+            MessageAction("&#5EFD7D✔ &fВы сняли с казны &e{amount} ⛁&f. Баланс: &a{balance}⛁"),
             SoundAction("ENTITY_EXPERIENCE_ORB_PICKUP", 1.0f, 0.8f)
         ),
 
-        @YamlComment("Недостаточно личных средств для пополнения")
+        @YamlComment("Недостаточно личных средств для пополнения. Переменная: {amount}")
         val insufficientPersonalFunds: List<Action> = listOf(
-            MessageAction("&cУ вас недостаточно личных средств."),
+            MessageAction("&#FC3737✖ &fНедостаточно личных средств для пополнения на &e{amount} ⛁&f."),
             SoundAction("ENTITY_VILLAGER_NO", 1.0f, 1.2f)
         ),
 
-        @YamlComment("Недостаточно средств в казне клана")
+        @YamlComment("Недостаточно средств в казне клана. Переменная: {amount}")
         val insufficientClanFunds: List<Action> = listOf(
-            MessageAction("&cНедостаточно средств в казне клана."),
+            MessageAction("&#FC3737✖ &fВ казне недостаточно средств для снятия &e{amount} ⛁&f."),
             SoundAction("ENTITY_VILLAGER_NO", 1.0f, 1.2f)
         )
     )

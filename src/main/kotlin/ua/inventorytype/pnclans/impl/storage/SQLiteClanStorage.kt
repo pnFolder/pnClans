@@ -14,6 +14,8 @@ import ua.inventorytype.pnclans.impl.clan.ClanUser
 import java.io.File
 import java.sql.DriverManager
 import java.util.UUID
+import ua.inventorytype.pnclans.api.clan.TreasuryTransaction
+import ua.inventorytype.pnclans.api.clan.TreasuryTransactionType
 
 /**
  * SQLite database storage implementation utilizing JDBC connection pooling and JSON payload fallback.
@@ -107,6 +109,7 @@ class SQLiteClanStorage(private val plugin: BukkitPlugin) : IClanStorage {
                 members = memberModels,
                 settings = settingModels,
                 homes = homeModels
+                ,treasuryLogs = clan.treasuryLogs.map { TreasuryLogModel(it.type.name, it.playerName, it.amount, it.timestamp) }
             )
 
             val jsonStr = json.encodeToString(dataModel)
@@ -160,6 +163,9 @@ class SQLiteClanStorage(private val plugin: BukkitPlugin) : IClanStorage {
                             kills = model.kills
                             deaths = model.deaths
                             bankBalance = model.bankBalance
+                            model.treasuryLogs.forEach { entry ->
+                                runCatching { addTreasuryLog(TreasuryTransaction(TreasuryTransactionType.valueOf(entry.type), entry.playerName, entry.amount, entry.timestamp)) }
+                            }
                         }
 
                         model.settings.forEach { (key, valBool) ->

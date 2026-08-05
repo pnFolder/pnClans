@@ -14,6 +14,8 @@ import ua.inventorytype.pnclans.impl.clan.ClanImpl
 import ua.inventorytype.pnclans.impl.clan.ClanUser
 import java.io.File
 import java.util.UUID
+import ua.inventorytype.pnclans.api.clan.TreasuryTransaction
+import ua.inventorytype.pnclans.api.clan.TreasuryTransactionType
 
 @Serializable
 data class ClanDataModel(
@@ -26,7 +28,16 @@ data class ClanDataModel(
     val bankBalance: Double = 0.0,
     val members: List<ClanMemberModel> = emptyList(),
     val settings: Map<String, Boolean> = emptyMap(),
-    val homes: Map<String, ClanHomeModel> = emptyMap()
+    val homes: Map<String, ClanHomeModel> = emptyMap(),
+    val treasuryLogs: List<TreasuryLogModel> = emptyList()
+)
+
+@Serializable
+data class TreasuryLogModel(
+    val type: String,
+    val playerName: String,
+    val amount: Double,
+    val timestamp: Long
 )
 
 @Serializable
@@ -92,6 +103,7 @@ class ClanStorage(private val plugin: BukkitPlugin) : IClanStorage {
                 members = memberModels,
                 settings = settingModels,
                 homes = homeModels
+                ,treasuryLogs = clan.treasuryLogs.map { TreasuryLogModel(it.type.name, it.playerName, it.amount, it.timestamp) }
             )
 
             val file = File(storageDir, "${clan.id}.json")
@@ -126,6 +138,9 @@ class ClanStorage(private val plugin: BukkitPlugin) : IClanStorage {
                     kills = model.kills
                     deaths = model.deaths
                     bankBalance = model.bankBalance
+                    model.treasuryLogs.forEach { entry ->
+                        runCatching { addTreasuryLog(TreasuryTransaction(TreasuryTransactionType.valueOf(entry.type), entry.playerName, entry.amount, entry.timestamp)) }
+                    }
                 }
 
                 model.settings.forEach { (key, valBool) ->

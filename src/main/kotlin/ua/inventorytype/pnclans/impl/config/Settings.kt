@@ -35,6 +35,12 @@ class Settings {
     @YamlComment("Тип хранилища данных кланов и сундуков: SQLITE (рекомендуется) или JSON")
     val storageType: String = "SQLITE"
 
+    @YamlComment("URL Discord Webhook для отправки отчетов об ошибках и аналитики (оставьте пустым для отключения)")
+    val discordWebhookUrl: String = ""
+
+    @YamlComment("Включить отправку ошибок в Discord Webhook")
+    val discordWebhookEnabled: Boolean = true
+
     @YamlComment("Стоимость создания клана в монетах экономики Vault (0 — бесплатно)")
     val createClanCost: Double = 1000.0
 
@@ -43,6 +49,12 @@ class Settings {
 
     @YamlComment("Время жизни отправленного приглашения в секундах")
     val inviteLifetimeSeconds: Int = 60
+
+    @YamlComment("Быстрые суммы пополнения казны, выводятся в виде отдельных кнопок.")
+    val treasuryDepositPresets: List<Int> = listOf(500, 1000)
+
+    @YamlComment("Быстрые суммы снятия казны, выводятся в виде отдельных кнопок.")
+    val treasuryWithdrawPresets: List<Int> = listOf(500, 1000)
 
     @YamlComment("Названия ролей клана для отображения в чате, меню и плейсхолдерах {clan_role}")
     val roleLeader: String = "Лидер"

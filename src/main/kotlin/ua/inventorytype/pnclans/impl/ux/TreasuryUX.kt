@@ -2,6 +2,9 @@ package ua.inventorytype.pnclans.impl.ux
 
 import org.bukkit.Material
 import ua.inventorytype.pnclans.api.permission.ClanPerms
+import ua.inventorytype.pnclans.api.clan.TreasuryTransaction
+import ua.inventorytype.pnclans.api.clan.TreasuryTransactionType
+import ua.inventorytype.pnclans.api.event.ClanTreasuryTransactionEvent
 import ua.inventorytype.pnclans.impl.clan.ClanService
 import ua.inventorytype.pnclans.impl.inventory.BaseGui
 
@@ -10,8 +13,8 @@ import ua.inventorytype.pnclans.impl.inventory.BaseGui
  *
  * Provides:
  * - A central bank balance display (visible only to members with [ClanPerms.Bank.SEE]).
- * - Deposit button opening [AnvilInputUX] for entering an amount to transfer from personal funds.
- * - Withdraw button opening [AnvilInputUX] for extracting funds from the clan balance.
+ * - A free-form anvil prompt for entering any amount.
+ * - Quick-deposit and quick-withdraw buttons configured in `config.yml` (treasuryDepositPresets/withdrawPresets).
  * - Personal statistics panel showing the current clan balance.
  * - Navigation to [HistoryUX] for viewing the transaction log.
  *
@@ -23,8 +26,11 @@ import ua.inventorytype.pnclans.impl.inventory.BaseGui
 class TreasuryUX(clanService: ClanService) : BaseGui(clanService) {
 
     init {
-        title("Финансы Клана")
-        rows(6)
+        val cfg = clanService.plugin.configService
+        val menuCfg = cfg.menus.treasuryMenu
+
+        title(menuCfg.title)
+        rows(menuCfg.rows)
         border(Material.BLACK_STAINED_GLASS_PANE)
 
         val goldSlots = listOf(3, 4, 5, 12, 14, 45, 46, 52, 53)
@@ -32,140 +38,76 @@ class TreasuryUX(clanService: ClanService) : BaseGui(clanService) {
             slot(i) { item(Material.YELLOW_STAINED_GLASS_PANE) { name(" ") } }
         }
 
-        // [Слот 13] ОБЩЕЕ ХРАНИЛИЩЕ
-        slot(13) {
-            dynamicItem(Material.GOLD_BLOCK) { player ->
-                val service = this@TreasuryUX.clanService
-                val clan = service.getClanUser(player) ?: return@dynamicItem null
-                val user = clan.users.find { it.uuid == player.uniqueId } ?: return@dynamicItem null
+        menuCfg.items["center"]?.let { itemCfg ->
+            slot(itemCfg.slot) {
+                dynamicItem(this@TreasuryUX.parseMaterial(itemCfg.material, Material.GOLD_BLOCK)) { player ->
+                    val clan = this@TreasuryUX.clanService.getClanUser(player) ?: return@dynamicItem null
+                    val user = clan.users.find { it.uuid == player.uniqueId } ?: return@dynamicItem null
+                    val placeholders = this@TreasuryUX.placeholders(player, clan, user)
+                    this@TreasuryUX.renderConfigItem(this, player, itemCfg, placeholders)
+                    null
+                }
+            }
+        }
 
-                val canSee = clan.hasUserPermission(user, ClanPerms.Bank.SEE)
-                val totalBalance = clan.bankBalance
+        menuCfg.items["deposit"]?.let { itemCfg ->
+            slot(itemCfg.slot) {
+                dynamicItem(this@TreasuryUX.parseMaterial(itemCfg.material, Material.EMERALD)) { player ->
+                    this@TreasuryUX.renderConfigItem(this, player, itemCfg, emptyMap())
+                    null
+                }
+                onClick { player, _ -> this@TreasuryUX.openAnvilDeposit(player) }
+            }
+        }
 
-                if (canSee) {
-                    name("&#FFD700Центральный Банк Клана")
+        menuCfg.items["withdraw"]?.let { itemCfg ->
+            slot(itemCfg.slot) {
+                dynamicItem(this@TreasuryUX.parseMaterial(itemCfg.material, Material.REDSTONE)) { player ->
+                    this@TreasuryUX.renderConfigItem(this, player, itemCfg, emptyMap())
+                    null
+                }
+                onClick { player, _ -> this@TreasuryUX.openAnvilWithdraw(player) }
+            }
+        }
+
+        val depositSlots = listOf(29, 30)
+        val depositPresets = cfg.settings.treasuryDepositPresets
+        depositPresets.take(depositSlots.size).forEachIndexed { index, amount ->
+            slot(depositSlots[index]) {
+                item(Material.LIME_DYE) {
+                    name("&#5EFD7D+${amount} ⛁")
                     lore(
                         "",
-                        "&#9EFC65 «Счет»",
-                        " &7- &fТекущий баланс: &#5EFD7D$totalBalance ⛁",
+                        "&#9EFC65 «Быстрый внос»",
+                        " &7- &fСумма: &e+$amount ⛁",
                         "",
-                        "&#FC65DF «Информация»",
-                        " &7- &fСредства используются для",
-                        " &7- &fповышения уровня и развития."
+                        "&#FF8702➥ &fНажмите, &eЛКМ &fчтобы пополнить"
                     )
-                } else {
-                    name("&#FFD700Центральный Банк Клана")
+                }
+                onClick { player, _ -> this@TreasuryUX.performDeposit(player, amount.toDouble(), reopen = false) }
+            }
+        }
+
+        val withdrawSlots = listOf(33, 34)
+        val withdrawPresets = cfg.settings.treasuryWithdrawPresets
+        withdrawPresets.take(withdrawSlots.size).forEachIndexed { index, amount ->
+            slot(withdrawSlots[index]) {
+                item(Material.ORANGE_DYE) {
+                    name("&#FC3737-${amount} ⛁")
                     lore(
                         "",
-                        "&#FC3737 «Доступ закрыт»",
-                        " &7- &fУ вас нет прав для просмотра",
-                        " &7- &fсостояния счета.",
+                        "&#9EFC65 «Быстрое снятие»",
+                        " &7- &fСумма: &c-$amount ⛁",
                         "",
-                        " &7- &fБаланс: &cСкрыто"
+                        "&#FF8702➥ &fНажмите, &eЛКМ &fчтобы снять"
                     )
                 }
-                null
+                onClick { player, _ -> this@TreasuryUX.performWithdraw(player, amount.toDouble(), reopen = false) }
             }
         }
 
-        // [Слот 29] ПОПОЛНЕНИЕ ЧЕРЕЗ NATIVE ANVIL GUI
-        slot(29) {
-            dynamicItem(Material.EMERALD) { player ->
-                name("&#5EFD7DВнести средства")
-                lore(
-                    "",
-                    "&#9EFC65 «Операция»",
-                    " &7- &fПеревод личных денег",
-                    " &7- &fна общий счет клана.",
-                    "",
-                    "&#FF8702➥ &fНажмите, &eЛКМ &fчтобы открыть наковальню"
-                )
-                null
-            }
-            onClick { player, _ ->
-                val service = this@TreasuryUX.clanService
-                val clan = service.getClanUser(player) ?: return@onClick
-                val user = clan.users.find { it.uuid == player.uniqueId } ?: return@onClick
-
-                if (!clan.hasPermission(user, ClanPerms.Bank.DEPOSIT)) {
-                    val cfg = service.plugin.configService
-                    cfg.send(player, cfg.messages.treasury.noPermissionDeposit)
-                    return@onClick
-                }
-
-                AnvilInputUX(service, "Внести сумму в казну", "100") { p, amount ->
-                    val cfg = service.plugin.configService
-                    val userClan = service.getClanUser(p)
-                    if (userClan != null && service.economy.withdraw(p, amount)) {
-                        userClan.depositBank(amount)
-                        service.saveClan(userClan)
-                        cfg.send(p, cfg.messages.treasury.deposited, mapOf("amount" to amount.toInt().toString()))
-                    } else {
-                        cfg.send(p, cfg.messages.treasury.insufficientPersonalFunds)
-                    }
-                    TreasuryUX(service).open(p)
-                }.open(player)
-            }
-        }
-
-        // [Слот 33] СНЯТИЕ СРЕДСТВ ЧЕРЕЗ NATIVE ANVIL GUI
-        slot(33) {
-            dynamicItem(Material.REDSTONE) { player ->
-                name("&#FC3737Снять средства")
-                lore(
-                    "",
-                    "&#FC3737 «Операция»",
-                    " &7- &fВывод средств из казны",
-                    " &7- &fна ваш личный счет.",
-                    "",
-                    "&#FF8702➥ &fНажмите, &eЛКМ &fчтобы открыть наковальню"
-                )
-                null
-            }
-            onClick { player, _ ->
-                val service = this@TreasuryUX.clanService
-                val clan = service.getClanUser(player) ?: return@onClick
-                val user = clan.users.find { it.uuid == player.uniqueId } ?: return@onClick
-
-                if (!clan.hasPermission(user, ClanPerms.Bank.WITHDRAW)) {
-                    val cfg = service.plugin.configService
-                    cfg.send(player, cfg.messages.treasury.noPermissionWithdraw)
-                    return@onClick
-                }
-
-                AnvilInputUX(service, "Снять сумму с казны", "100") { p, amount ->
-                    val cfg = service.plugin.configService
-                    val userClan = service.getClanUser(p)
-                    if (userClan != null && userClan.withdrawBank(amount)) {
-                        service.economy.depositPlayer(p, amount)
-                        service.saveClan(userClan)
-                        cfg.send(p, cfg.messages.treasury.withdrawn, mapOf("amount" to amount.toInt().toString()))
-                    } else {
-                        cfg.send(p, cfg.messages.treasury.insufficientClanFunds)
-                    }
-                    TreasuryUX(service).open(p)
-                }.open(player)
-            }
-        }
-
-        // [Слот 31] ЛИЧНАЯ СТАТИСТИКА
-        slot(31) {
-            dynamicItem(Material.PLAYER_HEAD) { player ->
-                val service = this@TreasuryUX.clanService
-                val clan = service.getClanUser(player) ?: return@dynamicItem null
-                name("&#FC7D37Ваша статистика")
-                lore(
-                    "",
-                    "&#9EFC65 «Личный вклад»",
-                    " &7- &fБаланс клана: &#5EFD7D${clan.bankBalance} ⛁"
-                )
-                null
-            }
-        }
-
-        // [Слот 40] ИСТОРИЯ ТРАНЗАКЦИЙ
         slot(40) {
-            dynamicItem(Material.WRITABLE_BOOK) { _ ->
+            item(Material.WRITABLE_BOOK) {
                 name("&#5EA9FDИстория операций")
                 lore(
                     "",
@@ -175,46 +117,175 @@ class TreasuryUX(clanService: ClanService) : BaseGui(clanService) {
                     "",
                     "&#FF8702➥ &fНажмите, &eЛКМ &fчтобы открыть лог"
                 )
-                null
             }
-            onClick { player, _ ->
-                HistoryUX(this@TreasuryUX.clanService).open(player)
-            }
+            onClick { player, _ -> HistoryUX(this@TreasuryUX.clanService).open(player) }
         }
 
-        // [Слот 49] НАВИГАЦИЯ
         slot(49) {
-            item(Material.OAK_DOOR) {
-                name("&cВернуться в меню")
-                lore("&7Нажмите, чтобы вернуться к управлению.")
+            item(Material.RED_CANDLE) {
+                name("&#FC3737⏎ Вернуться в штаб")
+                lore(
+                    "",
+                    "&#FC65DF «Переход»",
+                    " &7- &fОткрывает главный штаб клана.",
+                    "",
+                    "&#FF8702➥ &fНажмите, &eЛКМ &fчтобы вернуться"
+                )
             }
-            onClick { player, _ ->
-                MainUX(this@TreasuryUX.clanService).open(player)
-            }
+            onClick { player, _ -> MainUX(this@TreasuryUX.clanService).open(player) }
         }
     }
+
+    private fun openAnvilDeposit(player: org.bukkit.entity.Player) {
+        val service = clanService
+        val cfg = service.plugin.configService
+        val clan = service.getClanUser(player) ?: return
+        val user = clan.users.find { it.uuid == player.uniqueId } ?: return
+
+        if (!clan.hasPermission(user, ClanPerms.Bank.DEPOSIT)) {
+            cfg.send(player, cfg.messages.treasury.noPermissionDeposit, mapOf("role" to cfg.getRoleDisplayName(clan.getUserRole(user))))
+            return
+        }
+
+        AnvilInputUX(service, "Внести сумму в казну", "100",
+            onSubmit = { p, amount -> performDeposit(p, amount, reopen = true) },
+            onCancel = { p -> TreasuryUX(service).open(p) }
+        ).open(player)
+    }
+
+    private fun openAnvilWithdraw(player: org.bukkit.entity.Player) {
+        val service = clanService
+        val cfg = service.plugin.configService
+        val clan = service.getClanUser(player) ?: return
+        val user = clan.users.find { it.uuid == player.uniqueId } ?: return
+
+        if (!clan.hasPermission(user, ClanPerms.Bank.WITHDRAW)) {
+            cfg.send(player, cfg.messages.treasury.noPermissionWithdraw, mapOf("role" to cfg.getRoleDisplayName(clan.getUserRole(user))))
+            return
+        }
+
+        AnvilInputUX(service, "Снять сумму с казны", "100",
+            onSubmit = { p, amount -> performWithdraw(p, amount, reopen = true) },
+            onCancel = { p -> TreasuryUX(service).open(p) }
+        ).open(player)
+    }
+
+    private fun performDeposit(player: org.bukkit.entity.Player, amount: Double, reopen: Boolean) {
+        val service = clanService
+        val cfg = service.plugin.configService
+        val clan = service.getClanUser(player)
+        if (clan == null || amount <= 0.0) {
+            cfg.send(player, cfg.messages.general.invalidInput, mapOf("amount" to "0"))
+            return
+        }
+        val transaction = TreasuryTransaction(TreasuryTransactionType.DEPOSIT, player.name, amount, System.currentTimeMillis())
+        val transactionEvent = ClanTreasuryTransactionEvent(clan, transaction)
+        org.bukkit.Bukkit.getPluginManager().callEvent(transactionEvent)
+        if (transactionEvent.isCancelled) return
+
+        if (service.economy.withdraw(player, amount)) {
+            clan.depositBank(amount)
+            clan.addTreasuryLog(transaction)
+            service.saveClan(clan)
+            service.notifyClanUpdated(player.uniqueId)
+            val placeholders = mapOf(
+                "amount" to formatAmount(amount),
+                "balance" to formatAmount(clan.bankBalance),
+                "clan" to clan.name
+            )
+            cfg.send(player, cfg.messages.treasury.deposited, placeholders)
+            playFeedback(player, true)
+        } else {
+            cfg.send(player, cfg.messages.treasury.insufficientPersonalFunds, mapOf("amount" to formatAmount(amount)))
+            playFeedback(player, false)
+        }
+        if (reopen) reopenTreasury(player) else refreshBalance(player)
+    }
+
+    private fun performWithdraw(player: org.bukkit.entity.Player, amount: Double, reopen: Boolean) {
+        val service = clanService
+        val cfg = service.plugin.configService
+        val clan = service.getClanUser(player)
+        if (clan == null || amount <= 0.0) {
+            cfg.send(player, cfg.messages.general.invalidInput, mapOf("amount" to "0"))
+            return
+        }
+        val transaction = TreasuryTransaction(TreasuryTransactionType.WITHDRAW, player.name, amount, System.currentTimeMillis())
+        val transactionEvent = ClanTreasuryTransactionEvent(clan, transaction)
+        org.bukkit.Bukkit.getPluginManager().callEvent(transactionEvent)
+        if (transactionEvent.isCancelled) return
+
+        if (clan.withdrawBank(amount)) {
+            service.economy.depositPlayer(player, amount)
+            clan.addTreasuryLog(transaction)
+            service.saveClan(clan)
+            service.notifyClanUpdated(player.uniqueId)
+            val placeholders = mapOf(
+                "amount" to formatAmount(amount),
+                "balance" to formatAmount(clan.bankBalance),
+                "clan" to clan.name
+            )
+            cfg.send(player, cfg.messages.treasury.withdrawn, placeholders)
+            playFeedback(player, true)
+        } else {
+            cfg.send(player, cfg.messages.treasury.insufficientClanFunds, mapOf("amount" to formatAmount(amount)))
+            playFeedback(player, false)
+        }
+        if (reopen) reopenTreasury(player) else refreshBalance(player)
+    }
+
+    private fun reopenTreasury(player: org.bukkit.entity.Player) {
+        TreasuryUX(clanService).open(player)
+    }
+
+    private fun refreshBalance(player: org.bukkit.entity.Player) {
+        val holder = player.openInventory.topInventory.holder
+        if (holder is TreasuryUX) {
+            val centerSlot = clanService.plugin.configService.menus.treasuryMenu.items["center"]?.slot ?: 13
+            holder.updateSlot(centerSlot, player)
+        }
+    }
+
+    private fun formatAmount(value: Double): String =
+        value.toBigDecimal().stripTrailingZeros().toPlainString()
+
+    private fun playFeedback(player: org.bukkit.entity.Player, success: Boolean) {
+        val location = player.location
+        player.world.playSound(location, org.bukkit.Sound.UI_BUTTON_CLICK, 0.8f, if (success) 1.2f else 0.6f)
+    }
+
+    private fun placeholders(
+        player: org.bukkit.entity.Player,
+        clan: ua.inventorytype.pnclans.api.clan.Clan,
+        user: ua.inventorytype.pnclans.api.User
+    ): Map<String, String> {
+        val cfg = clanService.plugin.configService
+        val canSee = clan.hasUserPermission(user, ClanPerms.Bank.SEE)
+        val display = if (canSee) clan.bankBalance.toBigDecimal().stripTrailingZeros().toPlainString() else "Скрыто"
+        return mapOf(
+            "balance" to display,
+            "balance_animated" to display,
+            "player" to player.name,
+            "clan" to clan.name
+        )
+    }
+
+    private fun renderConfigItem(
+        builder: ua.inventorytype.pnclans.impl.inventory.builder.ItemBuilder,
+        player: org.bukkit.entity.Player,
+        itemCfg: ua.inventorytype.pnclans.impl.config.GuiItemConfig,
+        placeholders: Map<String, String>
+    ) {
+        builder.name(clanService.plugin.configService.formatMessage(player, itemCfg.name, placeholders))
+        builder.lore(itemCfg.lore.map { line -> clanService.plugin.configService.formatMessage(player, line, placeholders) })
+        builder.glow(itemCfg.glow)
+    }
+
+    private fun parseMaterial(name: String, fallback: Material): Material =
+        runCatching { Material.valueOf(name.uppercase()) }.getOrDefault(fallback)
 }
 
 /** Represents the type of a treasury transaction event. */
-enum class LogType { DEPOSIT, WITHDRAW, UPGRADE }
-
-/**
- * Immutable record of a single treasury transaction event.
- *
- * @property type The operation type (deposit, withdraw, or upgrade deduction).
- * @property playerName The in-game name of the player who initiated the transaction.
- * @property amount The monetary amount involved in this transaction.
- * @property date The human-readable date string of the transaction.
- * @property time The human-readable time string of the transaction.
- */
-data class ClanLog(
-    val type: LogType,
-    val playerName: String,
-    val amount: Double,
-    val date: String,
-    val time: String
-)
-
 /**
  * Paginated transaction history GUI for the clan treasury.
  *
@@ -250,31 +321,36 @@ class HistoryUX(
         for (i in logSlots.indices) {
             slot(logSlots[i]) {
                 dynamicItemNullable(Material.PAPER) { player ->
-                    val allLogs = listOf(
-                        ClanLog(LogType.DEPOSIT, player.name, 1000.0, "Сегодня", "21:00")
-                    )
+                    val allLogs = this@HistoryUX.clanService.getClanUser(player)?.treasuryLogs
+                        ?.sortedByDescending { it.timestamp }
+                        ?: emptyList()
 
                     val index = (currentPage * logSlots.size) + i
                     if (index >= allLogs.size) return@dynamicItemNullable null
 
                     val log = allLogs[index]
-                    val (icon, titleColor, operationText, amountColor) = when (log.type) {
-                        LogType.DEPOSIT -> listOf(Material.EMERALD, "&#5EFD7D", "Пополнение казны", "&a+")
-                        LogType.WITHDRAW -> listOf(Material.REDSTONE, "&#FC3737", "Снятие средств", "&c-")
-                        LogType.UPGRADE -> listOf(Material.NETHER_STAR, "&#FC65DF", "Улучшение клана", "&c-")
+                    val (icon, titleColor, operationText, amountColor, amountPrefix) = when (log.type) {
+                        TreasuryTransactionType.DEPOSIT -> listOf(Material.EMERALD, "&#5EFD7D", "Пополнение казны", "&#5EFD7D", "+")
+                        TreasuryTransactionType.WITHDRAW -> listOf(Material.REDSTONE, "&#FC3737", "Снятие из казны", "&#FC3737", "-")
+                        TreasuryTransactionType.UPGRADE -> listOf(Material.NETHER_STAR, "&#FC65DF", "Оплата улучшения", "&#FC65DF", "-")
                     }
 
                     this.type = icon as Material
-                    name("${titleColor}Операция: $operationText")
+                    name("${titleColor}$operationText")
                     lore(
                         "",
-                        "&#9EFC65 «Детали транзакции»",
+                        "&#9EFC65 «Детали операции»",
+                        " &7- &fТип: $titleColor$operationText",
                         " &7- &fИнициатор: &e${log.playerName}",
-                        " &7- &fСумма: $amountColor${log.amount} ⛁",
                         "",
-                        "&#5EA9FD «Время»",
-                        " &7- &fДата: &b${log.date}",
-                        " &7- &fВремя: &b${log.time}"
+                        "&#9EFC65 «Сумма»",
+                        " &7- &fОперация: $amountColor$amountPrefix${log.amount.toBigDecimal().stripTrailingZeros().toPlainString()} ⛁",
+                        "",
+                        "&#5EA9FD «Время операции»",
+                        " &7- &fДата: &b${java.text.SimpleDateFormat("dd.MM.yyyy").format(java.util.Date(log.timestamp))}",
+                        " &7- &fВремя: &b${java.text.SimpleDateFormat("HH:mm:ss").format(java.util.Date(log.timestamp))}",
+                        "",
+                        "&#FF8702➥ &fСобытие записано в историю казны"
                     )
                     build()
                 }
@@ -308,8 +384,8 @@ class HistoryUX(
         }
 
         slot(50) {
-            dynamicItem(Material.ARROW) { _ ->
-                val maxPages = 1
+            dynamicItem(Material.ARROW) { player ->
+                val maxPages = ((this@HistoryUX.clanService.getClanUser(player)?.treasuryLogs?.size ?: 0) + 27) / 28
                 if (currentPage + 1 < maxPages) {
                     name("&aСтарые записи →")
                     lore("&7Перейти к прошлым событиям.")
@@ -317,7 +393,7 @@ class HistoryUX(
                 null
             }
             onClick { player, _ ->
-                val maxPages = 1
+                val maxPages = ((this@HistoryUX.clanService.getClanUser(player)?.treasuryLogs?.size ?: 0) + 27) / 28
                 if (this@HistoryUX.page + 1 < maxPages) {
                     this@HistoryUX.page++
                     this@HistoryUX.update(player)

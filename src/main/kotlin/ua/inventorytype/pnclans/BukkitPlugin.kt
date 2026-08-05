@@ -2,9 +2,14 @@ package ua.inventorytype.pnclans
 
 import org.bukkit.Bukkit
 import org.bukkit.plugin.java.JavaPlugin
+import org.bukkit.plugin.ServicePriority
+import ua.inventorytype.pnclans.api.PnClansApi
+import ua.inventorytype.pnclans.api.command.ClanSubcommand
+import ua.inventorytype.pnclans.api.menu.ClanMainMenuButton
 import ua.inventorytype.pnclans.api.placeholder.PlaceholderRegistry
 import ua.inventorytype.pnclans.impl.clan.ClanInviteService
 import ua.inventorytype.pnclans.impl.clan.ClanService
+import ua.inventorytype.pnclans.impl.api.PnClansApiImpl
 import ua.inventorytype.pnclans.impl.command.ClanCommand
 import ua.inventorytype.pnclans.impl.config.ConfigService
 import ua.inventorytype.pnclans.impl.economy.EconomyService
@@ -41,6 +46,19 @@ class BukkitPlugin : JavaPlugin() {
     lateinit var guiListener: GuiListener
         private set
 
+    private lateinit var publicApi: PnClansApi
+
+    fun registerClanSubcommand(owner: org.bukkit.plugin.Plugin, command: ClanSubcommand): Boolean =
+        publicApi.subcommands.register(owner, command)
+
+    fun publicSubcommand(name: String): ClanSubcommand? =
+        publicApi.subcommands.all().firstOrNull { it.name.equals(name, true) || it.aliases.any { alias -> alias.equals(name, true) } }
+
+    fun publicSubcommandNames(): List<String> = publicApi.subcommands.all()
+        .flatMap { listOf(it.name) + it.aliases }
+
+    fun publicMainMenuButtons(): Collection<ClanMainMenuButton> = publicApi.menus.mainButtons()
+
     override fun onEnable() {
         logger.info("=========================================")
         logger.info("      pnClans v${description.version} - Запуск      ")
@@ -59,6 +77,9 @@ class BukkitPlugin : JavaPlugin() {
         placeholderRegistry = PlaceholderRegistry()
         clanService = ClanService(this)
         placeholderRegistry.registerDefaults(clanService)
+        publicApi = PnClansApiImpl(clanService)
+        server.servicesManager.register(PnClansApi::class.java, publicApi, this, ServicePriority.Normal)
+        publicApi.addons.loadDirectory().forEach { result -> logger.info("Addon load: ${result.message}") }
         inviteService = ClanInviteService(clanService)
         teleportService = TeleportService(this)
         timedBossBarService = TimedBossBarService(this)
@@ -82,6 +103,7 @@ class BukkitPlugin : JavaPlugin() {
     }
 
     override fun onDisable() {
+        server.servicesManager.unregister(PnClansApi::class.java, publicApi)
         ChatInputPrompt.shutdown()
         if (::timedBossBarService.isInitialized) {
             timedBossBarService.clearAll()

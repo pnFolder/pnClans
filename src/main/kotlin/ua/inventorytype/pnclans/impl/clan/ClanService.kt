@@ -6,6 +6,9 @@ import org.bukkit.inventory.ItemStack
 import ua.inventorytype.pnclans.BukkitPlugin
 import ua.inventorytype.pnclans.api.clan.Clan
 import ua.inventorytype.pnclans.api.clan.ClanRole
+import ua.inventorytype.pnclans.api.event.ClanCreatedEvent
+import ua.inventorytype.pnclans.api.event.ClanDisbandedEvent
+import ua.inventorytype.pnclans.api.event.ClanSavedEvent
 import ua.inventorytype.pnclans.impl.config.ConfigService
 import ua.inventorytype.pnclans.impl.economy.EconomyService
 import ua.inventorytype.pnclans.impl.storage.ClanStorage
@@ -177,7 +180,7 @@ class ClanService(
         }
 
         val cost = configService.settings.createClanCost
-        if (cost > 0 && !economy.withdraw(leader, cost)) {
+        if (cost > 0 && !economy.has(leader, cost)) {
             cfg.send(leader, cfg.messages.clan.notEnoughMoney, mapOf("cost" to cost.toString()))
             return null
         }
@@ -185,9 +188,16 @@ class ClanService(
         val leaderUser = ClanUser(leader.uniqueId, leader.name)
         val id = cleanName.lowercase()
         val clan = ClanImpl(id, cleanName, setOf(leaderUser to ClanRole.LEADER))
+        val createEvent = ClanCreatedEvent(clan)
+        Bukkit.getPluginManager().callEvent(createEvent)
+        if (createEvent.isCancelled) return null
+        if (cost > 0 && !economy.withdraw(leader, cost)) {
+            cfg.send(leader, cfg.messages.clan.notEnoughMoney, mapOf("cost" to cost.toString()))
+            return null
+        }
 
         _clans.add(clan)
-        storage.saveClan(clan)
+        saveClan(clan)
         configService.send(leader, configService.messages.clan.created, mapOf("clan" to cleanName))
 
         playtimeTracker.markOnline(leader.uniqueId, clan.id)
@@ -200,6 +210,10 @@ class ClanService(
      * @param clan The [Clan] to disband.
      */
     fun disbandClan(clan: Clan) {
+        val disbandEvent = ClanDisbandedEvent(clan)
+        Bukkit.getPluginManager().callEvent(disbandEvent)
+        if (disbandEvent.isCancelled) return
+
         val memberUuids = clan.users.map { it.uuid }
         _clans.remove(clan)
         storage.deleteClan(clan)
@@ -250,5 +264,6 @@ class ClanService(
      */
     fun saveClan(clan: Clan) {
         storage.saveClan(clan)
+        Bukkit.getPluginManager().callEvent(ClanSavedEvent(clan))
     }
 }
