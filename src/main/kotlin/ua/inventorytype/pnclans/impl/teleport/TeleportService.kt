@@ -18,6 +18,8 @@ class TeleportService(private val plugin: BukkitPlugin) {
         val delaySeconds = (6 - clan.level).coerceAtLeast(1)
         val cfg = plugin.configService
 
+        val startLocation = player.location
+        val startHealth = player.health
         val startX = startLocation.x
         val startY = startLocation.y
         val startZ = startLocation.z
