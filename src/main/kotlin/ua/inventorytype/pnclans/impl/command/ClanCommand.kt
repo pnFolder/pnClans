@@ -160,9 +160,20 @@ class ClanCommand(
                     clanService.openClanChest(sender, clan)
                 }
 
-                "create", "invite", "kick", "leave", "disband" -> {
+                "create" -> {
+                    if (args.size >= 2) {
+                        val name = args.drop(1).joinToString(" ")
+                        val created = clanService.createClan(name, sender)
+                        if (created != null) {
+                            MainUX(clanService).open(sender)
+                        }
+                    } else {
+                        MainUX(clanService).open(sender)
+                    }
+                }
+
+                "invite", "kick", "leave", "disband" -> {
                     // Open MainUX directly for GUI management
-                    sender.sendMessage("§e[pnClans] Управление кланом осуществляется через меню: §a/clan")
                     MainUX(clanService).open(sender)
                 }
 

@@ -127,6 +127,14 @@ class MainUX(clanService: ClanService) : BaseGui(clanService) {
         }
     }
 
+    override fun open(player: Player) {
+        if (clanService.getClanUser(player) == null) {
+            NoClanUX(clanService).open(player)
+            return
+        }
+        super.open(player)
+    }
+
     private fun addMenuItem(
         menuCfg: MainMenuConfig,
         key: String,
