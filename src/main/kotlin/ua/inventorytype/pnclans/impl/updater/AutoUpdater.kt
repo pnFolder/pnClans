@@ -62,7 +62,7 @@ class AutoUpdater(private val plugin: BukkitPlugin) {
                     val name = jar.name
                     if (name.equals("pnClans.jar", ignoreCase = true)) continue
 
-                    val verMatch = Regex("""pnClans[^\d]*(\d+\.\d+\.\d+).*""", RegexOption.IGNORE_CASE).find(name)
+                    val verMatch = JAR_VERSION_REGEX.find(name)
                     if (verMatch != null) {
                         val verInFile = verMatch.groupValues[1]
                         if (isNewerVersion(cleanCurrent, verInFile)) {
@@ -96,7 +96,8 @@ class AutoUpdater(private val plugin: BukkitPlugin) {
             return
         }
 
-        val responseText = connection.inputStream.bufferedReader().use { it.readText() }
+        val responseText = connection.inputStream.use { it.bufferedReader().readText() }
+        connection.disconnect()
         val latestTag = extractJsonField(responseText, "tag_name") ?: return
         val downloadUrl = extractJarDownloadUrl(responseText)
 
@@ -227,5 +228,8 @@ class AutoUpdater(private val plugin: BukkitPlugin) {
             searchIndex = index + key.length
         }
         return null
+    }
+    private companion object {
+        val JAR_VERSION_REGEX = Regex("""pnClans[^\d]*(\d+\.\d+\.\d+).*""", RegexOption.IGNORE_CASE)
     }
 }
