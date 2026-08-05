@@ -7,6 +7,7 @@ import ua.inventorytype.pnclans.api.clan.TreasuryTransactionType
 import ua.inventorytype.pnclans.api.event.ClanTreasuryTransactionEvent
 import ua.inventorytype.pnclans.impl.clan.ClanService
 import ua.inventorytype.pnclans.impl.inventory.BaseGui
+import ua.inventorytype.pnclans.impl.util.ChatInputPrompt
 
 /**
  * Clan treasury GUI for depositing, withdrawing, and inspecting financial transactions.
@@ -17,7 +18,7 @@ import ua.inventorytype.pnclans.impl.inventory.BaseGui
  * - Instant quick-deposit (`+500`, `+1000`) and quick-withdraw (`-500`, `-1000`) buttons.
  * - **Zero GUI closing/flickering on quick buttons**: clicking deposit/withdraw presets
  *   updates ONLY the central balance slot at index 13 without reopening the GUI.
- * - Custom Anvil input buttons for custom amounts (`EMERALD` / `REDSTONE`).
+ * - 100% reliable chat input prompt for arbitrary amounts (e.g. 1000, 100000, 10).
  * - Back button with `OAK_DOOR` and full config-driven styling.
  *
  * @param clanService The clan service providing economy and bank data.
@@ -45,25 +46,25 @@ class TreasuryUX(clanService: ClanService) : BaseGui(clanService) {
             }
         }
 
-        // ── Custom Anvil Deposit Button (Slot 20) ─────────────────────────────
+        // ── Custom Deposit Button (Slot 20) ───────────────────────────────────
         menuCfg.items["deposit"]?.let { itemCfg ->
             slot(itemCfg.slot) {
                 dynamicItem(this@TreasuryUX.parseMaterial(itemCfg.material, Material.EMERALD)) { player ->
                     this@TreasuryUX.renderConfigItem(this, player, itemCfg, emptyMap())
                     null
                 }
-                onClick { player, _ -> this@TreasuryUX.openAnvilDeposit(player) }
+                onClick { player, _ -> this@TreasuryUX.openDepositPrompt(player) }
             }
         }
 
-        // ── Custom Anvil Withdraw Button (Slot 24) ────────────────────────────
+        // ── Custom Withdraw Button (Slot 24) ──────────────────────────────────
         menuCfg.items["withdraw"]?.let { itemCfg ->
             slot(itemCfg.slot) {
                 dynamicItem(this@TreasuryUX.parseMaterial(itemCfg.material, Material.REDSTONE)) { player ->
                     this@TreasuryUX.renderConfigItem(this, player, itemCfg, emptyMap())
                     null
                 }
-                onClick { player, _ -> this@TreasuryUX.openAnvilWithdraw(player) }
+                onClick { player, _ -> this@TreasuryUX.openWithdrawPrompt(player) }
             }
         }
 
@@ -83,7 +84,6 @@ class TreasuryUX(clanService: ClanService) : BaseGui(clanService) {
                     )
                 }
                 onClick { player, _ ->
-                    // Do NOT close inventory, update center balance slot ONLY
                     this@TreasuryUX.performDeposit(player, amount.toDouble(), reopen = false)
                 }
             }
@@ -105,7 +105,6 @@ class TreasuryUX(clanService: ClanService) : BaseGui(clanService) {
                     )
                 }
                 onClick { player, _ ->
-                    // Do NOT close inventory, update center balance slot ONLY
                     this@TreasuryUX.performWithdraw(player, amount.toDouble(), reopen = false)
                 }
             }
@@ -134,7 +133,7 @@ class TreasuryUX(clanService: ClanService) : BaseGui(clanService) {
         }
     }
 
-    private fun openAnvilDeposit(player: org.bukkit.entity.Player) {
+    private fun openDepositPrompt(player: org.bukkit.entity.Player) {
         val service = clanService
         val cfg = service.plugin.configService
         val clan = service.getClanUser(player) ?: return
@@ -145,13 +144,35 @@ class TreasuryUX(clanService: ClanService) : BaseGui(clanService) {
             return
         }
 
-        AnvilInputUX(service, "Внести сумму в казну", "100",
-            onSubmit = { p, amount -> performDeposit(p, amount, reopen = true) },
-            onCancel = { p -> TreasuryUX(service).open(p) }
-        ).open(player)
+        player.closeInventory()
+        player.sendMessage("§a[pnClans] §fВведите сумму для пополнения казны в чат (например: §e1000§f, §e100000§f) или §c'cancel'§f для отмены:")
+
+        ChatInputPrompt.prompt(
+            plugin = service.plugin,
+            player = player,
+            timeoutTicks = 600L, // 30 seconds
+            onInput = { input ->
+                if (input.equals("cancel", ignoreCase = true)) {
+                    player.sendMessage("§c[pnClans] Ввод суммы отменён.")
+                    TreasuryUX(service).open(player)
+                    return@prompt
+                }
+                val amount = input.replace(" ", "").replace(",", ".").toDoubleOrNull()
+                if (amount == null || amount <= 0.0) {
+                    player.sendMessage("§c[pnClans] Некорректная сумма: '$input'. Вводите только числа.")
+                    TreasuryUX(service).open(player)
+                    return@prompt
+                }
+                performDeposit(player, amount, reopen = true)
+            },
+            onTimeout = {
+                player.sendMessage("§c[pnClans] Время на ввод суммы истекло.")
+                TreasuryUX(service).open(player)
+            }
+        )
     }
 
-    private fun openAnvilWithdraw(player: org.bukkit.entity.Player) {
+    private fun openWithdrawPrompt(player: org.bukkit.entity.Player) {
         val service = clanService
         val cfg = service.plugin.configService
         val clan = service.getClanUser(player) ?: return
@@ -162,10 +183,32 @@ class TreasuryUX(clanService: ClanService) : BaseGui(clanService) {
             return
         }
 
-        AnvilInputUX(service, "Снять сумму с казны", "100",
-            onSubmit = { p, amount -> performWithdraw(p, amount, reopen = true) },
-            onCancel = { p -> TreasuryUX(service).open(p) }
-        ).open(player)
+        player.closeInventory()
+        player.sendMessage("§c[pnClans] §fВведите сумму для снятия с казны в чат (например: §e1000§f, §e100000§f) или §c'cancel'§f для отмены:")
+
+        ChatInputPrompt.prompt(
+            plugin = service.plugin,
+            player = player,
+            timeoutTicks = 600L, // 30 seconds
+            onInput = { input ->
+                if (input.equals("cancel", ignoreCase = true)) {
+                    player.sendMessage("§c[pnClans] Ввод суммы отменён.")
+                    TreasuryUX(service).open(player)
+                    return@prompt
+                }
+                val amount = input.replace(" ", "").replace(",", ".").toDoubleOrNull()
+                if (amount == null || amount <= 0.0) {
+                    player.sendMessage("§c[pnClans] Некорректная сумма: '$input'. Вводите только числа.")
+                    TreasuryUX(service).open(player)
+                    return@prompt
+                }
+                performWithdraw(player, amount, reopen = true)
+            },
+            onTimeout = {
+                player.sendMessage("§c[pnClans] Время на ввод суммы истекло.")
+                TreasuryUX(service).open(player)
+            }
+        )
     }
 
     private fun performDeposit(player: org.bukkit.entity.Player, amount: Double, reopen: Boolean) {
