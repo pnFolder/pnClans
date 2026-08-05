@@ -66,6 +66,7 @@ class ClanListener(private val plugin: BukkitPlugin) : Listener {
         }
     }
 
+    @Suppress("DEPRECATION")
     @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = true)
     fun onChat(event: AsyncPlayerChatEvent) {
         val message = event.message
