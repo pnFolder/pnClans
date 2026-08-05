@@ -5,6 +5,7 @@ import ua.inventorytype.pnclans.api.User
 import ua.inventorytype.pnclans.api.clan.ClanRole
 import ua.inventorytype.pnclans.api.permission.ClanPerms
 import ua.inventorytype.pnclans.impl.clan.ClanService
+import ua.inventorytype.pnclans.impl.config.GuiItemConfig
 import ua.inventorytype.pnclans.impl.inventory.BaseGui
 import kotlin.math.ceil
 
@@ -71,39 +72,18 @@ class MembersUX(
                     val isOnline = targetUser.isOnline
                     val roleDisplayName = service.plugin.configService.getRoleDisplayName(targetRole)
 
-                    name("&#FC7D37${targetUser.playerName} &7• $roleDisplayName")
-                    val loreLines = mutableListOf(
-                        "",
-                        "&#9EFC65 «Профиль»",
-                        " &7- &fДолжность: &#5EA9FD$roleDisplayName",
-                        " &7- &fСтатус: ${if (isOnline) "&#5EFD7DОнлайн" else "&#FC3737Оффлайн"}",
-                        " &7- &fИерархия: &e${targetRole.weight}",
-                        ""
+                    val memberTemplate = menuCfg.items["member"] ?: GuiItemConfig()
+                    val placeholders = mapOf(
+                        "player" to targetUser.playerName,
+                        "role" to roleDisplayName,
+                        "status" to if (isOnline) "&#5EFD7DОнлайн" else "&#FC3737Оффлайн",
+                        "weight" to targetRole.weight.toString(),
+                        "action_promote" to if (targetRole == ClanRole.DEPUTY && isLeader) "&#FFD700Передать лидерство" else "&#5EFD7DПовысить в должности"
                     )
 
-                    if (canManage) {
-                        loreLines.add("&#FC65DF «Управление»")
-                        if (targetRole == ClanRole.DEPUTY && isLeader) {
-                            loreLines.add(" &7- &fЛКМ / Shift+ЛКМ: &#FFD700Передать лидерство")
-                        } else {
-                            loreLines.add(" &7- &fЛКМ: &#5EFD7DПовысить в должности")
-                        }
-                        loreLines.add(" &7- &fПКМ: &#FC3737Понизить в должности")
-                        if (isLeader) {
-                            loreLines.add(" &7- &fСКМ: &#5EA9FDПерсональные права игрока")
-                        }
-                        loreLines.add(" &7- &fShift+ПКМ: &#FC3737Исключить из клана")
-                        loreLines.add("")
-                        loreLines.add("&#FF8702➥ &fИспользуйте клики для управления")
-                    } else if (isMe) {
-                        loreLines.add("&#FC65DF «Личный профиль»")
-                        loreLines.add(" &7- &fЭто ваш профиль в составе клана.")
-                    } else {
-                        loreLines.add("&c➥ У вас недостаточно прав для управления")
-                    }
-
+                    name(service.plugin.configService.formatMessage(viewer, memberTemplate.name, placeholders))
+                    lore(memberTemplate.lore.map { service.plugin.configService.formatMessage(viewer, it, placeholders) })
                     glow(targetRole == ClanRole.LEADER || isMe)
-                    lore(*loreLines.toTypedArray())
                     build()
                 }
 

@@ -426,6 +426,26 @@ class MenusConfig {
         title = "&#FC7D37« Состав Клана »",
         rows = 6,
         items = mapOf(
+            "member" to GuiItemConfig(
+                slot = 0,
+                material = "NAME_TAG",
+                name = "&#FC7D37{player} &7• {role}",
+                lore = listOf(
+                    "",
+                    "&#9EFC65 «Профиль»",
+                    " &7- &fДолжность: &#5EA9FD{role}",
+                    " &7- &fСтатус: {status}",
+                    " &7- &fИерархия: &e{weight}",
+                    "",
+                    "&#FC65DF «Управление»",
+                    " &7- &fЛКМ: {action_promote}",
+                    " &7- &fПКМ: &#FC3737Понизить в должности",
+                    " &7- &fСКМ: &#5EA9FDПерсональные права игрока",
+                    " &7- &fShift+ПКМ: &#FC3737Исключить из клана",
+                    "",
+                    "&#FF8702➥ &fИспользуйте клики для управления"
+                )
+            ),
             "previous" to GuiItemConfig(
                 slot = 47,
                 material = "ARROW",
