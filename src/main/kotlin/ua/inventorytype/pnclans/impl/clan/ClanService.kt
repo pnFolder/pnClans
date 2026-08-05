@@ -266,14 +266,29 @@ class ClanService(
         return null
     }
 
+    private val activeChestGuis = ConcurrentHashMap<String, ClanChestUX>()
+
     /**
-     * Opens the clan chest GUI ([ClanChestUX]) for the given player.
+     * Opens the shared clan chest GUI ([ClanChestUX]) for the given player.
+     *
+     * If another member of the same clan has the chest open, reuses the active GUI instance
+     * enabling real-time multiplayer item synchronization across all viewers.
      *
      * @param player The player to open the chest for.
      * @param clan The clan whose chest contents to display.
      */
     fun openClanChest(player: Player, clan: Clan) {
-        ClanChestUX(this, clan).open(player)
+        val chestGui = activeChestGuis.computeIfAbsent(clan.id) {
+            ClanChestUX(this, clan)
+        }
+        chestGui.open(player)
+    }
+
+    /**
+     * Removes an active shared chest GUI session from memory when all viewers have closed it.
+     */
+    fun closeClanChest(clanId: String) {
+        activeChestGuis.remove(clanId)
     }
 
     /**

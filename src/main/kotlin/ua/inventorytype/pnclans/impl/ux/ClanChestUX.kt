@@ -227,15 +227,20 @@ class ClanChestUX(
     private fun scheduleStatsUpdate(player: Player?) {
         if (player == null) return
         clanService.plugin.server.scheduler.runTaskLater(clanService.plugin, Runnable {
-            if (player.isOnline && player.openInventory.topInventory.holder == this) {
-                val statsSlot = clanService.plugin.configService.menus.chestMenu.items["stats"]?.slot ?: 45
-                updateSlot(statsSlot, player)
+            val statsSlot = clanService.plugin.configService.menus.chestMenu.items["stats"]?.slot ?: 45
+            inventory.viewers.filterIsInstance<Player>().forEach { viewer ->
+                if (viewer.isOnline && viewer.openInventory.topInventory.holder == this) {
+                    updateSlot(statsSlot, viewer)
+                }
             }
         }, 1L)
     }
 
     override fun handleClose(e: InventoryCloseEvent) {
         saveChestContents()
+        if (inventory.viewers.size <= 1) {
+            clanService.closeClanChest(clan.id)
+        }
         super.handleClose(e)
     }
 
