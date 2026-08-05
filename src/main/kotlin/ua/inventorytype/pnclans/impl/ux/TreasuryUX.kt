@@ -9,19 +9,18 @@ import ua.inventorytype.pnclans.impl.clan.ClanService
 import ua.inventorytype.pnclans.impl.inventory.BaseGui
 
 /**
- * Clan treasury GUI for depositing and withdrawing funds from the clan bank.
+ * Clan treasury GUI for depositing, withdrawing, and inspecting financial transactions.
  *
- * Provides:
- * - A central bank balance display (visible only to members with [ClanPerms.Bank.SEE]).
- * - A free-form anvil prompt for entering any amount.
- * - Quick-deposit and quick-withdraw buttons configured in `config.yml` (treasuryDepositPresets/withdrawPresets).
- * - Personal statistics panel showing the current clan balance.
- * - Navigation to [HistoryUX] for viewing the transaction log.
+ * **Design Features:**
+ * - 6-row HotWorld glass border (`hotWorldDecor(true)`).
+ * - Central gold block displaying live clan balance (slot 13).
+ * - Instant quick-deposit (`+500`, `+1000`) and quick-withdraw (`-500`, `-1000`) buttons.
+ * - **Zero GUI closing/flickering on quick buttons**: clicking deposit/withdraw presets
+ *   updates ONLY the central balance slot at index 13 without reopening the GUI.
+ * - Custom Anvil input buttons for custom amounts (`EMERALD` / `REDSTONE`).
+ * - Back button with `OAK_DOOR` and full config-driven styling.
  *
- * All feedback messages are dispatched through the [ua.inventorytype.pnclans.api.Action] system
- * configured in `messages.yml`.
- *
- * @param clanService The clan service providing balance data and economy integration.
+ * @param clanService The clan service providing economy and bank data.
  */
 class TreasuryUX(clanService: ClanService) : BaseGui(clanService) {
 
@@ -31,13 +30,9 @@ class TreasuryUX(clanService: ClanService) : BaseGui(clanService) {
 
         title(menuCfg.title)
         rows(menuCfg.rows)
-        border(Material.BLACK_STAINED_GLASS_PANE)
+        hotWorldDecor(true)
 
-        val goldSlots = listOf(3, 4, 5, 12, 14, 45, 46, 52, 53)
-        for (i in goldSlots) {
-            slot(i) { item(Material.YELLOW_STAINED_GLASS_PANE) { name(" ") } }
-        }
-
+        // ── Central Bank Balance Display (Slot 13) ────────────────────────────
         menuCfg.items["center"]?.let { itemCfg ->
             slot(itemCfg.slot) {
                 dynamicItem(this@TreasuryUX.parseMaterial(itemCfg.material, Material.GOLD_BLOCK)) { player ->
@@ -50,6 +45,7 @@ class TreasuryUX(clanService: ClanService) : BaseGui(clanService) {
             }
         }
 
+        // ── Custom Anvil Deposit Button (Slot 20) ─────────────────────────────
         menuCfg.items["deposit"]?.let { itemCfg ->
             slot(itemCfg.slot) {
                 dynamicItem(this@TreasuryUX.parseMaterial(itemCfg.material, Material.EMERALD)) { player ->
@@ -60,6 +56,7 @@ class TreasuryUX(clanService: ClanService) : BaseGui(clanService) {
             }
         }
 
+        // ── Custom Anvil Withdraw Button (Slot 24) ────────────────────────────
         menuCfg.items["withdraw"]?.let { itemCfg ->
             slot(itemCfg.slot) {
                 dynamicItem(this@TreasuryUX.parseMaterial(itemCfg.material, Material.REDSTONE)) { player ->
@@ -70,7 +67,8 @@ class TreasuryUX(clanService: ClanService) : BaseGui(clanService) {
             }
         }
 
-        val depositSlots = listOf(29, 30)
+        // ── Quick Deposit Buttons (+500, +1000) (Slots 28, 29) ────────────────
+        val depositSlots = listOf(28, 29)
         val depositPresets = cfg.settings.treasuryDepositPresets
         depositPresets.take(depositSlots.size).forEachIndexed { index, amount ->
             slot(depositSlots[index]) {
@@ -81,13 +79,17 @@ class TreasuryUX(clanService: ClanService) : BaseGui(clanService) {
                         "&#9EFC65 «Быстрый внос»",
                         " &7- &fСумма: &e+$amount ⛁",
                         "",
-                        "&#FF8702➥ &fНажмите, &eЛКМ &fчтобы пополнить"
+                        "&#FF8702➥ &fНажмите &eЛКМ &fчтобы пополнить"
                     )
                 }
-                onClick { player, _ -> this@TreasuryUX.performDeposit(player, amount.toDouble(), reopen = false) }
+                onClick { player, _ ->
+                    // Do NOT close inventory, update center balance slot ONLY
+                    this@TreasuryUX.performDeposit(player, amount.toDouble(), reopen = false)
+                }
             }
         }
 
+        // ── Quick Withdraw Buttons (-500, -1000) (Slots 33, 34) ───────────────
         val withdrawSlots = listOf(33, 34)
         val withdrawPresets = cfg.settings.treasuryWithdrawPresets
         withdrawPresets.take(withdrawSlots.size).forEachIndexed { index, amount ->
@@ -99,40 +101,36 @@ class TreasuryUX(clanService: ClanService) : BaseGui(clanService) {
                         "&#9EFC65 «Быстрое снятие»",
                         " &7- &fСумма: &c-$amount ⛁",
                         "",
-                        "&#FF8702➥ &fНажмите, &eЛКМ &fчтобы снять"
+                        "&#FF8702➥ &fНажмите &eЛКМ &fчтобы снять"
                     )
                 }
-                onClick { player, _ -> this@TreasuryUX.performWithdraw(player, amount.toDouble(), reopen = false) }
+                onClick { player, _ ->
+                    // Do NOT close inventory, update center balance slot ONLY
+                    this@TreasuryUX.performWithdraw(player, amount.toDouble(), reopen = false)
+                }
             }
         }
 
-        slot(40) {
-            item(Material.WRITABLE_BOOK) {
-                name("&#5EA9FDИстория операций")
-                lore(
-                    "",
-                    "&#9EFC65 «Информация»",
-                    " &7- &fПросмотр истории пополнений",
-                    " &7- &fи вывода средств из банка.",
-                    "",
-                    "&#FF8702➥ &fНажмите, &eЛКМ &fчтобы открыть лог"
-                )
+        // ── Transaction History Button (Slot 40) ──────────────────────────────
+        menuCfg.items["history"]?.let { itemCfg ->
+            slot(itemCfg.slot) {
+                dynamicItem(this@TreasuryUX.parseMaterial(itemCfg.material, Material.WRITABLE_BOOK)) { player ->
+                    this@TreasuryUX.renderConfigItem(this, player, itemCfg, emptyMap())
+                    null
+                }
+                onClick { player, _ -> HistoryUX(this@TreasuryUX.clanService).open(player) }
             }
-            onClick { player, _ -> HistoryUX(this@TreasuryUX.clanService).open(player) }
         }
 
-        slot(49) {
-            item(Material.RED_CANDLE) {
-                name("&#FC3737⏎ Вернуться в штаб")
-                lore(
-                    "",
-                    "&#FC65DF «Переход»",
-                    " &7- &fОткрывает главный штаб клана.",
-                    "",
-                    "&#FF8702➥ &fНажмите, &eЛКМ &fчтобы вернуться"
-                )
+        // ── Back Button (Slot 49) — Door return to Main Menu ──────────────────
+        menuCfg.items["back"]?.let { itemCfg ->
+            slot(itemCfg.slot) {
+                dynamicItem(this@TreasuryUX.parseMaterial(itemCfg.material, Material.OAK_DOOR)) { player ->
+                    this@TreasuryUX.renderConfigItem(this, player, itemCfg, emptyMap())
+                    null
+                }
+                onClick { player, _ -> MainUX(this@TreasuryUX.clanService).open(player) }
             }
-            onClick { player, _ -> MainUX(this@TreasuryUX.clanService).open(player) }
         }
     }
 
@@ -199,7 +197,12 @@ class TreasuryUX(clanService: ClanService) : BaseGui(clanService) {
             cfg.send(player, cfg.messages.treasury.insufficientPersonalFunds, mapOf("amount" to formatAmount(amount)))
             playFeedback(player, false)
         }
-        if (reopen) reopenTreasury(player) else refreshBalance(player)
+
+        if (reopen) {
+            reopenTreasury(player)
+        } else {
+            refreshBalance(player)
+        }
     }
 
     private fun performWithdraw(player: org.bukkit.entity.Player, amount: Double, reopen: Boolean) {
@@ -231,7 +234,12 @@ class TreasuryUX(clanService: ClanService) : BaseGui(clanService) {
             cfg.send(player, cfg.messages.treasury.insufficientClanFunds, mapOf("amount" to formatAmount(amount)))
             playFeedback(player, false)
         }
-        if (reopen) reopenTreasury(player) else refreshBalance(player)
+
+        if (reopen) {
+            reopenTreasury(player)
+        } else {
+            refreshBalance(player)
+        }
     }
 
     private fun reopenTreasury(player: org.bukkit.entity.Player) {
@@ -239,11 +247,8 @@ class TreasuryUX(clanService: ClanService) : BaseGui(clanService) {
     }
 
     private fun refreshBalance(player: org.bukkit.entity.Player) {
-        val holder = player.openInventory.topInventory.holder
-        if (holder is TreasuryUX) {
-            val centerSlot = clanService.plugin.configService.menus.treasuryMenu.items["center"]?.slot ?: 13
-            holder.updateSlot(centerSlot, player)
-        }
+        val centerSlot = clanService.plugin.configService.menus.treasuryMenu.items["center"]?.slot ?: 13
+        updateSlot(centerSlot, player)
     }
 
     private fun formatAmount(value: Double): String =
@@ -285,12 +290,14 @@ class TreasuryUX(clanService: ClanService) : BaseGui(clanService) {
         runCatching { Material.valueOf(name.uppercase()) }.getOrDefault(fallback)
 }
 
-/** Represents the type of a treasury transaction event. */
 /**
  * Paginated transaction history GUI for the clan treasury.
  *
- * Displays up to 28 log entries per page. Each entry shows the initiating player,
- * operation type (deposit/withdraw/upgrade), amount, date, and time.
+ * Provides:
+ * - 6-row HotWorld border.
+ * - 28 transaction logs per page.
+ * - Beautiful navigation arrows (slots 48 & 50) that remain visible and cleanly formatted across all pages.
+ * - Back button door (slot 49) returning to [TreasuryUX].
  *
  * @param clanService The clan service providing log access.
  * @param page The current page index (zero-based).
@@ -302,14 +309,9 @@ class HistoryUX(
 
     init {
         val currentPage = page
-        title("Финансы > История (Стр. ${currentPage + 1})")
+        title("« История Казны (Стр. ${currentPage + 1}) »")
         rows(6)
-        border(Material.GRAY_STAINED_GLASS_PANE)
-
-        val decorSlots = listOf(1, 7, 9, 17, 36, 44, 46, 52)
-        for (i in decorSlots) {
-            slot(i) { item(Material.LIGHT_BLUE_STAINED_GLASS_PANE) { name(" ") } }
-        }
+        hotWorldDecor(true)
 
         val logSlots = listOf(
             10, 11, 12, 13, 14, 15, 16,
@@ -357,11 +359,25 @@ class HistoryUX(
             }
         }
 
+        // ── Previous Page Arrow (Slot 48) ─────────────────────────────────────
         slot(48) {
             dynamicItem(Material.ARROW) {
                 if (currentPage > 0) {
-                    name("&a← Новые записи")
-                    lore("&7Перейти к недавним событиям.")
+                    this.type = Material.ARROW
+                    name("&#5EFD7D← Предыдущая страница")
+                    lore(
+                        "",
+                        "&#9EFC65 «Навигация»",
+                        " &7- &fПерейти на страницу &e${currentPage}",
+                        "",
+                        "&#FF8702➥ &fНажмите &eЛКМ &fдля перехода"
+                    )
+                    glow(true)
+                } else {
+                    this.type = Material.GRAY_STAINED_GLASS_PANE
+                    name("&7← Первая страница")
+                    lore("&7Вы находитесь на первой странице.")
+                    glow(false)
                 }
                 null
             }
@@ -373,22 +389,43 @@ class HistoryUX(
             }
         }
 
+        // ── Back Button Door (Slot 49) ────────────────────────────────────────
         slot(49) {
             item(Material.OAK_DOOR) {
-                name("&cВернуться в банк")
-                lore("&7Нажмите, чтобы закрыть выписку.")
+                name("&#FC3737⏎ Вернуться в банк")
+                lore(
+                    "",
+                    "&#FC65DF «Переход»",
+                    " &7- &fОткрывает главное меню банка.",
+                    "",
+                    "&#FF8702➥ &fНажмите &eЛКМ &fчтобы вернуться"
+                )
             }
             onClick { player, _ ->
                 TreasuryUX(this@HistoryUX.clanService).open(player)
             }
         }
 
+        // ── Next Page Arrow (Slot 50) ─────────────────────────────────────────
         slot(50) {
             dynamicItem(Material.ARROW) { player ->
                 val maxPages = ((this@HistoryUX.clanService.getClanUser(player)?.treasuryLogs?.size ?: 0) + 27) / 28
                 if (currentPage + 1 < maxPages) {
-                    name("&aСтарые записи →")
-                    lore("&7Перейти к прошлым событиям.")
+                    this.type = Material.ARROW
+                    name("&#5EFD7DСледующая страница →")
+                    lore(
+                        "",
+                        "&#9EFC65 «Навигация»",
+                        " &7- &fПерейти на страницу &e${currentPage + 2}",
+                        "",
+                        "&#FF8702➥ &fНажмите &eЛКМ &fдля перехода"
+                    )
+                    glow(true)
+                } else {
+                    this.type = Material.GRAY_STAINED_GLASS_PANE
+                    name("&7Последняя страница →")
+                    lore("&7Больше нет записей в истории.")
+                    glow(false)
                 }
                 null
             }

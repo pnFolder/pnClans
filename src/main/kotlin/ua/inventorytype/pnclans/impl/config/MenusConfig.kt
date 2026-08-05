@@ -721,51 +721,53 @@ class MenusConfig {
                 glow = true
             ),
             "deposit" to GuiItemConfig(
-                slot = 29,
+                slot = 20,
                 material = "EMERALD",
                 name = "&#5EFD7DПополнить Казну",
                 lore = listOf(
                     "",
                     "&#9EFC65 «Внос средств»",
-                    " &7- &fВнести деньги на счет клана",
+                    " &7- &fВвести произвольную сумму",
+                    " &7- &fв наковальне для пополнения.",
                     "",
                     "&#FF8702➥ &fНажмите, &eЛКМ &fчтобы пополнить"
                 )
             ),
-            "depositPresets" to GuiItemConfig(
-                slot = 38,
-                material = "LIME_DYE",
-                name = "&#5EFD7D✚ Быстрое пополнение",
-                lore = listOf(
-                    "",
-                    "&#9EFC65 «Суммы из конфига»",
-                    " &7- &f+100⛁, +250⛁, +500⛁, +1000⛁",
-                    "",
-                    "&#FF8702➥ &fНажмите, &eЛКМ &fчтобы внести выбранную сумму"
-                )
-            ),
-            "withdrawPresets" to GuiItemConfig(
-                slot = 42,
-                material = "ORANGE_DYE",
-                name = "&#FC3737✖ Быстрое снятие",
-                lore = listOf(
-                    "",
-                    "&#9EFC65 «Суммы из конфига»",
-                    " &7- &f-100⛁, -250⛁, -500⛁, -1000⛁",
-                    "",
-                    "&#FF8702➥ &fНажмите, &eЛКМ &fчтобы снять выбранную сумму"
-                )
-            ),
             "withdraw" to GuiItemConfig(
-                slot = 33,
+                slot = 24,
                 material = "REDSTONE",
                 name = "&#FC65DFСнять с Казны",
                 lore = listOf(
                     "",
                     "&#9EFC65 «Снятие средств»",
-                    " &7- &fСнять накопленные средства",
+                    " &7- &fВвести произвольную сумму",
+                    " &7- &fв наковальне для снятия.",
                     "",
                     "&#FF8702➥ &fНажмите, &eЛКМ &fчтобы снять"
+                )
+            ),
+            "depositPresets" to GuiItemConfig(
+                slot = 28,
+                material = "LIME_DYE",
+                name = "&#5EFD7D✚ Быстрое пополнение",
+                lore = listOf(
+                    "",
+                    "&#9EFC65 «Суммы из конфига»",
+                    " &7- &f+500⛁, +1000⛁",
+                    "",
+                    "&#FF8702➥ &fНажмите, &eЛКМ &fчтобы внести выбранную сумму"
+                )
+            ),
+            "withdrawPresets" to GuiItemConfig(
+                slot = 34,
+                material = "ORANGE_DYE",
+                name = "&#FC3737✖ Быстрое снятие",
+                lore = listOf(
+                    "",
+                    "&#9EFC65 «Суммы из конфига»",
+                    " &7- &f-500⛁, -1000⛁",
+                    "",
+                    "&#FF8702➥ &fНажмите, &eЛКМ &fчтобы снять выбранную сумму"
                 )
             ),
             "history" to GuiItemConfig(
@@ -782,9 +784,15 @@ class MenusConfig {
             ),
             "back" to GuiItemConfig(
                 slot = 49,
-                material = "RED_CANDLE",
-                name = "§x§F§F§0§0§0§0Вернуться",
-                lore = listOf("&7Вернуться в главное меню"),
+                material = "OAK_DOOR",
+                name = "&#FC3737⏎ Вернуться в меню",
+                lore = listOf(
+                    "",
+                    "&#FC65DF «Переход»",
+                    " &7- &fВозврат в главное управление клана.",
+                    "",
+                    "&#FF8702➥ &fНажмите, &eЛКМ &fчтобы вернуться"
+                ),
                 actions = listOf(OpenGuiAction("MAIN"))
             )
         )
