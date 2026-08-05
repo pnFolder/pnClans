@@ -4,33 +4,35 @@ import com.charleskorn.kaml.YamlComment
 import kotlinx.serialization.Serializable
 
 /**
+ * Modular framework settings enabling or disabling specific plugin sub-features.
+ */
+@Serializable
+data class ModuleConfig(
+    @YamlComment("Включить модуль клановых точек дома (/clan home, меню точек в GUI)")
+    val homes: Boolean = true,
+
+    @YamlComment("Включить модуль казны и банка клана (пополнение, снятие, история операций)")
+    val treasury: Boolean = true,
+
+    @YamlComment("Включить модуль общего кланового склада (/clan chest, виртуальный сундук)")
+    val chest: Boolean = true,
+
+    @YamlComment("Включить модуль эволюции и прокачки уровней клана")
+    val upgrades: Boolean = true,
+
+    @YamlComment("Включить модуль управления PvP режимом соклановцев")
+    val pvp: Boolean = true
+)
+
+/**
  * Global configuration settings for pnClans.
  * Deserialized from `plugins/pnClans/config.yml` via kaml YAML parser.
- *
- * COMPLETE POLYMORPHIC ACTIONS GUIDE:
- * You can execute polymorphic actions from GUI clicks, triggers, or rewards using YAML tags:
- *   - !message { text: "&aYour text with {clan} placeholders" }
- *   - !title { title: "&6КЛАНОВЫЙ ТИТУЛ", subtitle: "&eПодтитул", fadeIn: 10, stay: 70, fadeOut: 20 }
- *   - !actionbar { text: "&aСообщение над хотбаром!" }
- *   - !sound { sound: "ENTITY_PLAYER_LEVELUP", volume: 1.0, pitch: 1.0 }
- *   - !particle { particle: "TOTEM_OF_UNDYING", count: 25 }
- *   - !broadcast { text: "&8[&6Клан {clan}&8] &aДостигнут новый уровень!" }
- *   - !command { command: "clan top", console: false }
- *   - !open_gui { menu: "MAIN" } (Options: MAIN, MEMBERS, SETTINGS, TREASURY, UPGRADE, TOP, CHEST)
- *   - !close {}
- *   - !chance
- *       percentage: 50.0
- *       successActions:
- *         - !title { title: "&aУСПЕХ!", subtitle: "&7Шанс сработал!" }
- *         - !sound { sound: "ENTITY_PLAYER_LEVELUP" }
- *       failedActions:
- *         - !sound { sound: "ENTITY_VILLAGER_NO" }
- *   - !barter { item: "DIAMOND", amount: 5, price: 1000.0, buy: true }
- *   - !item_give { item: "GOLDEN_APPLE", amount: 3 }
- *   - !mmr_add { amount: 25 }
  */
 @Serializable
 class Settings {
+
+    @YamlComment("Модули фреймворка. Отключите ненужный функционал, чтобы скрыть кнопки в GUI и отключить подкоманды.")
+    val modules: ModuleConfig = ModuleConfig()
 
     @YamlComment("Тип хранилища данных кланов и сундуков: SQLITE (рекомендуется) или JSON")
     val storageType: String = "SQLITE"
@@ -80,16 +82,6 @@ class Settings {
 
 /**
  * Configurable collection of animation frames used across the plugin.
- *
- * Each frame is a single-line string that replaces an animation placeholder
- * (for example `{clan_balance_animated}`). Frame index is derived from the current
- * time so multiple players always see a synchronised animation.
- *
- * @property frameIntervalMs Time between frames in milliseconds. Lower values animate faster.
- * @property hiddenBalance Animation frames shown for a hidden treasury balance.
- * @property upgradeIdle Frames rendered on the upgrade beacon while the ritual is ready.
- * @property upgradeReady Frames rendered when a player can perform an upgrade.
- * @property upgradeBusy Frames rendered while waiting for the ritual requirements.
  */
 @Serializable
 data class AnimationConfig(

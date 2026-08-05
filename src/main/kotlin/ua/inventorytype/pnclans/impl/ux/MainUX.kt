@@ -38,6 +38,8 @@ class MainUX(clanService: ClanService) : BaseGui(clanService) {
         rows(menuCfg.rows)
         hotWorldDecor(true)
 
+        val modules = cfg.settings.modules
+
         addMenuItem(menuCfg, "stats")
 
         addMenuItem(menuCfg, "members") { player, itemCfg ->
@@ -45,31 +47,37 @@ class MainUX(clanService: ClanService) : BaseGui(clanService) {
             MembersUX(this@MainUX.clanService).open(player)
         }
 
-        addMenuItem(menuCfg, "chest") { player, itemCfg ->
-            val clan = this@MainUX.clanService.getClanUser(player) ?: return@addMenuItem
-            val user = clan.users.find { it.uuid == player.uniqueId } ?: return@addMenuItem
+        if (modules.chest) {
+            addMenuItem(menuCfg, "chest") { player, itemCfg ->
+                val clan = this@MainUX.clanService.getClanUser(player) ?: return@addMenuItem
+                val user = clan.users.find { it.uuid == player.uniqueId } ?: return@addMenuItem
 
-            if (!clan.hasPermission(user, ClanPerms.Action.OPEN_CHEST)) {
-                cfg.send(player, cfg.messages.chest.noPermission)
-                return@addMenuItem
-            }
-            if (!clan.isSettingEnabled(ClanSetting.CHEST)) {
-                cfg.send(player, cfg.messages.chest.chestDisabled)
-                return@addMenuItem
-            }
+                if (!clan.hasPermission(user, ClanPerms.Action.OPEN_CHEST)) {
+                    cfg.send(player, cfg.messages.chest.noPermission)
+                    return@addMenuItem
+                }
+                if (!clan.isSettingEnabled(ClanSetting.CHEST)) {
+                    cfg.send(player, cfg.messages.chest.chestDisabled)
+                    return@addMenuItem
+                }
 
-            clickEffects(player, itemCfg, mainPlaceholders(player, clan))
-            this@MainUX.clanService.openClanChest(player, clan)
+                clickEffects(player, itemCfg, mainPlaceholders(player, clan))
+                this@MainUX.clanService.openClanChest(player, clan)
+            }
         }
 
-        addMenuItem(menuCfg, "treasury") { player, itemCfg ->
-            clickEffects(player, itemCfg)
-            TreasuryUX(this@MainUX.clanService).open(player)
+        if (modules.treasury) {
+            addMenuItem(menuCfg, "treasury") { player, itemCfg ->
+                clickEffects(player, itemCfg)
+                TreasuryUX(this@MainUX.clanService).open(player)
+            }
         }
 
-        addMenuItem(menuCfg, "homes") { player, itemCfg ->
-            clickEffects(player, itemCfg)
-            HomesUX(this@MainUX.clanService).open(player)
+        if (modules.homes) {
+            addMenuItem(menuCfg, "homes") { player, itemCfg ->
+                clickEffects(player, itemCfg)
+                HomesUX(this@MainUX.clanService).open(player)
+            }
         }
 
         addMenuItem(menuCfg, "invite") { player, itemCfg ->
@@ -81,9 +89,11 @@ class MainUX(clanService: ClanService) : BaseGui(clanService) {
             TopClansUX(this@MainUX.clanService).open(player)
         }
 
-        addMenuItem(menuCfg, "upgrade") { player, itemCfg ->
-            clickEffects(player, itemCfg, mainPlaceholders(player, this@MainUX.clanService.getClanUser(player) ?: return@addMenuItem))
-            UpgradeUX(this@MainUX.clanService).open(player)
+        if (modules.upgrades) {
+            addMenuItem(menuCfg, "upgrade") { player, itemCfg ->
+                clickEffects(player, itemCfg, mainPlaceholders(player, this@MainUX.clanService.getClanUser(player) ?: return@addMenuItem))
+                UpgradeUX(this@MainUX.clanService).open(player)
+            }
         }
 
         addMenuItem(menuCfg, "settings") { player, itemCfg ->

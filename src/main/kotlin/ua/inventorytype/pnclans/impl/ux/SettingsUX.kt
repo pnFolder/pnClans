@@ -32,12 +32,16 @@ class SettingsUX(
         rows(menuCfg.rows)
         hotWorldDecor(true)
 
-        settingToggle("pvp", ClanSetting.PVP, ClanPerms.Settings.TOGGLE_PVP) { enabled ->
-            mapOf(
-                "state" to if (enabled) "&#5EFD7DВключён" else "&#FC3737Выключен",
-                "pvp_damage" to if (enabled) "&#5EFD7DРазрешён" else "&#FC3737Заблокирован",
-                "action" to if (enabled) "&#FC3737выключить" else "&#5EFD7Dвключить"
-            )
+        val modules = cfg.settings.modules
+
+        if (modules.pvp) {
+            settingToggle("pvp", ClanSetting.PVP, ClanPerms.Settings.TOGGLE_PVP) { enabled ->
+                mapOf(
+                    "state" to if (enabled) "&#5EFD7DВключён" else "&#FC3737Выключен",
+                    "pvp_damage" to if (enabled) "&#5EFD7DРазрешён" else "&#FC3737Заблокирован",
+                    "action" to if (enabled) "&#FC3737выключить" else "&#5EFD7Dвключить"
+                )
+            }
         }
 
         settingToggle("chat", ClanSetting.CHAT, ClanPerms.Settings.TOGGLE_CHAT) { enabled ->
@@ -47,11 +51,13 @@ class SettingsUX(
             )
         }
 
-        settingToggle("chest", ClanSetting.CHEST, ClanPerms.Action.OPEN_CHEST) { enabled ->
-            mapOf(
-                "state" to if (enabled) "&#5EFD7DОткрыто" else "&#FC3737Закрыто",
-                "action" to if (enabled) "&#FC3737закрыть" else "&#5EFD7Dоткрыть"
-            )
+        if (modules.chest) {
+            settingToggle("chest", ClanSetting.CHEST, ClanPerms.Action.OPEN_CHEST) { enabled ->
+                mapOf(
+                    "state" to if (enabled) "&#5EFD7DОткрыто" else "&#FC3737Закрыто",
+                    "action" to if (enabled) "&#FC3737закрыть" else "&#5EFD7Dоткрыть"
+                )
+            }
         }
 
         settingToggle("join", ClanSetting.JOIN, ClanPerms.Settings.TOGGLE_JOIN) { enabled ->
