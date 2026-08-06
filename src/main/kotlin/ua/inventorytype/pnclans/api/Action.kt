@@ -4,6 +4,7 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import net.md_5.bungee.api.ChatMessageType
 import net.md_5.bungee.api.chat.TextComponent
+import net.kyori.adventure.text.minimessage.MiniMessage
 import org.bukkit.Bukkit
 import org.bukkit.Material
 import org.bukkit.Particle
@@ -57,6 +58,21 @@ data class MessageAction(
     override fun execute(context: ActionContext) {
         val formatted = context.placeholderRegistry.process(context.player, text, context.placeholders)
         context.player.sendMessage(formatted)
+    }
+}
+
+/**
+ * Sends a MiniMessage formatted chat message to the player (Adventure API).
+ * YAML tag: !minimessage { text: "<green>Привет, {player_name}!</green>" }
+ */
+@Serializable
+@SerialName("minimessage")
+data class MiniMessageAction(
+    val text: String
+) : Action {
+    override fun execute(context: ActionContext) {
+        val formatted = context.placeholderRegistry.process(context.player, text, context.placeholders)
+        context.player.sendMessage(MiniMessage.miniMessage().deserialize(formatted))
     }
 }
 
