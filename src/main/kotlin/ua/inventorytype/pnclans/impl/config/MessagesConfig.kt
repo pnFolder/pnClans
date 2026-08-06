@@ -340,7 +340,7 @@ class MessagesConfig {
 
         @YamlComment("Инструкция для принятия приглашения. Переменная: {seconds}. Использует MiniMessage для кликабельных кнопок!")
         val inviteInstructions: List<Action> = listOf(
-            MiniMessageAction("<newline><gray> » </gray><click:run_command:'/clan accept'><hover:show_text:'<green>Нажмите, чтобы вступить в клан</green>'><gradient:#5EFD7D:#2ECC71><bold>[ ✔ ПРИНЯТЬ ]</bold></gradient></hover></click>  <gray>или</gray>  <click:run_command:'/clan deny'><hover:show_text:'<red>Нажмите, чтобы отказаться</red>'><gradient:#FC3737:#C0392B><bold>[ ✖ ОТКЛОНИТЬ ]</bold></gradient></hover></click><newline><gray>    У вас есть <yellow>{seconds} сек.</yellow> на раздумья.</gray><newline>")
+            MiniMessageAction("<newline><gray> » </gray><click:run_command:'/clan accept {clan}'><hover:show_text:'<green>Нажмите, чтобы вступить в клан <b>{clan}</b></green>'><gradient:#5EFD7D:#2ECC71><bold>[ ✔ ПРИНЯТЬ ]</bold></gradient></hover></click>  <gray>или</gray>  <click:run_command:'/clan deny {clan}'><hover:show_text:'<red>Нажмите, чтобы отказаться от приглашения в <b>{clan}</b></red>'><gradient:#FC3737:#C0392B><bold>[ ✖ ОТКЛОНИТЬ ]</bold></gradient></hover></click><newline><gray>    У вас есть <yellow>{seconds} сек.</yellow> на раздумья.</gray><newline>")
         ),
 
         @YamlComment("У игрока нет активного приглашения")

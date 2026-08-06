@@ -115,12 +115,19 @@ class ClanInviteService(private val clanService: ClanService) {
      *
      * @return True only when the player was successfully added to the invited clan.
      */
-    fun acceptInvite(player: Player): Boolean {
+    fun acceptInvite(player: Player, clanName: String? = null): Boolean {
         val cfg = clanService.plugin.configService
-        val invite = pendingInvites.remove(player.uniqueId) ?: run {
+        val invite = pendingInvites[player.uniqueId] ?: run {
             cfg.send(player, cfg.messages.invite.noActiveInvite)
             return false
         }
+        
+        if (clanName != null && !invite.clanName.equals(clanName, ignoreCase = true)) {
+            cfg.send(player, cfg.messages.invite.noActiveInvite)
+            return false
+        }
+        
+        pendingInvites.remove(player.uniqueId)
 
         if (invite.isExpired()) {
             cfg.send(player, cfg.messages.invite.inviteExpired)
@@ -181,12 +188,19 @@ class ClanInviteService(private val clanService: ClanService) {
      *
      * @return True when an unexpired invitation was removed.
      */
-    fun denyInvite(player: Player): Boolean {
+    fun denyInvite(player: Player, clanName: String? = null): Boolean {
         val cfg = clanService.plugin.configService
-        val invite = pendingInvites.remove(player.uniqueId) ?: run {
+        val invite = pendingInvites[player.uniqueId] ?: run {
             cfg.send(player, cfg.messages.invite.noActiveInvite)
             return false
         }
+        
+        if (clanName != null && !invite.clanName.equals(clanName, ignoreCase = true)) {
+            cfg.send(player, cfg.messages.invite.noActiveInvite)
+            return false
+        }
+        
+        pendingInvites.remove(player.uniqueId)
 
         if (invite.isExpired()) {
             cfg.send(player, cfg.messages.invite.inviteExpired)

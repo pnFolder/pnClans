@@ -57,11 +57,13 @@ class ClanCommand(
 
             when (args[0].lowercase()) {
                 "accept" -> {
-                    inviteService.acceptInvite(sender)
+                    val clanName = args.getOrNull(1)
+                    inviteService.acceptInvite(sender, clanName)
                 }
 
                 "deny" -> {
-                    inviteService.denyInvite(sender)
+                    val clanName = args.getOrNull(1)
+                    inviteService.denyInvite(sender, clanName)
                 }
 
                 "top" -> {
