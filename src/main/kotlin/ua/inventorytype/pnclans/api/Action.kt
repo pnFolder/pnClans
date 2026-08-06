@@ -71,8 +71,10 @@ data class MiniMessageAction(
     val text: String
 ) : Action {
     override fun execute(context: ActionContext) {
-        val formatted = context.placeholderRegistry.process(context.player, text, context.placeholders)
-        context.player.sendMessage(MiniMessage.miniMessage().deserialize(formatted))
+        val raw = context.placeholderRegistry.process(context.player, text, context.placeholders, colorize = false)
+        // MiniMessage strictly forbids legacy '§' character. Strip any legacy colors that might have leaked through PlaceholderAPI
+        val clean = raw.replace(Regex("§[0-9a-fk-orx]"), "")
+        context.player.sendMessage(MiniMessage.miniMessage().deserialize(clean))
     }
 }
 

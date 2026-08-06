@@ -42,7 +42,7 @@ class PlaceholderRegistry {
     /**
      * Замена всех зарегистрированных плейсхолдеров и кастомных ключей в тексте
      */
-    fun process(player: Player, text: String, customPlaceholders: Map<String, String> = emptyMap()): String {
+    fun process(player: Player, text: String, customPlaceholders: Map<String, String> = emptyMap(), colorize: Boolean = true): String {
         if (text.isEmpty()) return ""
 
         var result = text
@@ -65,7 +65,7 @@ class PlaceholderRegistry {
             }
         }
 
-        if (result.contains('&') || result.contains('§') || result.contains('#')) {
+        if (colorize && (result.contains('&') || result.contains('§') || result.contains('#'))) {
             result = ColorUtil.color(result)
         }
 
@@ -76,7 +76,8 @@ class PlaceholderRegistry {
         return result
     }
 
-    fun process(player: Player, lines: List<String>, customPlaceholders: Map<String, String> = emptyMap()): List<String> {
-        return lines.map { process(player, it, customPlaceholders) }
+    fun process(player: Player, lines: List<String>, customPlaceholders: Map<String, String> = emptyMap(), colorize: Boolean = true): List<String> {
+        if (lines.isEmpty()) return emptyList()
+        return lines.map { process(player, it, customPlaceholders, colorize) }
     }
 }
