@@ -204,6 +204,7 @@ class ClanCommand(
                     sender.sendMessage("§a[pnClans] Все конфигурации (config.yml, menus.yml, messages.yml, levels.yml) и $refreshedGuis активных меню успешно перезагружены!")
                 }
 
+
                 else -> {
                     val extension = plugin.publicSubcommand(args[0])
                     if (extension != null) {
