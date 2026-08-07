@@ -3,6 +3,85 @@ package ua.inventorytype.pnclans.impl.config
 import com.charleskorn.kaml.YamlComment
 import kotlinx.serialization.Serializable
 
+/** Available activation methods for the private clan chat channel. */
+@Serializable
+enum class ClanChatMode {
+    COMMAND,
+    PREFIX
+}
+
+/**
+ * Text templates displayed for one clan chat activation method in the clan settings menu.
+ * The placeholders `{state}`, `{action}`, `{command}`, and `{prefix}` are resolved at runtime.
+ */
+@Serializable
+data class ClanChatMenuItemConfig(
+    @YamlComment("Название предмета в меню настроек клана для этого режима. Поддерживаются HEX- и &-цвета.")
+    val name: String,
+
+    @YamlComment("Описание (lore) предмета в меню для этого режима. Можно использовать {state}, {action}, {command} и {prefix}.")
+    val lore: List<String>
+)
+
+/** Configuration for selecting and presenting the clan chat activation method. */
+@Serializable
+data class ClanChatConfig(
+    @YamlComment("Способ отправки сообщений в клановый чат. Допустимые значения: COMMAND или PREFIX. COMMAND: игрок отправляет сообщение командой /<command> <сообщение>, например /cc Привет. PREFIX: игрок начинает обычное сообщение с символа из параметра prefix, например !Привет.")
+    val mode: ClanChatMode = ClanChatMode.PREFIX,
+
+    @YamlComment("Название команды для режима COMMAND без символа '/'. Пример: cc, тогда игрок пишет /cc Привет.")
+    val command: String = "cc",
+
+    @YamlComment("Символ или текст в начале сообщения для режима PREFIX. Примеры: \"!\", \"#\" или \"[клан]\".")
+    val prefix: String = "!",
+
+    @YamlComment("Тексты предмета кланового чата в меню настроек, когда выбран режим COMMAND.")
+    val commandMenuItem: ClanChatMenuItemConfig = ClanChatMenuItemConfig(
+        name = "&#5EA9FD✎ Клановый чат",
+        lore = listOf(
+            "",
+            "&#9EFC65 «Состояние»",
+            " &7- &fКанал общения: {state}",
+            " &7- &fРежим: &eКоманда /{command}",
+            "",
+            "&#FC65DF «Использование»",
+            " &7- &fНапишите &e/{command} <сообщение>",
+            " &7- &fчтобы отправить сообщение соклановцам.",
+            "",
+            "&#FF8702➥ &fНажмите, &eЛКМ &fчтобы {action}"
+        )
+    ),
+
+    @YamlComment("Тексты предмета кланового чата в меню настроек, когда выбран режим PREFIX.")
+    val prefixMenuItem: ClanChatMenuItemConfig = ClanChatMenuItemConfig(
+        name = "&#5EA9FD✎ Клановый чат",
+        lore = listOf(
+            "",
+            "&#9EFC65 «Состояние»",
+            " &7- &fКанал общения: {state}",
+            " &7- &fРежим: &eПрефикс {prefix}",
+            "",
+            "&#FC65DF «Использование»",
+            " &7- &fНачните сообщение с &e{prefix}",
+            " &7- &fчтобы отправить его соклановцам.",
+            "",
+            "&#FF8702➥ &fНажмите, &eЛКМ &fчтобы {action}"
+        )
+    ),
+
+    @YamlComment("Текст статуса, который подставляется в {state}, если клановый чат доступен.")
+    val enabledState: String = "&#5EFD7DДоступен",
+
+    @YamlComment("Текст статуса, который подставляется в {state}, если клановый чат закрыт лидером клана.")
+    val disabledState: String = "&#FC3737Закрыт",
+
+    @YamlComment("Текст действия, который подставляется в {action}, если чат сейчас доступен.")
+    val disableAction: String = "&#FC3737выключить",
+
+    @YamlComment("Текст действия, который подставляется в {action}, если чат сейчас закрыт.")
+    val enableAction: String = "&#5EFD7Dвключить"
+)
+
 /**
  * Modular framework settings enabling or disabling specific plugin sub-features.
  */
@@ -30,6 +109,9 @@ data class ModuleConfig(
  */
 @Serializable
 class Settings {
+
+    @YamlComment("Настройки кланового чата. Выберите mode: COMMAND для команды /<command> <сообщение> или PREFIX для сообщений, начинающихся с prefix. Тексты предмета меню для каждого режима задаются отдельно в commandMenuItem и prefixMenuItem.")
+    val clanChat: ClanChatConfig = ClanChatConfig()
 
     @YamlComment("Модули фреймворка. Отключите ненужный функционал, чтобы скрыть кнопки в GUI и отключить подкоманды.")
     val modules: ModuleConfig = ModuleConfig()
@@ -88,6 +170,10 @@ class Settings {
     val msgNoPermission: String = "&cУ вас недостаточно прав для выполнения этого действия."
     val msgPvpDisabled: String = "&c[pnClans] Урон по соклановцам отключён!"
     val msgChatFormat: String = "&8[&6Клан &e{clan}&8] &7[{role}] &7{player}&8: &f{message}"
+    @YamlComment("Сообщение игроку, когда клановый чат закрыт лидером. Поддерживает цвета и плейсхолдеры.")
+    val msgClanChatDisabled: String = "&cЧат вашего клана закрыт лидером."
+    @YamlComment("Подсказка для пустой команды кланового чата в режиме COMMAND. Используйте плейсхолдер {command}.")
+    val msgClanChatCommandUsage: String = "&eИспользование: /{command} <сообщение>"
     val msgJoinNotice: String = "&8[&6Клан&8] &aУчастник &e{player} &aвошёл на сервер!"
     val msgQuitNotice: String = "&8[&6Клан&8] &cУчастник &e{player} &cвышел с сервера!"
 

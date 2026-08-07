@@ -65,6 +65,7 @@ class ConfigService(private val plugin: Plugin) {
             plugin.dataFolder.mkdirs()
         }
 
+        appendMissingClanChatSection()
         settings = loadOrCreate("config.yml", Settings.serializer(), Settings())
         menus = loadOrCreate("menus.yml", MenusConfig.serializer(), MenusConfig())
         messages = loadOrCreate("messages.yml", MessagesConfig.serializer(), MessagesConfig())
@@ -187,6 +188,24 @@ class ConfigService(private val plugin: Plugin) {
 
         val content = file.readText()
         return yaml.decodeFromString(serializer, content)
+    }
+
+    /**
+     * Adds the newly introduced clan-chat block to pre-existing installations without rewriting
+     * administrator-owned configuration values or discarding forward-compatible unknown keys.
+     */
+    private fun appendMissingClanChatSection() {
+        val file = File(plugin.dataFolder, "config.yml")
+        if (!file.exists()) return
+
+        val existingContent = file.readText()
+        if (Regex("(?m)^clanChat\\s*:").containsMatchIn(existingContent)) return
+
+        val serializedSection = yaml.encodeToString(ClanChatConfig.serializer(), ClanChatConfig())
+            .lineSequence()
+            .joinToString("\n") { "  $it" }
+        val sectionComment = "# Настройки кланового чата: COMMAND использует /<command> <сообщение>, PREFIX — начало сообщения с prefix."
+        file.appendText("\n$sectionComment\nclanChat:\n$serializedSection\n")
     }
 }
 

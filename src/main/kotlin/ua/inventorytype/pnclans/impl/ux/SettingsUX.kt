@@ -44,12 +44,7 @@ class SettingsUX(
             }
         }
 
-        settingToggle("chat", ClanSetting.CHAT, ClanPerms.Settings.TOGGLE_CHAT) { enabled ->
-            mapOf(
-                "state" to if (enabled) "&#5EFD7DДоступен" else "&#FC3737Закрыт",
-                "action" to if (enabled) "&#FC3737выключить" else "&#5EFD7Dвключить"
-            )
-        }
+        clanChatToggle()
 
         if (modules.chest) {
             settingToggle("chest", ClanSetting.CHEST, ClanPerms.Action.OPEN_CHEST) { enabled ->
@@ -143,6 +138,49 @@ class SettingsUX(
                 }
 
                 clan.toggleSetting(setting)
+                this@SettingsUX.clanService.saveClan(clan)
+                this@SettingsUX.updateSlot(event.slot, player)
+            }
+        }
+    }
+
+    /** Renders the clan chat toggle with the name and lore selected by its configured activation mode. */
+    private fun clanChatToggle() {
+        val cfg = clanService.plugin.configService
+        val baseItemCfg = cfg.menus.settingsMenu.items["chat"] ?: return
+
+        slot(baseItemCfg.slot) {
+            dynamicItem(parseMaterial(baseItemCfg.material, Material.WRITABLE_BOOK)) { player ->
+                val clan = this@SettingsUX.clanService.getClanUser(player) ?: return@dynamicItem null
+                val enabled = clan.isSettingEnabled(ClanSetting.CHAT)
+                val chatConfig = cfg.settings.clanChat
+                val itemText = when (chatConfig.mode) {
+                    ua.inventorytype.pnclans.impl.config.ClanChatMode.COMMAND -> chatConfig.commandMenuItem
+                    ua.inventorytype.pnclans.impl.config.ClanChatMode.PREFIX -> chatConfig.prefixMenuItem
+                }
+                val placeholders = this@SettingsUX.commonPlaceholders(player, clan) + mapOf(
+                    "state" to if (enabled) chatConfig.enabledState else chatConfig.disabledState,
+                    "action" to if (enabled) chatConfig.disableAction else chatConfig.enableAction,
+                    "command" to chatConfig.command.trim().removePrefix("/"),
+                    "prefix" to chatConfig.prefix
+                )
+
+                name(this@SettingsUX.format(player, itemText.name, placeholders))
+                lore(this@SettingsUX.format(player, itemText.lore, placeholders))
+                glow(baseItemCfg.glow || enabled)
+                null
+            }
+
+            onClick { player, event ->
+                val clan = this@SettingsUX.clanService.getClanUser(player) ?: return@onClick
+                val user = clan.getMember(player.uniqueId) ?: return@onClick
+
+                if (!clan.hasPermission(user, ClanPerms.Settings.TOGGLE_CHAT)) {
+                    cfg.send(player, cfg.messages.settings.noPermission)
+                    return@onClick
+                }
+
+                clan.toggleSetting(ClanSetting.CHAT)
                 this@SettingsUX.clanService.saveClan(clan)
                 this@SettingsUX.updateSlot(event.slot, player)
             }

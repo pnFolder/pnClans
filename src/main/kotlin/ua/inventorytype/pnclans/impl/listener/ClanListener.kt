@@ -8,16 +8,18 @@ import org.bukkit.event.Listener
 import org.bukkit.event.entity.EntityDamageByEntityEvent
 import org.bukkit.event.entity.PlayerDeathEvent
 import org.bukkit.event.player.AsyncPlayerChatEvent
+import org.bukkit.event.player.PlayerCommandPreprocessEvent
 import org.bukkit.event.player.PlayerJoinEvent
 import org.bukkit.event.player.PlayerQuitEvent
 import ua.inventorytype.pnclans.BukkitPlugin
 import ua.inventorytype.pnclans.api.clan.ClanSetting
+import ua.inventorytype.pnclans.impl.config.ClanChatMode
 
 class ClanListener(private val plugin: BukkitPlugin) : Listener {
 
     private val clanService = plugin.clanService
     private val configService = plugin.configService
-    private val cfg = configService.settings
+    private val cfg get() = configService.settings
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     fun onEntityDamage(event: EntityDamageByEntityEvent) {
@@ -69,22 +71,49 @@ class ClanListener(private val plugin: BukkitPlugin) : Listener {
     @Suppress("DEPRECATION")
     @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = true)
     fun onChat(event: AsyncPlayerChatEvent) {
+        val chatConfig = cfg.clanChat
+        if (chatConfig.mode != ClanChatMode.PREFIX) return
+
         val message = event.message
-        if (!message.startsWith("!")) return
+        val prefix = chatConfig.prefix
+        if (prefix.isEmpty() || !message.startsWith(prefix)) return
 
-        val player = event.player
-        val clan = clanService.getClanUser(player) ?: return
+        event.isCancelled = true
+        sendClanChat(event.player, message.removePrefix(prefix).trim())
+    }
 
-        if (!clan.isSettingEnabled(ClanSetting.CHAT)) {
-            player.sendMessage("§cЧат вашего клана заблокирован лидером.")
-            event.isCancelled = true
+    @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = true)
+    fun onClanChatCommand(event: PlayerCommandPreprocessEvent) {
+        val chatConfig = cfg.clanChat
+        if (chatConfig.mode != ClanChatMode.COMMAND) return
+
+        val configuredCommand = chatConfig.command.trim().removePrefix("/")
+        if (configuredCommand.isEmpty()) return
+
+        val commandLine = event.message.removePrefix("/").trim()
+        val command = commandLine.substringBefore(' ')
+        if (!command.equals(configuredCommand, ignoreCase = true)) return
+
+        event.isCancelled = true
+        val message = commandLine.substringAfter(' ', missingDelimiterValue = "").trim()
+        if (message.isEmpty()) {
+            event.player.sendMessage(
+                configService.formatMessage(event.player, cfg.msgClanChatCommandUsage, mapOf("command" to configuredCommand))
+            )
             return
         }
 
-        event.isCancelled = true
+        sendClanChat(event.player, message)
+    }
 
-        val cleanMsg = message.substring(1).trim()
-        if (cleanMsg.isEmpty()) return
+    private fun sendClanChat(player: Player, message: String) {
+        if (message.isEmpty()) return
+        val clan = clanService.getClanUser(player) ?: return
+
+        if (!clan.isSettingEnabled(ClanSetting.CHAT)) {
+            player.sendMessage(configService.formatMessage(player, cfg.msgClanChatDisabled))
+            return
+        }
 
         val user = clan.getMember(player.uniqueId) ?: return
         val role = clan.getUserRole(user)
@@ -93,7 +122,7 @@ class ClanListener(private val plugin: BukkitPlugin) : Listener {
         val formattedMessage = configService.formatMessage(
             player,
             cfg.msgChatFormat,
-            mapOf("clan" to clan.name, "role" to roleName, "player" to player.name, "message" to cleanMsg)
+            mapOf("clan" to clan.name, "role" to roleName, "player" to player.name, "message" to message)
         )
 
         clan.users.forEach { member ->
