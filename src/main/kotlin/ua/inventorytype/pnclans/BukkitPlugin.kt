@@ -2,6 +2,8 @@ package ua.inventorytype.pnclans
 
 import org.bukkit.Bukkit
 import org.bukkit.plugin.java.JavaPlugin
+import org.bstats.bukkit.Metrics
+import org.bstats.charts.SimplePie
 import org.bukkit.plugin.ServicePriority
 import ua.inventorytype.pnclans.api.PnClansApi
 import ua.inventorytype.pnclans.api.command.ClanSubcommand
@@ -22,6 +24,8 @@ import ua.inventorytype.pnclans.impl.util.ChatInputPrompt
 import ua.inventorytype.pnclans.impl.util.PluginBanner
 
 class BukkitPlugin : JavaPlugin() {
+
+    private var metricsInitialized = false
 
     lateinit var economyService: EconomyService
         private set
@@ -83,6 +87,7 @@ class BukkitPlugin : JavaPlugin() {
         inviteService = ClanInviteService(clanService)
         teleportService = TeleportService(this)
         timedBossBarService = TimedBossBarService(this)
+        initializeMetrics()
 
         // 5. Register Event Listeners
         guiListener = GuiListener(this)
@@ -136,5 +141,19 @@ class BukkitPlugin : JavaPlugin() {
 
         // Print Rich Shutdown Banner
         PluginBanner.printDisableBanner(this, savedClansCount)
+    }
+
+    /** Starts bStats once and registers configuration-level usage metrics. */
+    private fun initializeMetrics() {
+        if (metricsInitialized) return
+
+        val metrics = Metrics(this, BSTATS_PLUGIN_ID)
+        metrics.addCustomChart(SimplePie("clan_chat_mode") { configService.settings.clanChat.mode.name })
+        metrics.addCustomChart(SimplePie("storage_type") { configService.settings.storageType.uppercase() })
+        metricsInitialized = true
+    }
+
+    private companion object {
+        const val BSTATS_PLUGIN_ID = 33208
     }
 }

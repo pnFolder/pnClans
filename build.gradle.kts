@@ -25,6 +25,7 @@ dependencies {
     implementation("com.charleskorn.kaml:kaml:0.67.0")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
     implementation("org.xerial:sqlite-jdbc:3.46.0.0")
+    implementation("org.bstats:bstats-bukkit:3.1.0")
 
     compileOnly("me.clip:placeholderapi:2.12.3")
     compileOnly("com.github.MilkBowl:VaultAPI:1.7") {
@@ -40,6 +41,7 @@ kotlin {
 tasks {
     shadowJar {
         archiveClassifier.set("all")
+        relocate("org.bstats", "ua.inventorytype.pnclans.libs.bstats")
     }
 
     build {
