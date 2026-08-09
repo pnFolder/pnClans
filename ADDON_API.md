@@ -24,6 +24,8 @@ Available contracts:
 - `ClanRepository`: clan lookup, immutable collection snapshot and explicit persistence.
 - `Clan`: public clan model, member, permission, home and treasury operations.
 - `TreasuryTransaction`: persisted treasury log entry.
+- `ClanPointsTransaction`: typed reward-points log entry.
+- `ClanPointsTransactionEvent`: cancellable points operation emitted before the balance changes.
 - Bukkit events: lifecycle, treasury, persistence, main-menu and subcommand hooks.
 - `PnClansAddon`: optional lifecycle abstraction for a feature module owned by another Bukkit plugin.
 - `ClanSubcommand`: registration point for `/clan <your-command>` without modifying pnClans.
