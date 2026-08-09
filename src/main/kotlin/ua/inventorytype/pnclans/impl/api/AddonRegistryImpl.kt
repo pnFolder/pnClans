@@ -36,6 +36,7 @@ internal class AddonRegistryImpl(private val api: PnClansApi, dataFolder: File) 
 
     override fun unregister(id: String): Boolean = addons.remove(id.lowercase())?.let {
         if (it.enabled) runCatching { it.addon.onDisable() }
+        api.gui.unregisterAll(it.owner)
         true
     } ?: false
 
@@ -56,6 +57,7 @@ internal class AddonRegistryImpl(private val api: PnClansApi, dataFolder: File) 
         val entry = addons[id.lowercase()] ?: return false
         if (!entry.enabled) return true
         runCatching { entry.addon.onDisable() }
+        api.gui.unregisterAll(entry.owner)
         entry.enabled = false
         return true
     }

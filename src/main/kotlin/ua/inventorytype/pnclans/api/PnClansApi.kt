@@ -8,6 +8,7 @@ import ua.inventorytype.pnclans.api.command.ClanSubcommandRegistry
 import ua.inventorytype.pnclans.api.menu.ClanMenuRegistry
 import ua.inventorytype.pnclans.api.clan.ClanPoints
 import ua.inventorytype.pnclans.api.operation.ClanOperations
+import ua.inventorytype.pnclans.api.gui.ClanAddonGuiRegistry
 
 /**
  * Stable entry point for external Bukkit plugins.
@@ -23,6 +24,8 @@ interface PnClansApi {
     val points: ClanPoints
     /** Event-aware mutations for roles, settings, homes, and the clan chest. */
     val operations: ClanOperations
+    /** Config-bound add-on GUI item providers and click actions. */
+    val gui: ClanAddonGuiRegistry
     /** Placeholder registration and text resolution. */
     val placeholders: PlaceholderRegistry
     /** pnClans add-on lifecycle registry. */
@@ -34,7 +37,7 @@ interface PnClansApi {
 }
 
 object PnClansProvider {
-    const val API_VERSION = 3
+    const val API_VERSION = 4
 
     fun get(): PnClansApi? = Bukkit.getServicesManager()
         .getRegistration(PnClansApi::class.java)

@@ -68,6 +68,7 @@ Then build the example from its directory. Pass `-PpnClansVersion=<version>` whe
 | `api.clans` | Find clans and persist mutations. |
 | `api.points` | Award or spend typed clan reward points. |
 | `api.operations` | Event-aware role, setting, home, and chest mutations. |
+| `api.gui` | Config-bound add-on GUI item providers and click actions. |
 | `api.placeholders` | Register `{key}` placeholders for pnClans messages and GUI text. |
 | `api.subcommands` | Add `/clan <command>` subcommands. |
 | `api.menus` | Add buttons to the main clan menu. |
@@ -169,6 +170,35 @@ api.menus.registerMainButton(this, object : ClanMainMenuButton {
 
 Registration fails when another button already owns the same slot. Use a stable and globally unique button ID, then unregister it in `onDisable`.
 
+## Config-Bound GUI Items
+
+Use `api.gui` when an add-on owns the item behavior but the server administrator should control its position in the existing pnClans main menu. The add-on registers an item provider and optional click action; `menus.yml` connects their IDs to a slot. pnClans never loads arbitrary classes or executes code from YAML.
+
+```kotlin
+api.gui.registerItem(this, "clan-missions:daily-quest") { context ->
+    ItemStack(Material.BOOK).apply {
+        itemMeta = itemMeta.apply { setDisplayName("§eDaily clan quest") }
+    }
+}
+
+api.gui.registerAction(this, "clan-missions:open-daily-quest") { context ->
+    context.player.sendMessage("Open the daily quest for ${context.clan.name}")
+}
+```
+
+The server configuration then places that registered feature inside the normal `mainMenu` structure:
+
+```yaml
+mainMenu:
+  addons:
+    daily-quest:
+      slot: 22
+      item: "clan-missions:daily-quest"
+      action: "clan-missions:open-daily-quest"
+```
+
+`daily-quest` is a local configuration ID. `item` and `action` must be globally unique IDs in the `addon-id:item-id` format. If an add-on is disabled or an ID is not registered, pnClans hides the configured slot safely. Add-on GUI registrations are removed automatically when the add-on is disabled.
+
 ## Add-on Lifecycle
 
 `PnClansAddon` is optional for a plugin that only consumes the API. Implement it when your plugin registers pnClans-owned features such as subcommands or menu buttons. pnClans calls `onEnable(context)` only after successful registration and calls `onDisable()` when the add-on is disabled.
@@ -177,4 +207,4 @@ Registration fails when another button already owns the same slot. Use a stable 
 
 ## API Compatibility
 
-The current public API version is `3`. Compare `api.apiVersion` only when using features introduced after the minimum version your add-on supports. Do not compare the plugin release version for API compatibility.
+The current public API version is `4`. Compare `api.apiVersion` only when using features introduced after the minimum version your add-on supports. Do not compare the plugin release version for API compatibility.

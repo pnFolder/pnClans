@@ -10,6 +10,7 @@ import ua.inventorytype.pnclans.api.command.ClanSubcommandRegistry
 import ua.inventorytype.pnclans.api.menu.ClanMenuRegistry
 import ua.inventorytype.pnclans.api.placeholder.PlaceholderRegistry
 import ua.inventorytype.pnclans.api.operation.ClanOperations
+import ua.inventorytype.pnclans.api.gui.ClanAddonGuiRegistry
 import ua.inventorytype.pnclans.impl.clan.ClanService
 import ua.inventorytype.pnclans.impl.clan.ClanPointsService
 import java.util.UUID
@@ -25,6 +26,7 @@ internal class PnClansApiImpl(
     override val subcommands: ClanSubcommandRegistry by lazy { ClanSubcommandRegistryImpl(service) }
     override val menus: ClanMenuRegistry by lazy { ClanMenuRegistryImpl() }
     override val operations: ClanOperations by lazy { ClanOperationsImpl(service) }
+    override val gui: ClanAddonGuiRegistry by lazy { ClanAddonGuiRegistryImpl() }
 
     override val clans: ClanRepository = object : ClanRepository {
         override fun all(): Collection<Clan> = service.getAllClans()

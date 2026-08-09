@@ -35,8 +35,20 @@ data class MainMenuConfig(
     val title: String = "&#FC7D37« Штаб Клана »",
     val rows: Int = 6,
     val items: Map<String, GuiItemConfig> = emptyMap(),
+    @YamlComment("Расширения главного меню от аддонов. Ключ используется как configId в API; item и action ссылаются на зарегистрированные ID вида addon-id:item-id.")
+    val addons: Map<String, AddonGuiItemConfig> = emptyMap(),
     @YamlComment("Тексты динамических состояний главного меню")
     val display: MainMenuDisplayConfig = MainMenuDisplayConfig()
+)
+
+@Serializable
+data class AddonGuiItemConfig(
+    @YamlComment("Слот предмета в главном меню: от 0 до 53.")
+    val slot: Int = 0,
+    @YamlComment("ID provider, зарегистрированного аддоном, например clan-missions:daily-quest.")
+    val item: String,
+    @YamlComment("Необязательный ID click action, зарегистрированный аддоном.")
+    val action: String? = null
 )
 
 /** Dynamic state labels used by the main clan dashboard. */

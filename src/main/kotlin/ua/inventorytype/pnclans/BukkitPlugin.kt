@@ -12,6 +12,7 @@ import ua.inventorytype.pnclans.api.PnClansApi
 import ua.inventorytype.pnclans.api.clan.ClanPoints
 import ua.inventorytype.pnclans.api.command.ClanSubcommand
 import ua.inventorytype.pnclans.api.menu.ClanMainMenuButton
+import ua.inventorytype.pnclans.api.gui.ClanAddonGuiRegistry
 import ua.inventorytype.pnclans.api.placeholder.PlaceholderRegistry
 import ua.inventorytype.pnclans.impl.clan.ClanInviteService
 import ua.inventorytype.pnclans.impl.clan.ClanHighlightService
@@ -85,6 +86,8 @@ class BukkitPlugin : JavaPlugin() {
         .flatMap { listOf(it.name) + it.aliases }
 
     fun publicMainMenuButtons(): Collection<ClanMainMenuButton> = publicApi.menus.mainButtons()
+
+    fun publicAddonGui(): ClanAddonGuiRegistry = publicApi.gui
 
     override fun onEnable() {
         PacketEvents.getAPI().settings.debug(false).checkForUpdates(false).timeStampMode(TimeStampMode.MILLIS).reEncodeByDefault(true)

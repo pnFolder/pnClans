@@ -11,6 +11,7 @@ import ua.inventorytype.pnclans.api.permission.ClanPerms
 import ua.inventorytype.pnclans.api.event.ClanMainMenuItemClickEvent
 import ua.inventorytype.pnclans.api.event.ClanMainMenuItemRenderEvent
 import ua.inventorytype.pnclans.api.menu.ClanMainMenuContext
+import ua.inventorytype.pnclans.api.gui.ClanAddonGuiContext
 import ua.inventorytype.pnclans.impl.clan.ClanService
 import ua.inventorytype.pnclans.impl.config.AnimationKey
 import ua.inventorytype.pnclans.impl.config.GuiItemConfig
@@ -122,6 +123,24 @@ class MainUX(clanService: ClanService) : BaseGui(clanService) {
                 onClick { player, _ ->
                     val clan = this@MainUX.clanService.getClanUser(player) ?: return@onClick
                     button.onClick(ClanMainMenuContext(player, clan))
+                }
+            }
+        }
+
+        menuCfg.addons.forEach { (configId, addonConfig) ->
+            if (addonConfig.slot !in 0 until menuCfg.rows * 9) return@forEach
+            slot(addonConfig.slot) {
+                dynamicItemNullable(Material.PAPER) { player ->
+                    val clan = this@MainUX.clanService.getClanUser(player) ?: return@dynamicItemNullable null
+                    val provider = this@MainUX.clanService.plugin.publicAddonGui().findItem(addonConfig.item)
+                        ?: return@dynamicItemNullable null
+                    provider.createItem(ClanAddonGuiContext(player, clan, configId))
+                }
+                onClick { player, _ ->
+                    val actionId = addonConfig.action ?: return@onClick
+                    val clan = this@MainUX.clanService.getClanUser(player) ?: return@onClick
+                    val action = this@MainUX.clanService.plugin.publicAddonGui().findAction(actionId) ?: return@onClick
+                    action.execute(ClanAddonGuiContext(player, clan, configId))
                 }
             }
         }
