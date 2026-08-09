@@ -104,10 +104,10 @@ class HomesUX(
                                 cfg.send(player, msgCfg.homes.noPermissionSet)
                                 return@onClick
                             }
-                            clan.setHome(entry.key, player.location)
-                            this@HomesUX.clanService.saveClan(clan)
-                            cfg.send(player, msgCfg.homes.set, mapOf("home" to entry.key))
-                            this@HomesUX.updateSlot(event.slot, player)
+                            if (this@HomesUX.clanService.setClanHome(clan, player, entry.key, player.location)) {
+                                cfg.send(player, msgCfg.homes.set, mapOf("home" to entry.key))
+                                this@HomesUX.updateSlot(event.slot, player)
+                            }
                         }
 
                         event.isRightClick && event.isShiftClick -> {
@@ -115,8 +115,7 @@ class HomesUX(
                                 cfg.send(player, msgCfg.homes.noPermissionDelete)
                                 return@onClick
                             }
-                            if (clan.deleteHome(entry.key)) {
-                                this@HomesUX.clanService.saveClan(clan)
+                            if (this@HomesUX.clanService.deleteClanHome(clan, player, entry.key)) {
                                 cfg.send(player, msgCfg.homes.deleted, mapOf("home" to entry.key))
                                 this@HomesUX.updateSlot(event.slot, player)
                             }

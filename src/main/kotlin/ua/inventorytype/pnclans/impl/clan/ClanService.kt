@@ -1,17 +1,24 @@
 package ua.inventorytype.pnclans.impl.clan
 
 import org.bukkit.Bukkit
+import org.bukkit.Location
 import org.bukkit.Material
 import org.bukkit.entity.Player
 import org.bukkit.inventory.ItemStack
 import ua.inventorytype.pnclans.BukkitPlugin
 import ua.inventorytype.pnclans.api.clan.Clan
 import ua.inventorytype.pnclans.api.clan.ClanRole
+import ua.inventorytype.pnclans.api.clan.ClanSetting
 import ua.inventorytype.pnclans.api.event.ClanCreatedEvent
 import ua.inventorytype.pnclans.api.event.ClanDisbandedEvent
 import ua.inventorytype.pnclans.api.event.ClanSavedEvent
 import ua.inventorytype.pnclans.api.event.ClanMemberJoinEvent
 import ua.inventorytype.pnclans.api.event.ClanMemberLeaveEvent
+import ua.inventorytype.pnclans.api.event.ClanMemberRoleChangeEvent
+import ua.inventorytype.pnclans.api.event.ClanSettingChangeEvent
+import ua.inventorytype.pnclans.api.event.ClanHomeSetEvent
+import ua.inventorytype.pnclans.api.event.ClanHomeDeleteEvent
+import ua.inventorytype.pnclans.api.event.ClanChestOpenEvent
 import ua.inventorytype.pnclans.impl.config.ConfigService
 import ua.inventorytype.pnclans.impl.economy.EconomyService
 import ua.inventorytype.pnclans.impl.storage.ClanStorage
@@ -284,11 +291,15 @@ class ClanService(
      * @param player The player to open the chest for.
      * @param clan The clan whose chest contents to display.
      */
-    fun openClanChest(player: Player, clan: Clan) {
+    fun openClanChest(player: Player, clan: Clan): Boolean {
+        val event = ClanChestOpenEvent(clan, player)
+        Bukkit.getPluginManager().callEvent(event)
+        if (event.isCancelled) return false
         val chestGui = activeChestGuis.computeIfAbsent(clan.id) {
             ClanChestUX(this, clan)
         }
         chestGui.open(player)
+        return true
     }
 
     /**
@@ -346,6 +357,59 @@ class ClanService(
         val removed = clan.removeUser(uuid)
         if (removed) _uuidToClan.remove(uuid)
         return removed
+    }
+
+    /** Applies a role change only after add-ons approve the cancellable event. */
+    fun changeMemberRole(clan: Clan, user: ua.inventorytype.pnclans.api.User, newRole: ClanRole): Boolean {
+        val oldRole = clan.getUserRole(user)
+        if (oldRole == newRole) return true
+        val event = ClanMemberRoleChangeEvent(clan, user, oldRole, newRole)
+        Bukkit.getPluginManager().callEvent(event)
+        if (event.isCancelled || !clan.setUserRole(user, event.newRole)) return false
+        saveClan(clan)
+        return true
+    }
+
+    /** Transfers leadership atomically after both role changes have been approved. */
+    fun transferLeadership(clan: Clan, currentLeader: ua.inventorytype.pnclans.api.User, newLeader: ua.inventorytype.pnclans.api.User): Boolean {
+        val demote = ClanMemberRoleChangeEvent(clan, currentLeader, clan.getUserRole(currentLeader), ClanRole.DEPUTY)
+        val promote = ClanMemberRoleChangeEvent(clan, newLeader, clan.getUserRole(newLeader), ClanRole.LEADER)
+        Bukkit.getPluginManager().callEvent(demote)
+        Bukkit.getPluginManager().callEvent(promote)
+        if (demote.isCancelled || promote.isCancelled || demote.newRole != ClanRole.DEPUTY || promote.newRole != ClanRole.LEADER) return false
+        if (!clan.setUserRole(currentLeader, ClanRole.DEPUTY) || !clan.setUserRole(newLeader, ClanRole.LEADER)) return false
+        saveClan(clan)
+        return true
+    }
+
+    /** Applies a setting value only after add-ons approve the cancellable event. */
+    fun changeSetting(clan: Clan, setting: ClanSetting, newValue: Boolean): Boolean {
+        val oldValue = clan.isSettingEnabled(setting)
+        if (oldValue == newValue) return true
+        val event = ClanSettingChangeEvent(clan, setting, oldValue, newValue)
+        Bukkit.getPluginManager().callEvent(event)
+        if (event.isCancelled) return false
+        clan.setSetting(setting, event.newValue)
+        saveClan(clan)
+        return true
+    }
+
+    fun setClanHome(clan: Clan, actor: Player, homeId: String, location: Location): Boolean {
+        val event = ClanHomeSetEvent(clan, actor, homeId, location)
+        Bukkit.getPluginManager().callEvent(event)
+        if (event.isCancelled) return false
+        clan.setHome(homeId, event.location)
+        saveClan(clan)
+        return true
+    }
+
+    fun deleteClanHome(clan: Clan, actor: Player, homeId: String): Boolean {
+        val location = clan.homes[homeId] ?: return false
+        val event = ClanHomeDeleteEvent(clan, actor, homeId, location)
+        Bukkit.getPluginManager().callEvent(event)
+        if (event.isCancelled || !clan.deleteHome(homeId)) return false
+        saveClan(clan)
+        return true
     }
 
     /**

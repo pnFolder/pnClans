@@ -111,9 +111,9 @@ class ClanCommand(
                         return true
                     }
 
-                    clan.setHome(homeEntry.key, sender.location)
-                    clanService.saveClan(clan)
-                    configService.send(sender, configService.messages.homes.set, mapOf("home" to homeEntry.label))
+                    if (clanService.setClanHome(clan, sender, homeEntry.key, sender.location)) {
+                        configService.send(sender, configService.messages.homes.set, mapOf("home" to homeEntry.label))
+                    }
                 }
 
                 "delhome" -> {
@@ -134,8 +134,7 @@ class ClanCommand(
                         configService.send(sender, configService.messages.homes.unknownHome, mapOf("home" to args.getOrElse(1) { defaultHomeKey() }))
                         return true
                     }
-                    if (clan.deleteHome(homeEntry.key)) {
-                        clanService.saveClan(clan)
+                    if (clanService.deleteClanHome(clan, sender, homeEntry.key)) {
                         configService.send(sender, configService.messages.homes.deleted, mapOf("home" to homeEntry.label))
                     } else {
                         configService.send(sender, configService.messages.homes.notSet, mapOf("home" to homeEntry.label))

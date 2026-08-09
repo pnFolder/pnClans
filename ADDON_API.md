@@ -103,6 +103,10 @@ Important events:
 | `ClanTreasuryTransactionEvent` | After a treasury transaction was persisted. |
 | `ClanPointsTransactionEvent` | Before reward-point balance changes; cancellable and the amount is mutable. |
 | `ClanMemberJoinEvent`, `ClanMemberLeaveEvent` | Before a member joins or leaves; cancellable. |
+| `ClanMemberRoleChangeEvent` | Before a role changes; cancellable and the target role is mutable. |
+| `ClanSettingChangeEvent` | Before a clan setting changes; cancellable and the target value is mutable. |
+| `ClanHomeSetEvent`, `ClanHomeDeleteEvent` | Before a clan home is set, moved, or deleted; cancellable. |
+| `ClanChestOpenEvent` | Before the clan chest GUI opens; cancellable. |
 | `ClanSavedEvent` | After a clan was persisted. |
 | `ClanSubcommandExecuteEvent` | Before an add-on subcommand runs; cancellable. |
 

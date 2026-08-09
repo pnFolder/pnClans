@@ -138,9 +138,7 @@ class MembersUX(
                             if (nextRole == ClanRole.LEADER) {
                                 // Promoting to LEADER automatically transfers leadership!
                                 if (myRole == ClanRole.LEADER) {
-                                    clan.setUserRole(myUser, ClanRole.DEPUTY)
-                                    clan.setUserRole(targetUser, ClanRole.LEADER)
-                                    service.saveClan(clan)
+                                    if (!service.transferLeadership(clan, myUser, targetUser)) return@onClick
                                     cfg.send(viewer, cfg.messages.members.leaderTransferred, mapOf("player" to targetUser.playerName))
                                     this@MembersUX.update(viewer)
                                     return@onClick
@@ -153,8 +151,7 @@ class MembersUX(
                                     cfg.send(viewer, cfg.messages.members.cannotPromote)
                                     return@onClick
                                 }
-                                clan.setUserRole(targetUser, nextRole)
-                                service.saveClan(clan)
+                                if (!service.changeMemberRole(clan, targetUser, nextRole)) return@onClick
                                 cfg.send(viewer, cfg.messages.members.promoted, mapOf(
                                     "player" to targetUser.playerName,
                                     "role" to cfg.getRoleDisplayName(nextRole)
@@ -167,8 +164,7 @@ class MembersUX(
                     if (event.isRightClick && !event.isShiftClick) {
                         if (currentRoleIndex > 0) {
                             val prevRole = rolesSorted[currentRoleIndex - 1]
-                            clan.setUserRole(targetUser, prevRole)
-                            service.saveClan(clan)
+                            if (!service.changeMemberRole(clan, targetUser, prevRole)) return@onClick
                             cfg.send(viewer, cfg.messages.members.demoted, mapOf(
                                 "player" to targetUser.playerName,
                                 "role" to cfg.getRoleDisplayName(prevRole)
