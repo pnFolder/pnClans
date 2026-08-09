@@ -79,6 +79,11 @@ class ConfigService(private val plugin: Plugin) {
         quests = loadOrCreate("quests.yml", ClanQuestsConfig.serializer(), ClanQuestsConfig())
     }
 
+    /** Persists shop changes made by the in-game administrator editor. */
+    fun saveShop() {
+        File(plugin.dataFolder, "shop.yml").writeText(yaml.encodeToString(ClanShopConfig.serializer(), shop))
+    }
+
     /**
      * Retrieves the configurable display name for a [ClanRole] from `config.yml`.
      *

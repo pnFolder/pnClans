@@ -127,6 +127,16 @@ class MainUX(clanService: ClanService) : BaseGui(clanService) {
             }
         }
 
+        if (cfg.shop.enabled) addMenuItem(menuCfg, "shop") { player, itemCfg ->
+            clickEffects(player, itemCfg)
+            ClanShopUX(this@MainUX.clanService).open(player)
+        }
+
+        if (cfg.quests.enabled) addMenuItem(menuCfg, "quests") { player, itemCfg ->
+            clickEffects(player, itemCfg)
+            ClanQuestsUX(this@MainUX.clanService).open(player)
+        }
+
         menuCfg.addons.forEach { (configId, addonConfig) ->
             if (addonConfig.slot !in 0 until menuCfg.rows * 9) return@forEach
             slot(addonConfig.slot) {
