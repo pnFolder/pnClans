@@ -27,6 +27,7 @@ Available contracts:
 - `ClanPointsTransaction`: typed reward-points log entry.
 - `ClanPointsTransactionEvent`: cancellable points operation emitted before the balance changes.
 - Bukkit events: lifecycle, treasury, persistence, main-menu and subcommand hooks.
+- Member, role, setting and quest progress events are available under `ua.inventorytype.pnclans.api.event`.
 - `PnClansAddon`: optional lifecycle abstraction for a feature module owned by another Bukkit plugin.
 - `ClanSubcommand`: registration point for `/clan <your-command>` without modifying pnClans.
 

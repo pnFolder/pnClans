@@ -10,6 +10,8 @@ import ua.inventorytype.pnclans.api.clan.ClanRole
 import ua.inventorytype.pnclans.api.event.ClanCreatedEvent
 import ua.inventorytype.pnclans.api.event.ClanDisbandedEvent
 import ua.inventorytype.pnclans.api.event.ClanSavedEvent
+import ua.inventorytype.pnclans.api.event.ClanMemberJoinEvent
+import ua.inventorytype.pnclans.api.event.ClanMemberLeaveEvent
 import ua.inventorytype.pnclans.impl.config.ConfigService
 import ua.inventorytype.pnclans.impl.economy.EconomyService
 import ua.inventorytype.pnclans.impl.storage.ClanStorage
@@ -322,6 +324,9 @@ class ClanService(
      * @return True if the user was successfully added.
      */
     fun addUserToClan(clan: Clan, user: ua.inventorytype.pnclans.api.User, role: ua.inventorytype.pnclans.api.clan.ClanRole): Boolean {
+        val event = ClanMemberJoinEvent(clan, user, role)
+        Bukkit.getPluginManager().callEvent(event)
+        if (event.isCancelled) return false
         val added = clan.addUser(user, role)
         if (added) _uuidToClan[user.uuid] = clan
         return added
@@ -333,6 +338,10 @@ class ClanService(
      * @return True if the user was removed.
      */
     fun removeUserFromClan(clan: Clan, uuid: UUID): Boolean {
+        val user = clan.getMember(uuid) ?: return false
+        val event = ClanMemberLeaveEvent(clan, user, kicked = false)
+        Bukkit.getPluginManager().callEvent(event)
+        if (event.isCancelled) return false
         plugin.clanHighlightService.removeMember(clan, uuid)
         val removed = clan.removeUser(uuid)
         if (removed) _uuidToClan.remove(uuid)
