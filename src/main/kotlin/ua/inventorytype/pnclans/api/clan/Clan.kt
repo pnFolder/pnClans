@@ -53,6 +53,11 @@ interface Clan {
     /** Persistent clan reward currency used by future quests and shop purchases. */
     var points: Long
 
+    /** Recent reward-points operations, newest entries are kept up to the implementation limit. */
+    val pointsLogs: List<ClanPointsTransaction>
+
+    fun addPointsLog(log: ClanPointsTransaction)
+
     /** Client-side visual highlight color used for teammates. */
     var highlightColor: ClanHighlightColor
 

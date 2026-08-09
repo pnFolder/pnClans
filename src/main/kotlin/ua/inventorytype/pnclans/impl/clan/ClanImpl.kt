@@ -11,6 +11,7 @@ import ua.inventorytype.pnclans.api.permission.Permission
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import ua.inventorytype.pnclans.api.clan.TreasuryTransaction
+import ua.inventorytype.pnclans.api.clan.ClanPointsTransaction
 
 /**
  * High-performance, thread-safe implementation of the [Clan] contract.
@@ -32,6 +33,17 @@ class ClanImpl(
     override var deaths: Int = 0
     override var bankBalance: Double = 0.0
     override var points: Long = 0L
+
+    private val _pointsLogs = java.util.Collections.synchronizedList(mutableListOf<ClanPointsTransaction>())
+    override val pointsLogs: List<ClanPointsTransaction>
+        get() = synchronized(_pointsLogs) { _pointsLogs.toList() }
+
+    override fun addPointsLog(log: ClanPointsTransaction) {
+        synchronized(_pointsLogs) {
+            _pointsLogs.add(log)
+            if (_pointsLogs.size > 500) _pointsLogs.removeAt(0)
+        }
+    }
     override var highlightColor: ClanHighlightColor = ClanHighlightColor.AQUA
     override var highlightEnabled: Boolean = true
     override var highlightType: ClanHighlightType = ClanHighlightType.ARMOR

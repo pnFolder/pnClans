@@ -18,6 +18,8 @@ import java.sql.DriverManager
 import java.util.UUID
 import ua.inventorytype.pnclans.api.clan.TreasuryTransaction
 import ua.inventorytype.pnclans.api.clan.TreasuryTransactionType
+import ua.inventorytype.pnclans.api.clan.ClanPointsTransaction
+import ua.inventorytype.pnclans.api.clan.ClanPointsTransactionType
 
 /**
  * SQLite database storage implementation utilizing JDBC connection pooling and JSON payload fallback.
@@ -137,7 +139,8 @@ class SQLiteClanStorage(private val plugin: BukkitPlugin) : IClanStorage {
                 members = memberModels,
                 settings = settingModels,
                 homes = homeModels
-                ,treasuryLogs = clan.treasuryLogs.map { TreasuryLogModel(it.type.name, it.playerName, it.amount, it.timestamp) }
+                ,treasuryLogs = clan.treasuryLogs.map { TreasuryLogModel(it.type.name, it.playerName, it.amount, it.timestamp) },
+                pointsLogs = clan.pointsLogs.map { ClanPointsLogModel(it.type.name, it.source, it.amount, it.balanceAfter, it.timestamp) }
             )
 
             val jsonStr = json.encodeToString(dataModel)
@@ -203,6 +206,9 @@ class SQLiteClanStorage(private val plugin: BukkitPlugin) : IClanStorage {
                             highlightType = ClanHighlightType.fromKey(model.highlightType) ?: ClanHighlightType.ARMOR
                             model.treasuryLogs.forEach { entry ->
                                 runCatching { addTreasuryLog(TreasuryTransaction(TreasuryTransactionType.valueOf(entry.type), entry.playerName, entry.amount, entry.timestamp)) }
+                            }
+                            model.pointsLogs.forEach { entry ->
+                                runCatching { addPointsLog(ClanPointsTransaction(ClanPointsTransactionType.valueOf(entry.type), entry.source, entry.amount, entry.balanceAfter, entry.timestamp)) }
                             }
                     }
 

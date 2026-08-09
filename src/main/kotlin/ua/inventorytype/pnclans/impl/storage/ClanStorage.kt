@@ -18,6 +18,8 @@ import java.io.File
 import java.util.UUID
 import ua.inventorytype.pnclans.api.clan.TreasuryTransaction
 import ua.inventorytype.pnclans.api.clan.TreasuryTransactionType
+import ua.inventorytype.pnclans.api.clan.ClanPointsTransaction
+import ua.inventorytype.pnclans.api.clan.ClanPointsTransactionType
 
 @Serializable
 data class ClanDataModel(
@@ -36,7 +38,8 @@ data class ClanDataModel(
     val members: List<ClanMemberModel> = emptyList(),
     val settings: Map<String, Boolean> = emptyMap(),
     val homes: Map<String, ClanHomeModel> = emptyMap(),
-    val treasuryLogs: List<TreasuryLogModel> = emptyList()
+    val treasuryLogs: List<TreasuryLogModel> = emptyList(),
+    val pointsLogs: List<ClanPointsLogModel> = emptyList()
 )
 
 @Serializable
@@ -56,6 +59,15 @@ data class ClanMemberModel(
     val deaths: Int = 0,
     val playtimeSeconds: Long = 0L,
     val points: Int = 0
+)
+
+@Serializable
+data class ClanPointsLogModel(
+    val type: String,
+    val source: String,
+    val amount: Long,
+    val balanceAfter: Long,
+    val timestamp: Long
 )
 
 @Serializable
@@ -122,7 +134,8 @@ class ClanStorage(private val plugin: BukkitPlugin) : IClanStorage {
                 members = memberModels,
                 settings = settingModels,
                 homes = homeModels
-                ,treasuryLogs = clan.treasuryLogs.map { TreasuryLogModel(it.type.name, it.playerName, it.amount, it.timestamp) }
+                ,treasuryLogs = clan.treasuryLogs.map { TreasuryLogModel(it.type.name, it.playerName, it.amount, it.timestamp) },
+                pointsLogs = clan.pointsLogs.map { ClanPointsLogModel(it.type.name, it.source, it.amount, it.balanceAfter, it.timestamp) }
             )
 
             val file = File(storageDir, "${clan.id}.json")
@@ -170,6 +183,9 @@ class ClanStorage(private val plugin: BukkitPlugin) : IClanStorage {
                     highlightType = ClanHighlightType.fromKey(model.highlightType) ?: ClanHighlightType.ARMOR
                     model.treasuryLogs.forEach { entry ->
                         runCatching { addTreasuryLog(TreasuryTransaction(TreasuryTransactionType.valueOf(entry.type), entry.playerName, entry.amount, entry.timestamp)) }
+                    }
+                    model.pointsLogs.forEach { entry ->
+                        runCatching { addPointsLog(ClanPointsTransaction(ClanPointsTransactionType.valueOf(entry.type), entry.source, entry.amount, entry.balanceAfter, entry.timestamp)) }
                     }
                 }
 
