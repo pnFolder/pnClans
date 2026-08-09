@@ -28,6 +28,7 @@ data class ClanDataModel(
     val kills: Int = 0,
     val deaths: Int = 0,
     val bankBalance: Double = 0.0,
+    val points: Long = 0L,
     val highlightColor: String = ClanHighlightColor.AQUA.name,
     val highlightEnabled: Boolean? = null,
     val highlightMode: String? = null,
@@ -114,6 +115,7 @@ class ClanStorage(private val plugin: BukkitPlugin) : IClanStorage {
                 kills = clan.kills,
                 deaths = clan.deaths,
                 bankBalance = clan.bankBalance,
+                points = clan.points,
                 highlightColor = clan.highlightColor.name,
                 highlightEnabled = clan.highlightEnabled,
                 highlightType = clan.highlightType.name,
@@ -162,6 +164,7 @@ class ClanStorage(private val plugin: BukkitPlugin) : IClanStorage {
                     kills = model.kills
                     deaths = model.deaths
                     bankBalance = model.bankBalance
+                    points = model.points
                     highlightColor = ClanHighlightColor.fromKey(model.highlightColor) ?: ClanHighlightColor.AQUA
                     highlightEnabled = model.highlightEnabled ?: (model.highlightMode != null && !model.highlightMode.equals("OFF", true))
                     highlightType = ClanHighlightType.fromKey(model.highlightType) ?: ClanHighlightType.ARMOR

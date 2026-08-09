@@ -31,6 +31,7 @@ class ClanImpl(
     override var kills: Int = 0
     override var deaths: Int = 0
     override var bankBalance: Double = 0.0
+    override var points: Long = 0L
     override var highlightColor: ClanHighlightColor = ClanHighlightColor.AQUA
     override var highlightEnabled: Boolean = true
     override var highlightType: ClanHighlightType = ClanHighlightType.ARMOR
@@ -96,6 +97,16 @@ class ClanImpl(
     override fun withdrawBank(amount: Double): Boolean {
         if (amount <= 0 || bankBalance < amount) return false
         bankBalance -= amount
+        return true
+    }
+
+    override fun addPoints(amount: Long) {
+        if (amount > 0) points += amount
+    }
+
+    override fun withdrawPoints(amount: Long): Boolean {
+        if (amount <= 0 || points < amount) return false
+        points -= amount
         return true
     }
 

@@ -34,6 +34,7 @@ class PnClansExpansion(private val plugin: BukkitPlugin) : PlaceholderExpansion(
             }
             "level" -> clan?.level?.toString() ?: "0"
             "balance", "bank" -> clan?.bankBalance?.toString() ?: "0"
+            "points" -> clan?.points?.toString() ?: "0"
             "mmr" -> clan?.mmr?.toString() ?: "0"
             "kills" -> clan?.kills?.toString() ?: "0"
             "deaths" -> clan?.deaths?.toString() ?: "0"

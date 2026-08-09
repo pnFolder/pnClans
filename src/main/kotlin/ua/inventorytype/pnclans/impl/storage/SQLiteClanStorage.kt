@@ -63,6 +63,7 @@ class SQLiteClanStorage(private val plugin: BukkitPlugin) : IClanStorage {
                     kills INTEGER NOT NULL,
                     deaths INTEGER NOT NULL,
                     bank REAL NOT NULL,
+                    points INTEGER NOT NULL DEFAULT 0,
                     highlight TEXT NOT NULL DEFAULT 'AQUA',
                     highlight_mode TEXT NOT NULL DEFAULT 'ALWAYS',
                     data TEXT NOT NULL
@@ -92,6 +93,7 @@ class SQLiteClanStorage(private val plugin: BukkitPlugin) : IClanStorage {
                 if (!existingCols.contains("kills")) stmt.executeUpdate("ALTER TABLE clans ADD COLUMN kills INTEGER DEFAULT 0")
                 if (!existingCols.contains("deaths")) stmt.executeUpdate("ALTER TABLE clans ADD COLUMN deaths INTEGER DEFAULT 0")
                 if (!existingCols.contains("bank")) stmt.executeUpdate("ALTER TABLE clans ADD COLUMN bank REAL DEFAULT 0.0")
+                if (!existingCols.contains("points")) stmt.executeUpdate("ALTER TABLE clans ADD COLUMN points INTEGER DEFAULT 0")
                 if (!existingCols.contains("highlight")) stmt.executeUpdate("ALTER TABLE clans ADD COLUMN highlight TEXT DEFAULT 'AQUA'")
                 if (!existingCols.contains("highlight_mode")) stmt.executeUpdate("ALTER TABLE clans ADD COLUMN highlight_mode TEXT DEFAULT 'ALWAYS'")
                 if (!existingCols.contains("data")) stmt.executeUpdate("ALTER TABLE clans ADD COLUMN data TEXT DEFAULT ''")
@@ -128,6 +130,7 @@ class SQLiteClanStorage(private val plugin: BukkitPlugin) : IClanStorage {
                 kills = clan.kills,
                 deaths = clan.deaths,
                 bankBalance = clan.bankBalance,
+                points = clan.points,
                 highlightColor = clan.highlightColor.name,
                 highlightEnabled = clan.highlightEnabled,
                 highlightType = clan.highlightType.name,
@@ -139,8 +142,8 @@ class SQLiteClanStorage(private val plugin: BukkitPlugin) : IClanStorage {
 
             val jsonStr = json.encodeToString(dataModel)
             val sql = """
-                    REPLACE INTO clans(id, name, level, mmr, kills, deaths, bank, highlight, highlight_mode, data)
-                    VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+                    REPLACE INTO clans(id, name, level, mmr, kills, deaths, bank, points, highlight, highlight_mode, data)
+                    VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
             """.trimIndent()
 
             getConnection().prepareStatement(sql).use { pstmt ->
@@ -151,9 +154,10 @@ class SQLiteClanStorage(private val plugin: BukkitPlugin) : IClanStorage {
                 pstmt.setInt(5, clan.kills)
                 pstmt.setInt(6, clan.deaths)
                     pstmt.setDouble(7, clan.bankBalance)
-                    pstmt.setString(8, clan.highlightColor.name)
-                    pstmt.setString(9, if (clan.highlightEnabled) "ON" else "OFF")
-                    pstmt.setString(10, jsonStr)
+                    pstmt.setLong(8, clan.points)
+                    pstmt.setString(9, clan.highlightColor.name)
+                    pstmt.setString(10, if (clan.highlightEnabled) "ON" else "OFF")
+                    pstmt.setString(11, jsonStr)
                 pstmt.executeUpdate()
             }
         }.onFailure { ex ->
@@ -193,6 +197,7 @@ class SQLiteClanStorage(private val plugin: BukkitPlugin) : IClanStorage {
                         kills = model.kills
                         deaths = model.deaths
                             bankBalance = model.bankBalance
+                            points = model.points
                             highlightColor = ClanHighlightColor.fromKey(model.highlightColor) ?: ClanHighlightColor.AQUA
                             highlightEnabled = model.highlightEnabled ?: (model.highlightMode != null && !model.highlightMode.equals("OFF", true))
                             highlightType = ClanHighlightType.fromKey(model.highlightType) ?: ClanHighlightType.ARMOR

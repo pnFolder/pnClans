@@ -50,6 +50,9 @@ interface Clan {
     /** Current monetary balance stored in the clan bank. */
     var bankBalance: Double
 
+    /** Persistent clan reward currency used by future quests and shop purchases. */
+    var points: Long
+
     /** Client-side visual highlight color used for teammates. */
     var highlightColor: ClanHighlightColor
 
@@ -114,6 +117,12 @@ interface Clan {
      * @return True if withdrawal succeeded, false if insufficient funds or invalid amount.
      */
     fun withdrawBank(amount: Double): Boolean
+
+    /** Adds positive reward currency to the clan balance. */
+    fun addPoints(amount: Long)
+
+    /** Spends reward currency if the clan has enough balance. */
+    fun withdrawPoints(amount: Long): Boolean
 
     /**
      * Sets or updates a clan home waypoint location.
