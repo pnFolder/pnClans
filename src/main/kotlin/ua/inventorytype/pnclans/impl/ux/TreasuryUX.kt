@@ -5,6 +5,7 @@ import ua.inventorytype.pnclans.api.permission.ClanPerms
 import ua.inventorytype.pnclans.api.clan.TreasuryTransaction
 import ua.inventorytype.pnclans.api.clan.TreasuryTransactionType
 import ua.inventorytype.pnclans.api.event.ClanTreasuryTransactionEvent
+import ua.inventorytype.pnclans.api.event.ClanTreasuryTransactionPreEvent
 import ua.inventorytype.pnclans.impl.clan.ClanService
 import ua.inventorytype.pnclans.impl.inventory.BaseGui
 import ua.inventorytype.pnclans.impl.util.ChatInputPrompt
@@ -220,14 +221,15 @@ class TreasuryUX(clanService: ClanService) : BaseGui(clanService) {
             return
         }
         val transaction = TreasuryTransaction(TreasuryTransactionType.DEPOSIT, player.name, amount, System.currentTimeMillis())
-        val transactionEvent = ClanTreasuryTransactionEvent(clan, transaction)
+         val transactionEvent = ClanTreasuryTransactionPreEvent(clan, transaction, player)
         org.bukkit.Bukkit.getPluginManager().callEvent(transactionEvent)
         if (transactionEvent.isCancelled) return
 
         if (service.economy.withdraw(player, amount)) {
             clan.depositBank(amount)
-            clan.addTreasuryLog(transaction)
-            service.saveClan(clan)
+             clan.addTreasuryLog(transaction)
+             service.saveClan(clan)
+             org.bukkit.Bukkit.getPluginManager().callEvent(ClanTreasuryTransactionEvent(clan, transaction, player))
             service.notifyClanUpdated(player.uniqueId)
             val placeholders = mapOf(
                 "amount" to formatAmount(amount),
@@ -257,14 +259,15 @@ class TreasuryUX(clanService: ClanService) : BaseGui(clanService) {
             return
         }
         val transaction = TreasuryTransaction(TreasuryTransactionType.WITHDRAW, player.name, amount, System.currentTimeMillis())
-        val transactionEvent = ClanTreasuryTransactionEvent(clan, transaction)
+         val transactionEvent = ClanTreasuryTransactionPreEvent(clan, transaction, player)
         org.bukkit.Bukkit.getPluginManager().callEvent(transactionEvent)
         if (transactionEvent.isCancelled) return
 
         if (clan.withdrawBank(amount)) {
             service.economy.depositPlayer(player, amount)
-            clan.addTreasuryLog(transaction)
-            service.saveClan(clan)
+             clan.addTreasuryLog(transaction)
+             service.saveClan(clan)
+             org.bukkit.Bukkit.getPluginManager().callEvent(ClanTreasuryTransactionEvent(clan, transaction, player))
             service.notifyClanUpdated(player.uniqueId)
             val placeholders = mapOf(
                 "amount" to formatAmount(amount),

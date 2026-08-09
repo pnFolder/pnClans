@@ -24,6 +24,8 @@ Available contracts:
 - `ClanRepository`: clan lookup, immutable collection snapshot and explicit persistence.
 - `Clan`: public clan model, member, permission, home and treasury operations.
 - `TreasuryTransaction`: persisted treasury log entry.
+- `ClanTreasuryTransactionPreEvent`: cancellable event before Vault or treasury data changes.
+- `ClanTreasuryTransactionEvent`: non-cancellable event after a successful persisted transaction.
 - `ClanPointsTransaction`: typed reward-points log entry.
 - `ClanPointsTransactionEvent`: cancellable points operation emitted before the balance changes.
 - Bukkit events: lifecycle, treasury, persistence, main-menu and subcommand hooks.
