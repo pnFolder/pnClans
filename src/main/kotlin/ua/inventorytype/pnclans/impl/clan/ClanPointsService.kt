@@ -4,12 +4,13 @@ import ua.inventorytype.pnclans.api.clan.Clan
 import ua.inventorytype.pnclans.api.clan.ClanPointsTransaction
 import ua.inventorytype.pnclans.api.clan.ClanPointsTransactionType
 import ua.inventorytype.pnclans.api.clan.ClanPointsSource
+import ua.inventorytype.pnclans.api.clan.ClanPoints
 import ua.inventorytype.pnclans.api.event.ClanPointsTransactionEvent
 
 /** Central service for all future reward, quest and shop point operations. */
-class ClanPointsService(private val clanService: ClanService) {
+internal class ClanPointsService(private val clanService: ClanService) : ClanPoints {
 
-    fun award(clan: Clan, amount: Long, source: ClanPointsSource): Boolean {
+    override fun award(clan: Clan, amount: Long, source: ClanPointsSource): Boolean {
         val event = ClanPointsTransactionEvent(clan, ClanPointsTransactionType.AWARD, source, amount)
         clanService.plugin.server.pluginManager.callEvent(event)
         if (event.isCancelled || event.amount <= 0L) return false
@@ -19,7 +20,7 @@ class ClanPointsService(private val clanService: ClanService) {
         return true
     }
 
-    fun spend(clan: Clan, amount: Long, source: ClanPointsSource): Boolean {
+    override fun spend(clan: Clan, amount: Long, source: ClanPointsSource): Boolean {
         val event = ClanPointsTransactionEvent(clan, ClanPointsTransactionType.SPEND, source, amount)
         clanService.plugin.server.pluginManager.callEvent(event)
         if (event.isCancelled || event.amount <= 0L || !clan.withdrawPoints(event.amount)) return false

@@ -9,6 +9,7 @@ import com.github.retrooper.packetevents.PacketEvents
 import com.github.retrooper.packetevents.util.TimeStampMode
 import io.github.retrooper.packetevents.factory.spigot.SpigotPacketEventsBuilder
 import ua.inventorytype.pnclans.api.PnClansApi
+import ua.inventorytype.pnclans.api.clan.ClanPoints
 import ua.inventorytype.pnclans.api.command.ClanSubcommand
 import ua.inventorytype.pnclans.api.menu.ClanMainMenuButton
 import ua.inventorytype.pnclans.api.placeholder.PlaceholderRegistry
@@ -51,7 +52,7 @@ class BukkitPlugin : JavaPlugin() {
     lateinit var clanService: ClanService
         private set
 
-    lateinit var clanPointsService: ClanPointsService
+    lateinit var clanPointsService: ClanPoints
         private set
 
     lateinit var clanActivityPointsService: ClanActivityPointsService
@@ -107,7 +108,7 @@ class BukkitPlugin : JavaPlugin() {
         clanPointsService = ClanPointsService(clanService)
         clanActivityPointsService = ClanActivityPointsService(this)
         placeholderRegistry.registerDefaults(clanService)
-        publicApi = PnClansApiImpl(clanService)
+        publicApi = PnClansApiImpl(clanService, clanPointsService)
         server.servicesManager.register(PnClansApi::class.java, publicApi, this, ServicePriority.Normal)
 
         val addonResults = publicApi.addons.loadDirectory()

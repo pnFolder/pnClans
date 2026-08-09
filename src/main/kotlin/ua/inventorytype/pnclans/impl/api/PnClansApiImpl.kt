@@ -2,16 +2,22 @@ package ua.inventorytype.pnclans.impl.api
 
 import ua.inventorytype.pnclans.api.ClanRepository
 import ua.inventorytype.pnclans.api.PnClansApi
+import ua.inventorytype.pnclans.api.PnClansProvider
 import ua.inventorytype.pnclans.api.addon.AddonRegistry
 import ua.inventorytype.pnclans.api.clan.Clan
+import ua.inventorytype.pnclans.api.clan.ClanPoints
 import ua.inventorytype.pnclans.api.command.ClanSubcommandRegistry
 import ua.inventorytype.pnclans.api.menu.ClanMenuRegistry
 import ua.inventorytype.pnclans.api.placeholder.PlaceholderRegistry
 import ua.inventorytype.pnclans.impl.clan.ClanService
+import ua.inventorytype.pnclans.impl.clan.ClanPointsService
 import java.util.UUID
 
-internal class PnClansApiImpl(private val service: ClanService) : PnClansApi {
-    override val apiVersion: Int = 1
+internal class PnClansApiImpl(
+    private val service: ClanService,
+    override val points: ClanPoints
+) : PnClansApi {
+    override val apiVersion: Int = PnClansProvider.API_VERSION
     override val placeholders: PlaceholderRegistry
         get() = service.plugin.placeholderRegistry
     override val addons: AddonRegistry by lazy { AddonRegistryImpl(this, service.plugin.dataFolder) }

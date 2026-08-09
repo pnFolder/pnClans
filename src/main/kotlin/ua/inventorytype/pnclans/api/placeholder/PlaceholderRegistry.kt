@@ -9,17 +9,13 @@ class PlaceholderRegistry {
 
     private val placeholders = mutableMapOf<String, (Player) -> String>()
 
-    /**
-     * Регистрация одиночного плейсхолдера
-     */
+    /** Registers or replaces a `{key}` placeholder provider. */
     fun register(key: String, provider: (Player) -> String) {
         placeholders[key.lowercase()] = provider
     }
 
-    /**
-     * Автоматическая регистрация всех стандартных плейсхолдеров клановой системы
-     */
-    fun registerDefaults(clanService: ClanService) {
+    /** Registers pnClans built-in placeholders during plugin startup. */
+    internal fun registerDefaults(clanService: ClanService) {
         register("clan") { player -> clanService.getClanUser(player)?.name ?: "Нет" }
         register("clan_name") { player -> clanService.getClanUser(player)?.name ?: "Нет" }
         register("clan_tag") { player -> clanService.getClanUser(player)?.let { "§8[§6${it.name}§8]" } ?: "" }
@@ -40,9 +36,7 @@ class PlaceholderRegistry {
         register("player_name") { player -> player.name }
     }
 
-    /**
-     * Замена всех зарегистрированных плейсхолдеров и кастомных ключей в тексте
-     */
+    /** Resolves custom `{key}` tokens, registered placeholders, colours, and PlaceholderAPI values. */
     fun process(player: Player, text: String, customPlaceholders: Map<String, String> = emptyMap(), colorize: Boolean = true): String {
         if (text.isEmpty()) return ""
 
@@ -77,6 +71,7 @@ class PlaceholderRegistry {
         return result
     }
 
+    /** Resolves every entry in [lines] using the same rules as [process]. */
     fun process(player: Player, lines: List<String>, customPlaceholders: Map<String, String> = emptyMap(), colorize: Boolean = true): List<String> {
         if (lines.isEmpty()) return emptyList()
         return lines.map { process(player, it, customPlaceholders, colorize) }

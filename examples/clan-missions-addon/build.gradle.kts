@@ -9,7 +9,8 @@ repositories {
 
 dependencies {
     compileOnly("io.papermc.paper:paper-api:26.2.build.+")
-    compileOnly(files("../../build/libs/pnClans-1.0.0-all.jar"))
+    val pnClansVersion = providers.gradleProperty("pnClansVersion").getOrElse("1.0.6")
+    compileOnly(files("../../build/libs/pnClans-$pnClansVersion-all.jar"))
 }
 
 kotlin {

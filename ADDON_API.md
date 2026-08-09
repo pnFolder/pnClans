@@ -1,108 +1,164 @@
 # pnClans Add-on API
 
-pnClans exposes a stable Bukkit service for other plugins. Depend on `pnClans` in your `plugin.yml`; do not import `ua.inventorytype.pnclans.impl.*`.
+pnClans is a Bukkit service that other plugins can use after pnClans has enabled. An add-on is a normal Bukkit plugin JAR: it can be installed in the server `plugins/` directory, or placed in `plugins/pnClans/addons/` for pnClans to load on startup.
+
+Only import packages under `ua.inventorytype.pnclans.api.*`. Classes in `impl.*` are internal and may change without notice.
+
+## Quick Start
+
+1. Add pnClans as a hard dependency.
+2. Compile against the same pnClans release as the server.
+3. Obtain `PnClansApi` in `onEnable`.
+4. Register your add-on features from `PnClansAddon.onEnable`.
 
 ```yaml
+# src/main/resources/plugin.yml
+name: ExampleAddon
+version: '1.0.0'
+main: com.example.addon.ExampleAddon
+api-version: '26.2'
 depend: [pnClans]
 ```
 
 ```kotlin
-import ua.inventorytype.pnclans.api.PnClansProvider
-
-override fun onEnable() {
-    val api = PnClansProvider.require()
-    require(api.apiVersion == PnClansProvider.API_VERSION)
-
-    val clan = api.clans.findByMember(player.uniqueId)
-    api.clans.save(clan)
-}
-```
-
-Available contracts:
-
-- `PnClansApi`: service entry point, API version and placeholders.
-- `ClanRepository`: clan lookup, immutable collection snapshot and explicit persistence.
-- `Clan`: public clan model, member, permission, home and treasury operations.
-- `TreasuryTransaction`: persisted treasury log entry.
-- `ClanTreasuryTransactionPreEvent`: cancellable event before Vault or treasury data changes.
-- `ClanTreasuryTransactionEvent`: non-cancellable event after a successful persisted transaction.
-- `ClanPointsTransaction`: typed reward-points log entry.
-- `ClanPointsTransactionEvent`: cancellable points operation emitted before the balance changes.
-- Bukkit events: lifecycle, treasury, persistence, main-menu and subcommand hooks.
-- Member, role, setting and quest progress events are available under `ua.inventorytype.pnclans.api.event`.
-- `PnClansAddon`: optional lifecycle abstraction for a feature module owned by another Bukkit plugin.
-- `ClanSubcommand`: registration point for `/clan <your-command>` without modifying pnClans.
-
-`ClanCreatedEvent`, `ClanDisbandedEvent`, and `ClanTreasuryTransactionEvent` implement Bukkit `Cancellable` and are emitted before pnClans applies an operation. Set `event.isCancelled = true` to prevent a clan from being created or disbanded, or to stop a treasury transaction before money or data changes. Mutating a `Clan` from an add-on requires `api.clans.save(clan)` afterwards. API calls and Bukkit events must be used from the server thread.
-
-For a binary-compatible add-on, compile against the same major pnClans API version and guard new functionality with `api.apiVersion`.
-
-## Subcommand example
-
-An addon remains a normal separate Bukkit jar. In its `onEnable`, obtain the API and register its command:
-
-```kotlin
-class MissionsAddon : JavaPlugin() {
-    override fun onEnable() {
-        val api = PnClansProvider.require()
-        api.subcommands.register(this, object : ClanSubcommand {
-            override val name = "missions"
-            override val aliases = setOf("quests")
-
-            override fun execute(context: ClanCommandContext): Boolean {
-                val player = context.player ?: return true
-                val clan = context.clan ?: return true
-                player.sendMessage("Your clan: ${clan.name}")
-                return true
-            }
-        })
-    }
-}
-```
-
-This command is then available as `/clan missions` and `/clan quests`. The core keeps ownership and tab completion isolated from the addon jar.
-
-## Addon metadata and management
-
-Describe the addon with `id`, `addonVersion`, `author`, `summary`, optional `website`, and `requiredApiVersion`. The registry exposes the current state and source JAR in `AddonDescriptor`.
-
-```kotlin
-class MissionsAddon : JavaPlugin(), PnClansAddon {
-    override val id = "missions"
+class ExampleAddon : JavaPlugin(), PnClansAddon {
+    override val id = "example-addon"
     override val addonVersion = "1.0.0"
     override val author = "ExampleDeveloper"
-    override val summary = "Clan missions"
+    override val summary = "A pnClans extension"
+
+    private lateinit var api: PnClansApi
 
     override fun onEnable() {
-        PnClansProvider.require().addons.register(this, this)
+        api = PnClansProvider.require()
+        check(api.addons.register(this, this)) { "Could not register pnClans addon" }
     }
 
-    override fun onEnable(context: AddonContext) { /* register features */ }
-    override fun onDisable() { /* unregister tasks/listeners owned by this addon */ }
+    override fun onEnable(context: AddonContext) {
+        api = context.api
+        // Register commands, menu buttons, listeners, and tasks here.
+    }
+
+    override fun onDisable() {
+        // Cancel tasks and unregister features owned by this addon here.
+    }
 }
 ```
 
-pnClans creates `plugins/pnClans/addons/` on startup and attempts to load every JAR in it. The JAR must be a regular Bukkit plugin and have `depend: [pnClans]` in `plugin.yml`. A server administration plugin may call `api.addons.load(file)`, `enable(id)`, `disable(id)`, inspect `find(id)`, or inspect `all()`.
+`PnClansProvider.require()` produces a clear error when pnClans is unavailable. `plugin.yml` must therefore use `depend`, not `softdepend`.
 
-`disable(id)` controls the pnClans addon lifecycle; it does not unload the Bukkit classloader. Addons must stop their own tasks and listeners in `PnClansAddon.onDisable()`.
+## Build Setup
 
-## Main menu extension
+The included `examples/clan-missions-addon` project compiles against a locally built pnClans JAR. Build pnClans first:
 
-Addons can render a button into any main-menu slot. A button registered after the core layout intentionally replaces that slot, so an addon can extend or replace a standard entry without importing GUI internals.
+```powershell
+.\gradlew.bat build
+```
+
+Then build the example from its directory. Pass `-PpnClansVersion=<version>` when the pnClans version differs from `1.0.6`.
+
+```powershell
+.\gradlew.bat build "-PpnClansVersion=1.0.6"
+```
+
+## Public Services
+
+| API member | Purpose |
+| --- | --- |
+| `api.clans` | Find clans and persist mutations. |
+| `api.points` | Award or spend typed clan reward points. |
+| `api.placeholders` | Register `{key}` placeholders for pnClans messages and GUI text. |
+| `api.subcommands` | Add `/clan <command>` subcommands. |
+| `api.menus` | Add buttons to the main clan menu. |
+| `api.addons` | Register and inspect pnClans add-ons. |
+
+All API calls, mutations, and Bukkit event handlers must run on the Bukkit server thread. After changing a `Clan` directly, call `api.clans.save(clan)`.
+
+### Clan Points
+
+Points are the shared clan reward currency. Every successful operation is persisted, written to the clan points history, and fires a cancellable `ClanPointsTransactionEvent` before the balance changes.
+
+```kotlin
+import ua.inventorytype.pnclans.api.clan.ClanPointsSource
+
+api.points.award(clan, 25, ClanPointsSource.QUEST)
+val purchased = api.points.spend(clan, 100, ClanPointsSource.SHOP)
+```
+
+Available sources: `PLAYER_KILL`, `MOB_KILL`, `ACTIVITY`, `QUEST`, `SHOP`, and `ADMIN`.
+
+## Events
+
+Events follow one rule:
+
+- `*PreEvent` is cancellable and runs before a mutation.
+- An event without `Pre` is a notification after a successful mutation and is not cancellable.
+
+Important events:
+
+| Event | When it runs |
+| --- | --- |
+| `ClanCreatedEvent`, `ClanDisbandedEvent` | Before clan creation or disbanding; cancellable. |
+| `ClanTreasuryTransactionPreEvent` | Before Vault and treasury changes; cancellable. |
+| `ClanTreasuryTransactionEvent` | After a treasury transaction was persisted. |
+| `ClanPointsTransactionEvent` | Before reward-point balance changes; cancellable and the amount is mutable. |
+| `ClanMemberJoinEvent`, `ClanMemberLeaveEvent` | Before a member joins or leaves; cancellable. |
+| `ClanSavedEvent` | After a clan was persisted. |
+| `ClanSubcommandExecuteEvent` | Before an add-on subcommand runs; cancellable. |
+
+```kotlin
+@EventHandler
+fun onPoints(event: ClanPointsTransactionEvent) {
+    if (event.source == ClanPointsSource.MOB_KILL) {
+        event.amount = event.amount.coerceAtMost(5)
+    }
+}
+```
+
+## Subcommands
+
+```kotlin
+api.subcommands.register(this, object : ClanSubcommand {
+    override val name = "missions"
+    override val aliases = setOf("quests")
+
+    override fun execute(context: ClanCommandContext): Boolean {
+        val player = context.player ?: return true
+        val clan = context.clan ?: return true
+        player.sendMessage("Your clan: ${clan.name}")
+        return true
+    }
+})
+```
+
+The command becomes available as `/clan missions` and `/clan quests`. Unregister it in `PnClansAddon.onDisable` with `api.subcommands.unregister(this, "missions")`.
+
+## Main Menu Buttons
 
 ```kotlin
 api.menus.registerMainButton(this, object : ClanMainMenuButton {
     override val id = "missions-button"
     override val slot = 22
 
-    override fun createItem(context: ClanMainMenuContext) = ItemStack(Material.BOOK).apply {
-        itemMeta = itemMeta.apply { setDisplayName("§eМиссии клана") }
-    }
+    override fun createItem(context: ClanMainMenuContext): ItemStack =
+        ItemStack(Material.BOOK).apply {
+            itemMeta = itemMeta.apply { setDisplayName("§eClan missions") }
+        }
 
     override fun onClick(context: ClanMainMenuContext) {
-        context.player.sendMessage("Открываем миссии ${context.clan.name}")
+        context.player.sendMessage("Open missions for ${context.clan.name}")
     }
 })
 ```
 
-`ClanMainMenuItemRenderEvent` can hide a core item for a player, while `ClanMainMenuItemClickEvent` can cancel its default action. `ClanSavedEvent` is useful for external persistence or scoreboards. `ClanSubcommandExecuteEvent` runs before an addon subcommand and can be cancelled.
+Registration fails when another button already owns the same slot. Use a stable and globally unique button ID, then unregister it in `onDisable`.
+
+## Add-on Lifecycle
+
+`PnClansAddon` is optional for a plugin that only consumes the API. Implement it when your plugin registers pnClans-owned features such as subcommands or menu buttons. pnClans calls `onEnable(context)` only after successful registration and calls `onDisable()` when the add-on is disabled.
+
+`api.addons.disable(id)` stops the pnClans add-on lifecycle; Bukkit does not unload a plugin classloader at runtime. An add-on must therefore cancel its own tasks, unregister listeners, commands, and menu buttons in `onDisable`.
+
+## API Compatibility
+
+The current public API version is `2`. Compare `api.apiVersion` only when using features introduced after the minimum version your add-on supports. Do not compare the plugin release version for API compatibility.
