@@ -131,6 +131,16 @@ class Settings {
     @YamlComment("Количество клановых очков за убийство другого игрока. Фактическую выдачу можно отменить через ClanPointsTransactionEvent.")
     val clanPointsPerPlayerKill: Long = 10L
 
+    @YamlComment("Награды клановыми очками за убийство мобов. Ключ — название EntityType, например ZOMBIE или WITHER.")
+    val clanPointsPerMobKill: Map<String, Long> = mapOf(
+        "ZOMBIE" to 1L,
+        "SKELETON" to 1L,
+        "CREEPER" to 2L,
+        "SPIDER" to 1L,
+        "WITHER" to 50L,
+        "ENDER_DRAGON" to 100L
+    )
+
     @YamlComment("Время ввода ника при приглашении через меню в секундах")
     val invitePromptTimeoutSeconds: Int = 15
 

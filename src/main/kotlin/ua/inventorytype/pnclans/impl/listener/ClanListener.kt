@@ -6,6 +6,7 @@ import org.bukkit.event.EventHandler
 import org.bukkit.event.EventPriority
 import org.bukkit.event.Listener
 import org.bukkit.event.entity.EntityDamageByEntityEvent
+import org.bukkit.event.entity.EntityDeathEvent
 import org.bukkit.event.entity.PlayerDeathEvent
 import org.bukkit.event.player.AsyncPlayerChatEvent
 import org.bukkit.event.player.PlayerCommandPreprocessEvent
@@ -74,6 +75,17 @@ class ClanListener(private val plugin: BukkitPlugin) : Listener {
                 if (!awarded) clanService.saveClan(killerClan)
             }
         }
+    }
+
+    @EventHandler(ignoreCancelled = true)
+    fun onMobDeath(event: EntityDeathEvent) {
+        if (event.entity is Player) return
+        val killer = event.entity.killer ?: return
+        val reward = cfg.clanPointsPerMobKill[event.entity.type.name] ?: return
+        if (reward <= 0L) return
+
+        val clan = clanService.getClanUser(killer) ?: return
+        plugin.clanPointsService.award(clan, reward, ClanPointsSource.MOB_KILL)
     }
 
     @Suppress("DEPRECATION")
