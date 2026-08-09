@@ -7,6 +7,12 @@ load: POSTWORLD
 softdepend:
   - Vault
   - PlaceholderAPI
+  - ProtocolLib
+  - ProtocolSupport
+  - ViaVersion
+  - ViaBackwards
+  - ViaRewind
+  - Geyser-Spigot
 
 commands:
   clan:

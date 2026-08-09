@@ -8,6 +8,8 @@ import org.bukkit.Location
 import org.bukkit.inventory.ItemStack
 import ua.inventorytype.pnclans.BukkitPlugin
 import ua.inventorytype.pnclans.api.clan.Clan
+import ua.inventorytype.pnclans.api.clan.ClanHighlightColor
+import ua.inventorytype.pnclans.api.clan.ClanHighlightType
 import ua.inventorytype.pnclans.api.clan.ClanRole
 import ua.inventorytype.pnclans.api.clan.ClanSetting
 import ua.inventorytype.pnclans.impl.clan.ClanImpl
@@ -26,6 +28,10 @@ data class ClanDataModel(
     val kills: Int = 0,
     val deaths: Int = 0,
     val bankBalance: Double = 0.0,
+    val highlightColor: String = ClanHighlightColor.AQUA.name,
+    val highlightEnabled: Boolean? = null,
+    val highlightMode: String? = null,
+    val highlightType: String = ClanHighlightType.ARMOR.name,
     val members: List<ClanMemberModel> = emptyList(),
     val settings: Map<String, Boolean> = emptyMap(),
     val homes: Map<String, ClanHomeModel> = emptyMap(),
@@ -100,6 +106,9 @@ class ClanStorage(private val plugin: BukkitPlugin) : IClanStorage {
                 kills = clan.kills,
                 deaths = clan.deaths,
                 bankBalance = clan.bankBalance,
+                highlightColor = clan.highlightColor.name,
+                highlightEnabled = clan.highlightEnabled,
+                highlightType = clan.highlightType.name,
                 members = memberModels,
                 settings = settingModels,
                 homes = homeModels
@@ -138,6 +147,9 @@ class ClanStorage(private val plugin: BukkitPlugin) : IClanStorage {
                     kills = model.kills
                     deaths = model.deaths
                     bankBalance = model.bankBalance
+                    highlightColor = ClanHighlightColor.fromKey(model.highlightColor) ?: ClanHighlightColor.AQUA
+                    highlightEnabled = model.highlightEnabled ?: (model.highlightMode != null && !model.highlightMode.equals("OFF", true))
+                    highlightType = ClanHighlightType.fromKey(model.highlightType) ?: ClanHighlightType.ARMOR
                     model.treasuryLogs.forEach { entry ->
                         runCatching { addTreasuryLog(TreasuryTransaction(TreasuryTransactionType.valueOf(entry.type), entry.playerName, entry.amount, entry.timestamp)) }
                     }

@@ -9,7 +9,9 @@ import org.bukkit.event.entity.EntityDamageByEntityEvent
 import org.bukkit.event.entity.PlayerDeathEvent
 import org.bukkit.event.player.AsyncPlayerChatEvent
 import org.bukkit.event.player.PlayerCommandPreprocessEvent
+import org.bukkit.event.player.PlayerChangedWorldEvent
 import org.bukkit.event.player.PlayerJoinEvent
+import org.bukkit.event.player.PlayerRespawnEvent
 import org.bukkit.event.player.PlayerQuitEvent
 import ua.inventorytype.pnclans.BukkitPlugin
 import ua.inventorytype.pnclans.api.clan.ClanSetting
@@ -143,6 +145,7 @@ class ClanListener(private val plugin: BukkitPlugin) : Listener {
         }
 
         clanService.playtimeTracker.markOnline(player.uniqueId, clan.id)
+        plugin.clanHighlightService.syncPlayer(player)
 
         if (clan.isSettingEnabled(ClanSetting.JOIN)) {
             val msg = configService.formatMessage(player, cfg.msgJoinNotice, mapOf("player" to player.name))
@@ -155,10 +158,21 @@ class ClanListener(private val plugin: BukkitPlugin) : Listener {
     }
 
     @EventHandler
+    fun onRespawn(event: PlayerRespawnEvent) {
+        plugin.clanHighlightService.syncPlayer(event.player)
+    }
+
+    @EventHandler
+    fun onWorldChange(event: PlayerChangedWorldEvent) {
+        plugin.clanHighlightService.syncPlayer(event.player)
+    }
+
+    @EventHandler
     fun onQuit(event: PlayerQuitEvent) {
         val player = event.player
         val clan = clanService.getClanUser(player) ?: return
 
+        plugin.clanHighlightService.forgetPlayer(player)
         clanService.playtimeTracker.flushSession(player.uniqueId, clanService)
 
         if (clan.isSettingEnabled(ClanSetting.JOIN)) {

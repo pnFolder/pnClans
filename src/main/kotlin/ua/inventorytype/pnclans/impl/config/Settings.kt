@@ -149,6 +149,9 @@ class Settings {
     @YamlComment("Автоматически возвращать остаток казны на баланс лидера при распуске (актуально если disbandRequireEmptyBank = false)")
     val disbandAutoRefundBank: Boolean = false
 
+    @YamlComment("Доступные цвета подсветки соклановцев в меню настройки цвета")
+    val clanHighlightColors: List<String> = listOf("AQUA", "BLUE", "DARK_AQUA", "GREEN", "RED", "GOLD", "YELLOW", "LIGHT_PURPLE", "WHITE")
+
     @YamlComment("Названия ролей клана для отображения в чате, меню и плейсхолдерах {clan_role}")
     val roleLeader: String = "Лидер"
     val roleDeputy: String = "Заместитель"

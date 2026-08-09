@@ -608,6 +608,25 @@ class MenusConfig {
                     "&#FF8702➥ &fНажмите, &eЛКМ &fчтобы {action}"
                 )
             ),
+            "color" to GuiItemConfig(
+                slot = 30,
+                material = "LIME_DYE",
+                name = "&#5EFD7D✦ Метка соклановцев",
+                lore = listOf(
+                    "",
+                    "&#9EFC65 «Сводка»",
+                    " &7- &fСтатус: &e{clan_highlight_status}",
+                    " &7- &fТип: &e{clan_highlight_type}",
+                    " &7- &fТекущий цвет: &e{clan_color}",
+                    "",
+                    "&#FC65DF «Описание»",
+                    " &7- &fВизуальная метка: цветная броня",
+                    " &7- &fили светящийся контур.",
+                    " &7- &fНастоящий инвентарь не меняется.",
+                    "",
+                    "&#FF8702➥ &fНажмите, &eЛКМ &fчтобы открыть выбор"
+                )
+            ),
             "roles" to GuiItemConfig(
                 slot = 24,
                 material = "NETHER_STAR",

@@ -50,6 +50,15 @@ interface Clan {
     /** Current monetary balance stored in the clan bank. */
     var bankBalance: Double
 
+    /** Client-side visual highlight color used for teammates. */
+    var highlightColor: ClanHighlightColor
+
+    /** Master switch: whether the teammate highlight is enabled at all. */
+    var highlightEnabled: Boolean
+
+    /** Visual style of the highlight (virtual armor or team-colored glow). */
+    var highlightType: ClanHighlightType
+
     val treasuryLogs: List<TreasuryTransaction>
 
     fun addTreasuryLog(log: TreasuryTransaction)

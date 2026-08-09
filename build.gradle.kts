@@ -16,6 +16,7 @@ repositories {
 
     //PlaceholderApi
     maven("https://repo.extendedclip.com/content/repositories/placeholderapi/")
+    maven("https://repo.codemc.io/repository/maven-releases/")
     maven("https://repo.codemc.io/repository/maven-snapshots/")
 }
 
@@ -28,6 +29,7 @@ dependencies {
     implementation("org.bstats:bstats-bukkit:3.1.0")
 
     compileOnly("me.clip:placeholderapi:2.12.3")
+    implementation("com.github.retrooper:packetevents-spigot:2.13.1-SNAPSHOT")
     compileOnly("com.github.MilkBowl:VaultAPI:1.7") {
         exclude(group = "org.bukkit", module = "bukkit")
     }
@@ -42,6 +44,10 @@ tasks {
     shadowJar {
         archiveClassifier.set("all")
         relocate("org.bstats", "ua.inventorytype.pnclans.libs.bstats")
+        // PacketEvents must be isolated when bundled to avoid conflicts with
+        // another plugin's embedded or standalone PacketEvents installation.
+        relocate("com.github.retrooper", "ua.inventorytype.pnclans.libs")
+        relocate("io.github.retrooper", "ua.inventorytype.pnclans.libs")
     }
 
     build {

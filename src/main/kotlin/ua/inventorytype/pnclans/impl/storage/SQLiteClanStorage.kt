@@ -7,6 +7,8 @@ import org.bukkit.Location
 import org.bukkit.inventory.ItemStack
 import ua.inventorytype.pnclans.BukkitPlugin
 import ua.inventorytype.pnclans.api.clan.Clan
+import ua.inventorytype.pnclans.api.clan.ClanHighlightColor
+import ua.inventorytype.pnclans.api.clan.ClanHighlightType
 import ua.inventorytype.pnclans.api.clan.ClanRole
 import ua.inventorytype.pnclans.api.clan.ClanSetting
 import ua.inventorytype.pnclans.impl.clan.ClanImpl
@@ -61,6 +63,8 @@ class SQLiteClanStorage(private val plugin: BukkitPlugin) : IClanStorage {
                     kills INTEGER NOT NULL,
                     deaths INTEGER NOT NULL,
                     bank REAL NOT NULL,
+                    highlight TEXT NOT NULL DEFAULT 'AQUA',
+                    highlight_mode TEXT NOT NULL DEFAULT 'ALWAYS',
                     data TEXT NOT NULL
                 );
                 """.trimIndent()
@@ -88,6 +92,8 @@ class SQLiteClanStorage(private val plugin: BukkitPlugin) : IClanStorage {
                 if (!existingCols.contains("kills")) stmt.executeUpdate("ALTER TABLE clans ADD COLUMN kills INTEGER DEFAULT 0")
                 if (!existingCols.contains("deaths")) stmt.executeUpdate("ALTER TABLE clans ADD COLUMN deaths INTEGER DEFAULT 0")
                 if (!existingCols.contains("bank")) stmt.executeUpdate("ALTER TABLE clans ADD COLUMN bank REAL DEFAULT 0.0")
+                if (!existingCols.contains("highlight")) stmt.executeUpdate("ALTER TABLE clans ADD COLUMN highlight TEXT DEFAULT 'AQUA'")
+                if (!existingCols.contains("highlight_mode")) stmt.executeUpdate("ALTER TABLE clans ADD COLUMN highlight_mode TEXT DEFAULT 'ALWAYS'")
                 if (!existingCols.contains("data")) stmt.executeUpdate("ALTER TABLE clans ADD COLUMN data TEXT DEFAULT ''")
             }
         }
@@ -118,6 +124,9 @@ class SQLiteClanStorage(private val plugin: BukkitPlugin) : IClanStorage {
                 kills = clan.kills,
                 deaths = clan.deaths,
                 bankBalance = clan.bankBalance,
+                highlightColor = clan.highlightColor.name,
+                highlightEnabled = clan.highlightEnabled,
+                highlightType = clan.highlightType.name,
                 members = memberModels,
                 settings = settingModels,
                 homes = homeModels
@@ -126,8 +135,8 @@ class SQLiteClanStorage(private val plugin: BukkitPlugin) : IClanStorage {
 
             val jsonStr = json.encodeToString(dataModel)
             val sql = """
-                REPLACE INTO clans(id, name, level, mmr, kills, deaths, bank, data)
-                VALUES(?, ?, ?, ?, ?, ?, ?, ?);
+                    REPLACE INTO clans(id, name, level, mmr, kills, deaths, bank, highlight, highlight_mode, data)
+                    VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
             """.trimIndent()
 
             getConnection().prepareStatement(sql).use { pstmt ->
@@ -137,8 +146,10 @@ class SQLiteClanStorage(private val plugin: BukkitPlugin) : IClanStorage {
                 pstmt.setInt(4, clan.mmr)
                 pstmt.setInt(5, clan.kills)
                 pstmt.setInt(6, clan.deaths)
-                pstmt.setDouble(7, clan.bankBalance)
-                pstmt.setString(8, jsonStr)
+                    pstmt.setDouble(7, clan.bankBalance)
+                    pstmt.setString(8, clan.highlightColor.name)
+                    pstmt.setString(9, if (clan.highlightEnabled) "ON" else "OFF")
+                    pstmt.setString(10, jsonStr)
                 pstmt.executeUpdate()
             }
         }.onFailure { ex ->
@@ -170,10 +181,13 @@ class SQLiteClanStorage(private val plugin: BukkitPlugin) : IClanStorage {
                         mmr = model.mmr
                         kills = model.kills
                         deaths = model.deaths
-                        bankBalance = model.bankBalance
-                        model.treasuryLogs.forEach { entry ->
-                            runCatching { addTreasuryLog(TreasuryTransaction(TreasuryTransactionType.valueOf(entry.type), entry.playerName, entry.amount, entry.timestamp)) }
-                        }
+                            bankBalance = model.bankBalance
+                            highlightColor = ClanHighlightColor.fromKey(model.highlightColor) ?: ClanHighlightColor.AQUA
+                            highlightEnabled = model.highlightEnabled ?: (model.highlightMode != null && !model.highlightMode.equals("OFF", true))
+                            highlightType = ClanHighlightType.fromKey(model.highlightType) ?: ClanHighlightType.ARMOR
+                            model.treasuryLogs.forEach { entry ->
+                                runCatching { addTreasuryLog(TreasuryTransaction(TreasuryTransactionType.valueOf(entry.type), entry.playerName, entry.amount, entry.timestamp)) }
+                            }
                     }
 
                     model.settings.forEach { (key, valBool) ->

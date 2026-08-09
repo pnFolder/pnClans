@@ -3,6 +3,7 @@ package ua.inventorytype.pnclans.impl.ux
 import org.bukkit.Material
 import org.bukkit.entity.Player
 import ua.inventorytype.pnclans.api.clan.Clan
+import ua.inventorytype.pnclans.api.clan.ClanHighlightColor
 import ua.inventorytype.pnclans.api.clan.ClanRole
 import ua.inventorytype.pnclans.api.clan.ClanSetting
 import ua.inventorytype.pnclans.api.permission.ClanPerms
@@ -61,6 +62,8 @@ class SettingsUX(
                 "action" to if (enabled) "&#FC3737выключить" else "&#5EFD7Dвключить"
             )
         }
+
+        renderColorItem("color")
 
         renderInfoItem("overview")
         renderInfoItem("hint")
@@ -207,10 +210,44 @@ class SettingsUX(
         }
     }
 
+    private fun renderColorItem(key: String) {
+        val cfg = clanService.plugin.configService
+        val itemCfg = cfg.menus.settingsMenu.items[key] ?: return
+
+        slot(itemCfg.slot) {
+            dynamicItem(parseMaterial(itemCfg.material, Material.LIME_DYE)) { player ->
+                val clan = this@SettingsUX.clanService.getClanUser(player) ?: return@dynamicItem null
+                val user = clan.getMember(player.uniqueId) ?: return@dynamicItem null
+                val placeholders = this@SettingsUX.commonPlaceholders(player, clan) + mapOf(
+                    "clan_color" to clan.highlightColor.displayName,
+                    "clan_highlight_status" to if (clan.highlightEnabled) "Включена" else "Выключена",
+                    "clan_highlight_type" to clan.highlightType.displayName,
+                    "role" to cfg.getRoleDisplayName(clan.getUserRole(user))
+                )
+                name(this@SettingsUX.format(player, itemCfg.name, placeholders))
+                lore(this@SettingsUX.format(player, itemCfg.lore, placeholders))
+                glow(itemCfg.glow)
+                null
+            }
+            onClick { player, _ ->
+                val clan = this@SettingsUX.clanService.getClanUser(player) ?: return@onClick
+                val user = clan.getMember(player.uniqueId) ?: return@onClick
+                if (!clan.hasPermission(user, ClanPerms.Settings.TOGGLE_COLOR)) {
+                    cfg.send(player, cfg.messages.settings.noPermission)
+                    return@onClick
+                }
+                ClanColorUX(this@SettingsUX.clanService).open(player)
+            }
+        }
+    }
+
     private fun commonPlaceholders(player: Player, clan: Clan): Map<String, String> =
         mapOf(
             "members" to clan.users.size.toString(),
             "online" to clan.onlineCount.toString(),
+            "clan_color" to clan.highlightColor.displayName,
+            "clan_highlight_status" to if (clan.highlightEnabled) "Включена" else "Выключена",
+            "clan_highlight_type" to clan.highlightType.displayName,
             "player" to player.name
         )
 

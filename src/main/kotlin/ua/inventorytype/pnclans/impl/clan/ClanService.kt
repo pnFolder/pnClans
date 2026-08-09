@@ -333,6 +333,7 @@ class ClanService(
      * @return True if the user was removed.
      */
     fun removeUserFromClan(clan: Clan, uuid: UUID): Boolean {
+        plugin.clanHighlightService.removeMember(clan, uuid)
         val removed = clan.removeUser(uuid)
         if (removed) _uuidToClan.remove(uuid)
         return removed

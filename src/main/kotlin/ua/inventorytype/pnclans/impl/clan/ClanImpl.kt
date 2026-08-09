@@ -4,6 +4,8 @@ import org.bukkit.Location
 import ua.inventorytype.pnclans.api.User
 import ua.inventorytype.pnclans.api.clan.Clan
 import ua.inventorytype.pnclans.api.clan.ClanRole
+import ua.inventorytype.pnclans.api.clan.ClanHighlightColor
+import ua.inventorytype.pnclans.api.clan.ClanHighlightType
 import ua.inventorytype.pnclans.api.clan.ClanSetting
 import ua.inventorytype.pnclans.api.permission.Permission
 import java.util.UUID
@@ -29,6 +31,9 @@ class ClanImpl(
     override var kills: Int = 0
     override var deaths: Int = 0
     override var bankBalance: Double = 0.0
+    override var highlightColor: ClanHighlightColor = ClanHighlightColor.AQUA
+    override var highlightEnabled: Boolean = true
+    override var highlightType: ClanHighlightType = ClanHighlightType.ARMOR
 
     private val _treasuryLogs = java.util.Collections.synchronizedList(mutableListOf<TreasuryTransaction>())
     override val treasuryLogs: List<TreasuryTransaction>

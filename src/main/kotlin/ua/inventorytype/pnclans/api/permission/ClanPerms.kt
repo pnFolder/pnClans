@@ -154,6 +154,20 @@ object ClanPerms {
             "Уведомления о входе",
             "Позволяет настраивать оповещения о входе и выходе участников.",
             Material.BELL
+        ),
+
+        /** Allows changing clan teammate highlight color. */
+        TOGGLE_COLOR(
+            "Цвет соклановцев",
+            "Позволяет выбрать цвет подсветки клана.",
+            Material.LIME_DYE
+        ),
+
+        /** Allows changing when clan teammate highlight is active. */
+        TOGGLE_HIGHLIGHT_MODE(
+            "Режим подсветки",
+            "Позволяет выбрать, когда работает подсветка соклановцев.",
+            Material.BEACON
         );
     }
 }
