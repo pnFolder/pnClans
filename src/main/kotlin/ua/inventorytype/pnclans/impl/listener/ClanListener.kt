@@ -15,6 +15,7 @@ import org.bukkit.event.player.PlayerRespawnEvent
 import org.bukkit.event.player.PlayerQuitEvent
 import ua.inventorytype.pnclans.BukkitPlugin
 import ua.inventorytype.pnclans.api.clan.ClanSetting
+import ua.inventorytype.pnclans.api.clan.ClanPointsSource
 import ua.inventorytype.pnclans.impl.config.ClanChatMode
 
 class ClanListener(private val plugin: BukkitPlugin) : Listener {
@@ -65,7 +66,12 @@ class ClanListener(private val plugin: BukkitPlugin) : Listener {
                 val killerUser = killerClan.getMember(killer.uniqueId) as? ua.inventorytype.pnclans.impl.clan.ClanUser
                 killerUser?.kills = killerUser.kills + 1
                 killerUser?.points = (killerUser.points + 3).coerceAtLeast(0)
-                clanService.saveClan(killerClan)
+                val awarded = plugin.clanPointsService.award(
+                    killerClan,
+                    cfg.clanPointsPerPlayerKill,
+                    ClanPointsSource.PLAYER_KILL
+                )
+                if (!awarded) clanService.saveClan(killerClan)
             }
         }
     }

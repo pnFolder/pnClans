@@ -128,6 +128,9 @@ class Settings {
     @YamlComment("Стоимость создания клана в монетах экономики Vault (0 — бесплатно)")
     val createClanCost: Double = 1000.0
 
+    @YamlComment("Количество клановых очков за убийство другого игрока. Фактическую выдачу можно отменить через ClanPointsTransactionEvent.")
+    val clanPointsPerPlayerKill: Long = 10L
+
     @YamlComment("Время ввода ника при приглашении через меню в секундах")
     val invitePromptTimeoutSeconds: Int = 15
 
