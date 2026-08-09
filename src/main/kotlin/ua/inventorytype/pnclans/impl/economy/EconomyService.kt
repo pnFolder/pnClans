@@ -12,6 +12,9 @@ class EconomyService {
     val isEnabled: Boolean
         get() = economy != null
 
+    /** Returns the player's Vault balance, or null when no economy provider is connected. */
+    fun balance(player: Player): Double? = economy?.getBalance(player)
+
     /**
      * Инициализация интеграции с Vault.
      * Вызывается в onEnable главного класса.

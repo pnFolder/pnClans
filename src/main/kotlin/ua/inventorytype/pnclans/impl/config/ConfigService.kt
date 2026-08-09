@@ -75,13 +75,41 @@ class ConfigService(private val plugin: Plugin) {
         settings = loadOrCreate("config.yml", Settings.serializer(), Settings())
         menus = loadOrCreate("menus.yml", MenusConfig.serializer(), MenusConfig())
         messages = loadOrCreate("messages.yml", MessagesConfig.serializer(), MessagesConfig())
+        val shopNeedsMigration = File(plugin.dataFolder, "shop.yml").takeIf(File::exists)
+            ?.readText()
+            ?.let { !Regex("(?m)^schemaVersion\\s*:").containsMatchIn(it) }
+            ?: false
         shop = loadOrCreate("shop.yml", ClanShopConfig.serializer(), ClanShopConfig())
+        if (shopNeedsMigration) migrateLegacyShop()
         quests = loadOrCreate("quests.yml", ClanQuestsConfig.serializer(), ClanQuestsConfig())
     }
 
     /** Persists shop changes made by the in-game administrator editor. */
     fun saveShop() {
         File(plugin.dataFolder, "shop.yml").writeText(yaml.encodeToString(ClanShopConfig.serializer(), shop))
+    }
+
+    private fun migrateLegacyShop() {
+        val defaults = ClanShopConfig()
+        val builtInIds = defaults.products.keys
+        val migratedProducts = if (shop.products.isEmpty()) {
+            defaults.products
+        } else {
+            shop.products + defaults.products.filterKeys { it in shop.products.keys && it in builtInIds }
+        }
+        val builtInCategoryIds = defaults.categories.keys
+        val migratedCategories = if (shop.categories.isEmpty() || shop.categories.keys.all { it in builtInCategoryIds }) {
+            defaults.categories
+        } else {
+            shop.categories
+        }
+        shop = shop.copy(
+            schemaVersion = defaults.schemaVersion,
+            title = if (shop.title == "&8Clan shop") defaults.title else shop.title,
+            categories = migratedCategories,
+            products = migratedProducts
+        )
+        saveShop()
     }
 
     /**

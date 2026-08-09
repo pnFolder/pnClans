@@ -19,6 +19,7 @@ import ua.inventorytype.pnclans.impl.clan.ClanHighlightService
 import ua.inventorytype.pnclans.impl.clan.ClanService
 import ua.inventorytype.pnclans.impl.clan.ClanPointsService
 import ua.inventorytype.pnclans.impl.clan.ClanActivityPointsService
+import ua.inventorytype.pnclans.impl.shop.ClanShopService
 import ua.inventorytype.pnclans.impl.api.PnClansApiImpl
 import ua.inventorytype.pnclans.impl.command.ClanCommand
 import ua.inventorytype.pnclans.impl.config.ConfigService
@@ -57,6 +58,9 @@ class BukkitPlugin : JavaPlugin() {
         private set
 
     lateinit var clanActivityPointsService: ClanActivityPointsService
+        private set
+
+    internal lateinit var clanShopService: ClanShopService
         private set
 
     lateinit var inviteService: ClanInviteService
@@ -110,6 +114,7 @@ class BukkitPlugin : JavaPlugin() {
         clanService = ClanService(this)
         clanPointsService = ClanPointsService(clanService)
         clanActivityPointsService = ClanActivityPointsService(this)
+        clanShopService = ClanShopService(this)
         placeholderRegistry.registerDefaults(clanService)
         publicApi = PnClansApiImpl(clanService, clanPointsService)
         server.servicesManager.register(PnClansApi::class.java, publicApi, this, ServicePriority.Normal)
