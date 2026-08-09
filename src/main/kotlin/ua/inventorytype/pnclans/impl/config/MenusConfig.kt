@@ -304,14 +304,14 @@ class MenusConfig {
                 )
             ),
             "shop" to GuiItemConfig(
-                slot = 29,
+                slot = 30,
                 material = "EMERALD",
                 name = "&#5EFD7D✦ Клановый магазин",
                 lore = listOf("", "&#9EFC65 «Награды за развитие»", " &7- &fКлановые очки: &#FFD700{clan_points}", " &7- &fПредметы, бонусы и редкие награды.", "", "&#FC65DF «Оплата на выбор»", " &7- &fОчки клана, Vault или PlayerPoints.", "", "&#FF8702➥ &fНажмите, &eЛКМ &fчтобы открыть магазин"),
                 actions = listOf(SoundAction("UI_BUTTON_CLICK"))
             ),
             "quests" to GuiItemConfig(
-                slot = 30,
+                slot = 34,
                 material = "WRITABLE_BOOK",
                 name = "&#5EA9FD✎ Клановые квесты",
                 lore = listOf("", "&#9EFC65 «Общие цели»", " &7- &fСражайтесь, исследуйте и развивайтесь.", " &7- &fОткрывайте награды для всего клана.", "", "&#FC65DF «Вклад каждого важен»", " &7- &fЛюбое действие приближает общую цель.", "", "&#FF8702➥ &fНажмите, &eЛКМ &fчтобы открыть квесты"),

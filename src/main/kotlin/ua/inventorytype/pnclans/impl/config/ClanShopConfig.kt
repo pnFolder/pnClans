@@ -3,6 +3,7 @@ package ua.inventorytype.pnclans.impl.config
 import com.charleskorn.kaml.YamlComment
 import kotlinx.serialization.Serializable
 import ua.inventorytype.pnclans.api.Action
+import ua.inventorytype.pnclans.api.GiveItemAction
 
 @Serializable
 enum class ClanShopCurrency { CLAN_POINTS, VAULT, PLAYER_POINTS }
@@ -46,8 +47,8 @@ data class ClanShopConfig(
     val title: String = "&8Clan shop",
     val rows: Int = 6,
     var products: Map<String, ClanShopProductConfig> = mapOf(
-        "resource-cache" to ClanShopProductConfig(20, "DIAMOND", "&#5EFD7D✦ Набор ресурсов", listOf("&7Полезный запас для развития клана.", "", "&7Стоимость: &#FFD700{price}", "&7Требуется уровень: &#5EA9FD{required_level}", "", "&#FF8702➥ &fНажмите, чтобы выбрать оплату"), listOf(ClanShopPaymentOption(ClanShopCurrency.CLAN_POINTS, 100))),
-        "combat-cache" to ClanShopProductConfig(22, "GOLDEN_APPLE", "&#FC7D37⚔ Боевой запас", listOf("&7Подготовьтесь к важной битве.", "", "&7Стоимость: &#FFD700{price}", "&7Доступно после клановых заданий", "", "&#FF8702➥ &fНажмите, чтобы выбрать оплату"), listOf(ClanShopPaymentOption(ClanShopCurrency.CLAN_POINTS, 250))),
-        "legend-cache" to ClanShopProductConfig(24, "NETHER_STAR", "&#FC65DF✦ Легендарная награда", listOf("&7Эксклюзивная награда для развитого клана.", "", "&7Стоимость: &#FFD700{price}", "&7Требуется уровень: &#5EA9FD3", "", "&#FF8702➥ &fНажмите, чтобы выбрать оплату"), listOf(ClanShopPaymentOption(ClanShopCurrency.CLAN_POINTS, 1000)), ClanShopConditions(minimumClanLevel = 3))
+        "resource-cache" to ClanShopProductConfig(20, "DIAMOND", "&#5EFD7D✦ Набор ресурсов", listOf("&7Полезный запас для развития клана.", "", "&7Стоимость: &#FFD700{price}", "&7Требуется уровень: &#5EA9FD{required_level}", "", "&#FF8702➥ &fНажмите, чтобы купить"), listOf(ClanShopPaymentOption(ClanShopCurrency.CLAN_POINTS, 100)), rewards = listOf(GiveItemAction("DIAMOND", 3))),
+        "combat-cache" to ClanShopProductConfig(22, "GOLDEN_APPLE", "&#FC7D37⚔ Боевой запас", listOf("&7Подготовьтесь к важной битве.", "", "&7Стоимость: &#FFD700{price}", "&7Доступно после клановых заданий", "", "&#FF8702➥ &fНажмите, чтобы купить"), listOf(ClanShopPaymentOption(ClanShopCurrency.CLAN_POINTS, 250)), rewards = listOf(GiveItemAction("GOLDEN_APPLE", 8))),
+        "legend-cache" to ClanShopProductConfig(24, "NETHER_STAR", "&#FC65DF✦ Легендарная награда", listOf("&7Эксклюзивная награда для развитого клана.", "", "&7Стоимость: &#FFD700{price}", "&7Требуется уровень: &#5EA9FD3", "", "&#FF8702➥ &fНажмите, чтобы купить"), listOf(ClanShopPaymentOption(ClanShopCurrency.CLAN_POINTS, 1000)), ClanShopConditions(minimumClanLevel = 3), rewards = listOf(GiveItemAction("NETHER_STAR", 1)))
     )
 )

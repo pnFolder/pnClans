@@ -1,6 +1,9 @@
 package ua.inventorytype.pnclans.impl.ux
 
 import org.bukkit.Material
+import ua.inventorytype.pnclans.api.ActionContext
+import ua.inventorytype.pnclans.api.clan.ClanPointsSource
+import ua.inventorytype.pnclans.impl.config.ClanShopCurrency
 import ua.inventorytype.pnclans.impl.clan.ClanService
 import ua.inventorytype.pnclans.impl.inventory.BaseGui
 
@@ -25,6 +28,26 @@ class ClanShopUX(clanService: ClanService) : BaseGui(clanService) {
                     name(clanService.plugin.configService.formatMessage(player, product.name, placeholders))
                     lore(product.lore.map { clanService.plugin.configService.formatMessage(player, it, placeholders) })
                     null
+                }
+                onClick { player, _ ->
+                    val clan = this@ClanShopUX.clanService.getClanUser(player) ?: return@onClick
+                    if (clan.level < product.conditions.minimumClanLevel || clan.users.size < product.conditions.minimumMembers) {
+                        player.sendMessage("§cВаш клан не выполняет условия этого товара.")
+                        return@onClick
+                    }
+                    val payment = product.payments.firstOrNull { it.currency == ClanShopCurrency.CLAN_POINTS }
+                    if (payment == null) {
+                        player.sendMessage("§cДля этого товара пока нет доступной валюты.")
+                        return@onClick
+                    }
+                    if (!this@ClanShopUX.clanService.plugin.clanPointsService.spend(clan, payment.amount, ClanPointsSource.SHOP)) {
+                        player.sendMessage("§cУ клана недостаточно очков.")
+                        return@onClick
+                    }
+                    val context = ActionContext(player, this@ClanShopUX.clanService.plugin.placeholderRegistry, mapOf("product" to id), this@ClanShopUX.clanService.plugin)
+                    product.rewards.forEach { it.execute(context) }
+                    player.sendMessage("§aКлан приобрёл товар §e$id§a.")
+                    this@ClanShopUX.update(player)
                 }
             }
         }
