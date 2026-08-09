@@ -54,6 +54,12 @@ class ConfigService(private val plugin: Plugin) {
      */
     lateinit var messages: MessagesConfig private set
 
+    /** Loaded clan shop definition from `shop.yml`. */
+    lateinit var shop: ClanShopConfig private set
+
+    /** Loaded clan quest definitions from `quests.yml`. */
+    lateinit var quests: ClanQuestsConfig private set
+
     /**
      * Loads or generates all plugin configuration files on startup.
      *
@@ -69,6 +75,8 @@ class ConfigService(private val plugin: Plugin) {
         settings = loadOrCreate("config.yml", Settings.serializer(), Settings())
         menus = loadOrCreate("menus.yml", MenusConfig.serializer(), MenusConfig())
         messages = loadOrCreate("messages.yml", MessagesConfig.serializer(), MessagesConfig())
+        shop = loadOrCreate("shop.yml", ClanShopConfig.serializer(), ClanShopConfig())
+        quests = loadOrCreate("quests.yml", ClanQuestsConfig.serializer(), ClanQuestsConfig())
     }
 
     /**
