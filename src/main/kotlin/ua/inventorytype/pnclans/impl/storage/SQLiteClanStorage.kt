@@ -134,6 +134,8 @@ class SQLiteClanStorage(private val plugin: BukkitPlugin) : IClanStorage {
                 deaths = clan.deaths,
                 bankBalance = clan.bankBalance,
                 points = clan.points,
+                activityPointsDate = clan.activityPointsDate,
+                activityPointsAwardedToday = clan.activityPointsAwardedToday,
                 highlightColor = clan.highlightColor.name,
                 highlightEnabled = clan.highlightEnabled,
                 highlightType = clan.highlightType.name,
@@ -202,6 +204,8 @@ class SQLiteClanStorage(private val plugin: BukkitPlugin) : IClanStorage {
                         deaths = model.deaths
                             bankBalance = model.bankBalance
                             points = model.points
+                            activityPointsDate = model.activityPointsDate
+                            activityPointsAwardedToday = model.activityPointsAwardedToday
                             highlightColor = ClanHighlightColor.fromKey(model.highlightColor) ?: ClanHighlightColor.AQUA
                             highlightEnabled = model.highlightEnabled ?: (model.highlightMode != null && !model.highlightMode.equals("OFF", true))
                             highlightType = ClanHighlightType.fromKey(model.highlightType) ?: ClanHighlightType.ARMOR

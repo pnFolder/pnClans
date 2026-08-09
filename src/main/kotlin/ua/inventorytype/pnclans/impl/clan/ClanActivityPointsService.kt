@@ -11,20 +11,25 @@ import org.bukkit.event.player.PlayerJoinEvent
 import org.bukkit.event.player.PlayerMoveEvent
 import org.bukkit.event.player.PlayerQuitEvent
 import org.bukkit.event.entity.EntityDamageByEntityEvent
-import org.bukkit.plugin.Plugin
+import org.bukkit.scheduler.BukkitTask
+import ua.inventorytype.pnclans.BukkitPlugin
 import java.time.LocalDate
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 
 /** Awards a capped amount of points to clans whose online members remain active. */
-class ClanActivityPointsService(private val plugin: Plugin) : Listener {
+class ClanActivityPointsService(private val plugin: BukkitPlugin) : Listener {
     private val lastActivity = ConcurrentHashMap<UUID, Long>()
-    private val awardedToday = ConcurrentHashMap<String, Long>()
-    private var currentDate = LocalDate.now()
+    private val task: BukkitTask
 
     init {
         Bukkit.getPluginManager().registerEvents(this, plugin)
-        Bukkit.getScheduler().runTaskTimer(plugin, Runnable { tick() }, 20L, 20L)
+        task = Bukkit.getScheduler().runTaskTimer(plugin, Runnable { tick() }, 20L, 20L)
+    }
+
+    fun shutdown() {
+        task.cancel()
+        lastActivity.clear()
     }
 
     @EventHandler
@@ -38,7 +43,7 @@ class ClanActivityPointsService(private val plugin: Plugin) : Listener {
     @EventHandler
     fun onMove(event: PlayerMoveEvent) {
         val from = event.from
-        val to = event.to ?: return
+        val to = event.to
         if (from.blockX != to.blockX || from.blockY != to.blockY || from.blockZ != to.blockZ) markActivity(event.player)
     }
 
@@ -61,29 +66,25 @@ class ClanActivityPointsService(private val plugin: Plugin) : Listener {
     }
 
     private fun tick() {
-        val config = (plugin as? ua.inventorytype.pnclans.BukkitPlugin)?.configService?.settings?.clanActivityPoints ?: return
+        val config = plugin.configService.settings.clanActivityPoints
         if (!config.enabled || config.pointsPerInterval <= 0L || config.dailyClanLimit <= 0L) return
 
-        val today = LocalDate.now()
-        if (today != currentDate) {
-            awardedToday.clear()
-            currentDate = today
-        }
-
+        val today = LocalDate.now().toString()
         val now = System.currentTimeMillis()
         val timeoutMs = config.afkTimeoutSeconds.coerceAtLeast(1L) * 1000L
         val intervalMs = config.intervalSeconds.coerceAtLeast(1L) * 1000L
-        val bukkitPlugin = plugin as ua.inventorytype.pnclans.BukkitPlugin
-
         Bukkit.getOnlinePlayers().forEach { player ->
-            val clan = bukkitPlugin.clanService.getClanUser(player) ?: return@forEach
+            val clan = plugin.clanService.getClanUser(player) ?: return@forEach
             val activeAt = lastActivity[player.uniqueId] ?: return@forEach
             if (now - activeAt > timeoutMs) return@forEach
 
-            val key = clan.id
-            val awarded = awardedToday[key] ?: 0L
+            if (clan.activityPointsDate != today) {
+                clan.activityPointsDate = today
+                clan.activityPointsAwardedToday = 0L
+            }
+            val awarded = clan.activityPointsAwardedToday
             val remaining = config.dailyClanLimit - awarded
-            if (remaining <= 0L || now - activeAt < 0L) return@forEach
+            if (remaining <= 0L) return@forEach
 
             val lastAward = clan.pointsLogs.asReversed()
                 .firstOrNull { it.source == ua.inventorytype.pnclans.api.clan.ClanPointsSource.ACTIVITY }
@@ -91,8 +92,9 @@ class ClanActivityPointsService(private val plugin: Plugin) : Listener {
             if (now - lastAward < intervalMs) return@forEach
 
             val amount = config.pointsPerInterval.coerceAtMost(remaining)
-            if (bukkitPlugin.clanPointsService.award(clan, amount, ua.inventorytype.pnclans.api.clan.ClanPointsSource.ACTIVITY)) {
-                awardedToday[key] = awarded + amount
+            if (plugin.clanPointsService.award(clan, amount, ua.inventorytype.pnclans.api.clan.ClanPointsSource.ACTIVITY)) {
+                clan.activityPointsAwardedToday = awarded + amount
+                plugin.clanService.saveClan(clan)
             }
         }
     }

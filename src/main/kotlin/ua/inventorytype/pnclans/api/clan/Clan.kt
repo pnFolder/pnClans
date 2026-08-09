@@ -53,6 +53,12 @@ interface Clan {
     /** Persistent clan reward currency used by future quests and shop purchases. */
     var points: Long
 
+    /** Calendar day used for the persisted activity reward limit. */
+    var activityPointsDate: String
+
+    /** Activity points awarded to this clan during [activityPointsDate]. */
+    var activityPointsAwardedToday: Long
+
     /** Recent reward-points operations, newest entries are kept up to the implementation limit. */
     val pointsLogs: List<ClanPointsTransaction>
 

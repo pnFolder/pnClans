@@ -161,6 +161,9 @@ class BukkitPlugin : JavaPlugin() {
         if (::timedBossBarService.isInitialized) {
             timedBossBarService.clearAll()
         }
+        if (::clanActivityPointsService.isInitialized) {
+            clanActivityPointsService.shutdown()
+        }
         if (::inviteService.isInitialized) {
             inviteService.clear()
         }

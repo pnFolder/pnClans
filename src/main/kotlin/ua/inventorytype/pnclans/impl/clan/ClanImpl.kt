@@ -9,6 +9,7 @@ import ua.inventorytype.pnclans.api.clan.ClanHighlightType
 import ua.inventorytype.pnclans.api.clan.ClanSetting
 import ua.inventorytype.pnclans.api.permission.Permission
 import java.util.UUID
+import java.time.LocalDate
 import java.util.concurrent.ConcurrentHashMap
 import ua.inventorytype.pnclans.api.clan.TreasuryTransaction
 import ua.inventorytype.pnclans.api.clan.ClanPointsTransaction
@@ -33,6 +34,8 @@ class ClanImpl(
     override var deaths: Int = 0
     override var bankBalance: Double = 0.0
     override var points: Long = 0L
+    override var activityPointsDate: String = LocalDate.now().toString()
+    override var activityPointsAwardedToday: Long = 0L
 
     private val _pointsLogs = java.util.Collections.synchronizedList(mutableListOf<ClanPointsTransaction>())
     override val pointsLogs: List<ClanPointsTransaction>
