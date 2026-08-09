@@ -105,7 +105,11 @@ class SQLiteClanStorage(private val plugin: BukkitPlugin) : IClanStorage {
                 ClanMemberModel(
                     uuid = user.uuid.toString(),
                     name = user.playerName,
-                    role = clan.getUserRole(user).name
+                    role = clan.getUserRole(user).name,
+                    kills = (user as? ClanUser)?.kills ?: 0,
+                    deaths = (user as? ClanUser)?.deaths ?: 0,
+                    playtimeSeconds = (user as? ClanUser)?.playtimeSeconds ?: 0L,
+                    points = (user as? ClanUser)?.points ?: 0
                 )
             }
             val settingModels = clan.settings.mapKeys { it.key.key }
@@ -169,7 +173,14 @@ class SQLiteClanStorage(private val plugin: BukkitPlugin) : IClanStorage {
                     val members = model.members.mapNotNull { m ->
                         val uuid = runCatching { UUID.fromString(m.uuid) }.getOrNull() ?: return@mapNotNull null
                         val role = runCatching { ClanRole.valueOf(m.role) }.getOrDefault(ClanRole.MEMBER)
-                        ClanUser(uuid, m.name) to role
+                        ClanUser(
+                            uuid = uuid,
+                            playerName = m.name,
+                            kills = m.kills,
+                            deaths = m.deaths,
+                            playtimeSeconds = m.playtimeSeconds,
+                            points = m.points
+                        ) to role
                     }.toSet()
 
                     val clan = ClanImpl(
