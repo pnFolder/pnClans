@@ -104,7 +104,7 @@ class HomesUX(
                                 cfg.send(player, msgCfg.homes.noPermissionSet)
                                 return@onClick
                             }
-                            if (this@HomesUX.clanService.setClanHome(clan, player, entry.key, player.location)) {
+                            if (this@HomesUX.clanService.setClanHome(clan, player, entry.key, player.location).isSuccess) {
                                 cfg.send(player, msgCfg.homes.set, mapOf("home" to entry.key))
                                 this@HomesUX.updateSlot(event.slot, player)
                             }
@@ -115,7 +115,7 @@ class HomesUX(
                                 cfg.send(player, msgCfg.homes.noPermissionDelete)
                                 return@onClick
                             }
-                            if (this@HomesUX.clanService.deleteClanHome(clan, player, entry.key)) {
+                            if (this@HomesUX.clanService.deleteClanHome(clan, player, entry.key).isSuccess) {
                                 cfg.send(player, msgCfg.homes.deleted, mapOf("home" to entry.key))
                                 this@HomesUX.updateSlot(event.slot, player)
                             }

@@ -140,7 +140,7 @@ class SettingsUX(
                     return@onClick
                 }
 
-                if (this@SettingsUX.clanService.changeSetting(clan, setting, !clan.isSettingEnabled(setting))) {
+                if (this@SettingsUX.clanService.changeSetting(clan, setting, !clan.isSettingEnabled(setting)).isSuccess) {
                     this@SettingsUX.updateSlot(event.slot, player)
                 }
             }
@@ -183,7 +183,7 @@ class SettingsUX(
                     return@onClick
                 }
 
-                if (this@SettingsUX.clanService.changeSetting(clan, ClanSetting.CHAT, !clan.isSettingEnabled(ClanSetting.CHAT))) {
+                if (this@SettingsUX.clanService.changeSetting(clan, ClanSetting.CHAT, !clan.isSettingEnabled(ClanSetting.CHAT)).isSuccess) {
                     this@SettingsUX.updateSlot(event.slot, player)
                 }
             }

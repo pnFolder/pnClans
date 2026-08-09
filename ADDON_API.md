@@ -67,6 +67,7 @@ Then build the example from its directory. Pass `-PpnClansVersion=<version>` whe
 | --- | --- |
 | `api.clans` | Find clans and persist mutations. |
 | `api.points` | Award or spend typed clan reward points. |
+| `api.operations` | Event-aware role, setting, home, and chest mutations. |
 | `api.placeholders` | Register `{key}` placeholders for pnClans messages and GUI text. |
 | `api.subcommands` | Add `/clan <command>` subcommands. |
 | `api.menus` | Add buttons to the main clan menu. |
@@ -137,6 +138,17 @@ api.subcommands.register(this, object : ClanSubcommand {
 
 The command becomes available as `/clan missions` and `/clan quests`. Unregister it in `PnClansAddon.onDisable` with `api.subcommands.unregister(this, "missions")`.
 
+## Event-Aware Operations
+
+Use `api.operations` for state-changing clan actions. These operations invoke the matching cancellable event, persist successful changes, and return a typed result instead of a plain boolean.
+
+```kotlin
+when (val result = api.operations.changeSetting(clan, ClanSetting.PVP, false)) {
+    ClanOperationResult.Success -> player.sendMessage("Clan PvP disabled")
+    is ClanOperationResult.Rejected -> player.sendMessage("Change rejected: ${result.reason}")
+}
+```
+
 ## Main Menu Buttons
 
 ```kotlin
@@ -165,4 +177,4 @@ Registration fails when another button already owns the same slot. Use a stable 
 
 ## API Compatibility
 
-The current public API version is `2`. Compare `api.apiVersion` only when using features introduced after the minimum version your add-on supports. Do not compare the plugin release version for API compatibility.
+The current public API version is `3`. Compare `api.apiVersion` only when using features introduced after the minimum version your add-on supports. Do not compare the plugin release version for API compatibility.

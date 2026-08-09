@@ -19,6 +19,8 @@ import ua.inventorytype.pnclans.api.event.ClanSettingChangeEvent
 import ua.inventorytype.pnclans.api.event.ClanHomeSetEvent
 import ua.inventorytype.pnclans.api.event.ClanHomeDeleteEvent
 import ua.inventorytype.pnclans.api.event.ClanChestOpenEvent
+import ua.inventorytype.pnclans.api.operation.ClanOperationResult
+import ua.inventorytype.pnclans.api.operation.ClanOperationRejection
 import ua.inventorytype.pnclans.impl.config.ConfigService
 import ua.inventorytype.pnclans.impl.economy.EconomyService
 import ua.inventorytype.pnclans.impl.storage.ClanStorage
@@ -291,15 +293,15 @@ class ClanService(
      * @param player The player to open the chest for.
      * @param clan The clan whose chest contents to display.
      */
-    fun openClanChest(player: Player, clan: Clan): Boolean {
+    fun openClanChest(player: Player, clan: Clan): ClanOperationResult {
         val event = ClanChestOpenEvent(clan, player)
         Bukkit.getPluginManager().callEvent(event)
-        if (event.isCancelled) return false
+        if (event.isCancelled) return ClanOperationResult.Rejected(ClanOperationRejection.CANCELLED_BY_EVENT)
         val chestGui = activeChestGuis.computeIfAbsent(clan.id) {
             ClanChestUX(this, clan)
         }
         chestGui.open(player)
-        return true
+        return ClanOperationResult.Success
     }
 
     /**
@@ -360,56 +362,59 @@ class ClanService(
     }
 
     /** Applies a role change only after add-ons approve the cancellable event. */
-    fun changeMemberRole(clan: Clan, user: ua.inventorytype.pnclans.api.User, newRole: ClanRole): Boolean {
+    fun changeMemberRole(clan: Clan, user: ua.inventorytype.pnclans.api.User, newRole: ClanRole): ClanOperationResult {
         val oldRole = clan.getUserRole(user)
-        if (oldRole == newRole) return true
+        if (oldRole == newRole) return ClanOperationResult.Rejected(ClanOperationRejection.ALREADY_IN_REQUESTED_STATE)
         val event = ClanMemberRoleChangeEvent(clan, user, oldRole, newRole)
         Bukkit.getPluginManager().callEvent(event)
-        if (event.isCancelled || !clan.setUserRole(user, event.newRole)) return false
+        if (event.isCancelled) return ClanOperationResult.Rejected(ClanOperationRejection.CANCELLED_BY_EVENT)
+        if (!clan.setUserRole(user, event.newRole)) return ClanOperationResult.Rejected(ClanOperationRejection.MEMBER_NOT_FOUND)
         saveClan(clan)
-        return true
+        return ClanOperationResult.Success
     }
 
     /** Transfers leadership atomically after both role changes have been approved. */
-    fun transferLeadership(clan: Clan, currentLeader: ua.inventorytype.pnclans.api.User, newLeader: ua.inventorytype.pnclans.api.User): Boolean {
+    fun transferLeadership(clan: Clan, currentLeader: ua.inventorytype.pnclans.api.User, newLeader: ua.inventorytype.pnclans.api.User): ClanOperationResult {
         val demote = ClanMemberRoleChangeEvent(clan, currentLeader, clan.getUserRole(currentLeader), ClanRole.DEPUTY)
         val promote = ClanMemberRoleChangeEvent(clan, newLeader, clan.getUserRole(newLeader), ClanRole.LEADER)
         Bukkit.getPluginManager().callEvent(demote)
         Bukkit.getPluginManager().callEvent(promote)
-        if (demote.isCancelled || promote.isCancelled || demote.newRole != ClanRole.DEPUTY || promote.newRole != ClanRole.LEADER) return false
-        if (!clan.setUserRole(currentLeader, ClanRole.DEPUTY) || !clan.setUserRole(newLeader, ClanRole.LEADER)) return false
+        if (demote.isCancelled || promote.isCancelled) return ClanOperationResult.Rejected(ClanOperationRejection.CANCELLED_BY_EVENT)
+        if (demote.newRole != ClanRole.DEPUTY || promote.newRole != ClanRole.LEADER) return ClanOperationResult.Rejected(ClanOperationRejection.INVALID_ROLE_TRANSITION)
+        if (!clan.setUserRole(currentLeader, ClanRole.DEPUTY) || !clan.setUserRole(newLeader, ClanRole.LEADER)) return ClanOperationResult.Rejected(ClanOperationRejection.MEMBER_NOT_FOUND)
         saveClan(clan)
-        return true
+        return ClanOperationResult.Success
     }
 
     /** Applies a setting value only after add-ons approve the cancellable event. */
-    fun changeSetting(clan: Clan, setting: ClanSetting, newValue: Boolean): Boolean {
+    fun changeSetting(clan: Clan, setting: ClanSetting, newValue: Boolean): ClanOperationResult {
         val oldValue = clan.isSettingEnabled(setting)
-        if (oldValue == newValue) return true
+        if (oldValue == newValue) return ClanOperationResult.Rejected(ClanOperationRejection.ALREADY_IN_REQUESTED_STATE)
         val event = ClanSettingChangeEvent(clan, setting, oldValue, newValue)
         Bukkit.getPluginManager().callEvent(event)
-        if (event.isCancelled) return false
+        if (event.isCancelled) return ClanOperationResult.Rejected(ClanOperationRejection.CANCELLED_BY_EVENT)
         clan.setSetting(setting, event.newValue)
         saveClan(clan)
-        return true
+        return ClanOperationResult.Success
     }
 
-    fun setClanHome(clan: Clan, actor: Player, homeId: String, location: Location): Boolean {
+    fun setClanHome(clan: Clan, actor: Player, homeId: String, location: Location): ClanOperationResult {
         val event = ClanHomeSetEvent(clan, actor, homeId, location)
         Bukkit.getPluginManager().callEvent(event)
-        if (event.isCancelled) return false
+        if (event.isCancelled) return ClanOperationResult.Rejected(ClanOperationRejection.CANCELLED_BY_EVENT)
         clan.setHome(homeId, event.location)
         saveClan(clan)
-        return true
+        return ClanOperationResult.Success
     }
 
-    fun deleteClanHome(clan: Clan, actor: Player, homeId: String): Boolean {
-        val location = clan.homes[homeId] ?: return false
+    fun deleteClanHome(clan: Clan, actor: Player, homeId: String): ClanOperationResult {
+        val location = clan.homes[homeId] ?: return ClanOperationResult.Rejected(ClanOperationRejection.HOME_NOT_FOUND)
         val event = ClanHomeDeleteEvent(clan, actor, homeId, location)
         Bukkit.getPluginManager().callEvent(event)
-        if (event.isCancelled || !clan.deleteHome(homeId)) return false
+        if (event.isCancelled) return ClanOperationResult.Rejected(ClanOperationRejection.CANCELLED_BY_EVENT)
+        if (!clan.deleteHome(homeId)) return ClanOperationResult.Rejected(ClanOperationRejection.HOME_NOT_FOUND)
         saveClan(clan)
-        return true
+        return ClanOperationResult.Success
     }
 
     /**
