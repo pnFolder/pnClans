@@ -10,6 +10,20 @@ enum class ClanChatMode {
     PREFIX
 }
 
+@Serializable
+data class ClanActivityPointsConfig(
+    @YamlComment("Включить начисление клановых очков за активность игроков.")
+    val enabled: Boolean = true,
+    @YamlComment("Количество очков за один активный интервал.")
+    val pointsPerInterval: Long = 1L,
+    @YamlComment("Интервал начисления в секундах.")
+    val intervalSeconds: Long = 600L,
+    @YamlComment("Сколько секунд без действий считать игрока AFK.")
+    val afkTimeoutSeconds: Long = 300L,
+    @YamlComment("Максимум очков за активность одному клану за календарный день.")
+    val dailyClanLimit: Long = 100L
+)
+
 /**
  * Text templates displayed for one clan chat activation method in the clan settings menu.
  * The placeholders `{state}`, `{action}`, `{command}`, and `{prefix}` are resolved at runtime.
@@ -112,6 +126,9 @@ class Settings {
 
     @YamlComment("Настройки кланового чата. Выберите mode: COMMAND для команды /<command> <сообщение> или PREFIX для сообщений, начинающихся с prefix. Тексты предмета меню для каждого режима задаются отдельно в commandMenuItem и prefixMenuItem.")
     val clanChat: ClanChatConfig = ClanChatConfig()
+
+    @YamlComment("Ограниченное начисление клановых очков за активность. Учитываются движение, чат, команды, взаимодействия и урон.")
+    val clanActivityPoints: ClanActivityPointsConfig = ClanActivityPointsConfig()
 
     @YamlComment("Модули фреймворка. Отключите ненужный функционал, чтобы скрыть кнопки в GUI и отключить подкоманды.")
     val modules: ModuleConfig = ModuleConfig()
