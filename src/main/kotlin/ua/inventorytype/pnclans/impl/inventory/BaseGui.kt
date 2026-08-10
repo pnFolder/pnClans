@@ -66,22 +66,37 @@ abstract class BaseGui(
     }
 
     fun updateSlot(index: Int, player: Player) {
+        if (index !in 0 until inventory.size) return
         val slotBuilder = slots[index] ?: return
         val item = slotBuilder.buildItemFor(player)
         inventory.setItem(index, item)
+    }
+
+    /** Rebuilds only the requested cells, keeping the currently opened inventory intact. */
+    fun updateSlots(indices: Iterable<Int>, player: Player) {
+        indices.distinct().filter { it in 0 until inventory.size }.forEach { index ->
+            inventory.setItem(index, slots[index]?.buildItemFor(player))
+        }
+
+        if (hotWorldDecor) {
+            applyHotWorldDecor()
+        } else {
+            borderMaterial?.let { applyBorder(it) }
+        }
     }
 
     fun update(player: Player) {
         inventory.clear()
 
         slots.forEach { (index, slotBuilder) ->
+            if (index !in 0 until inventory.size) return@forEach
             val item = slotBuilder.buildItemFor(player)
             if (item != null) {
                 inventory.setItem(index, item)
             }
         }
 
-        if (hotWorldDecor && rows == 6) {
+        if (hotWorldDecor) {
             applyHotWorldDecor()
         } else {
             borderMaterial?.let { applyBorder(it) }
@@ -193,7 +208,8 @@ abstract class BaseGui(
     open fun handleClick(e: InventoryClickEvent) {
         e.isCancelled = true
         val player = e.whoClicked as? Player ?: return
-        slots[e.slot]?.executeClick(player, e)
+        if (e.rawSlot !in 0 until inventory.size) return
+        slots[e.rawSlot]?.executeClick(player, e)
     }
 }
 

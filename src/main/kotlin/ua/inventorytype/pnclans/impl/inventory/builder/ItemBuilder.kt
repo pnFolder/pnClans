@@ -1,5 +1,6 @@
 package ua.inventorytype.pnclans.impl.inventory.builder
 
+import org.bukkit.Bukkit
 import org.bukkit.Material
 import org.bukkit.entity.Player
 import org.bukkit.event.inventory.InventoryClickEvent
@@ -13,11 +14,10 @@ class ItemBuilder(initialMaterial: Material) {
     var type: Material = initialMaterial
         set(value) {
             field = value
-            val newMeta = itemMeta
-            itemStack = ItemStack(value)
-            if (newMeta != null) {
-                itemStack.itemMeta = newMeta
-            }
+            val previousMeta = itemMeta
+            val replacement = ItemStack(value)
+            itemMeta = previousMeta?.let { Bukkit.getItemFactory().asMetaFor(it, replacement) } ?: replacement.itemMeta
+            itemStack = replacement
         }
 
     private var itemStack = ItemStack(initialMaterial)
@@ -25,6 +25,10 @@ class ItemBuilder(initialMaterial: Material) {
 
     fun type(material: Material) {
         this.type = material
+    }
+
+    fun amount(value: Int) {
+        itemStack.amount = value.coerceIn(1, itemStack.maxStackSize)
     }
 
     @Suppress("DEPRECATION")
@@ -47,7 +51,7 @@ class ItemBuilder(initialMaterial: Material) {
 
     fun glow(enabled: Boolean = true) {
         if (enabled) {
-            itemMeta?.addEnchant(org.bukkit.enchantments.Enchantment.UNBREAKING, 1, true)
+            itemMeta?.addEnchant(org.bukkit.enchantments.Enchantment.DURABILITY, 1, true)
             itemMeta?.addItemFlags(ItemFlag.HIDE_ENCHANTS)
         }
     }
