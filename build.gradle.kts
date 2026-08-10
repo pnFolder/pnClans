@@ -7,7 +7,10 @@ plugins {
     id("xyz.jpenilla.run-paper") version "3.0.2"
 }
 
-version = "1.1.2"
+version = "1.1.3"
+
+val javaTarget = providers.gradleProperty("javaTarget").getOrElse("25")
+    .also { require(it == "21" || it == "25") { "javaTarget must be 21 or 25" } }
 
 repositories {
     mavenCentral()
@@ -39,15 +42,15 @@ dependencies {
 }
 
 kotlin {
-    jvmToolchain(25)
+    jvmToolchain(javaTarget.toInt())
     compilerOptions {
-        jvmTarget.set(JvmTarget.JVM_25)
+        jvmTarget.set(JvmTarget.fromTarget(javaTarget))
     }
 }
 
 tasks {
     shadowJar {
-        archiveClassifier.set("all")
+        archiveClassifier.set("java${javaTarget}-all")
         relocate("org.bstats", "ua.inventorytype.pnclans.libs.bstats")
         // PacketEvents must be isolated when bundled to avoid conflicts with
         // another plugin's embedded or standalone PacketEvents installation.
