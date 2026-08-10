@@ -55,10 +55,10 @@ The included `examples/clan-missions-addon` project compiles against a locally b
 .\gradlew.bat build
 ```
 
-Then build the example through the root Gradle Wrapper. Pass `-PpnClansVersion=<version>` when the pnClans version differs from `1.1.0`.
+Then build the example through the root Gradle Wrapper. Pass `-PpnClansVersion=<version>` when the pnClans version differs from `1.1.1`.
 
 ```powershell
-.\gradlew.bat -p .\examples\clan-missions-addon build "-PpnClansVersion=1.1.0"
+.\gradlew.bat -p .\examples\clan-missions-addon build "-PpnClansVersion=1.1.1"
 ```
 
 ## Public Services

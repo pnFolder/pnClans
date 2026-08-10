@@ -10,8 +10,8 @@ repositories {
 }
 
 dependencies {
-    compileOnly("io.papermc.paper:paper-api:1.18.2-R0.1-SNAPSHOT")
-    val pnClansVersion = providers.gradleProperty("pnClansVersion").getOrElse("1.1.0")
+    compileOnly("io.papermc.paper:paper-api:1.21.11-R0.1-SNAPSHOT")
+    val pnClansVersion = providers.gradleProperty("pnClansVersion").getOrElse("1.1.1")
     compileOnly(files("../../build/libs/pnClans-$pnClansVersion-all.jar"))
 }
 

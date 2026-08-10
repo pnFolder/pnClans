@@ -7,7 +7,7 @@ plugins {
     id("xyz.jpenilla.run-paper") version "3.0.2"
 }
 
-version = "1.1.0"
+version = "1.1.1"
 
 repositories {
     mavenCentral()
@@ -23,7 +23,7 @@ repositories {
 }
 
 dependencies {
-    compileOnly("io.papermc.paper:paper-api:1.18.2-R0.1-SNAPSHOT")
+    compileOnly("io.papermc.paper:paper-api:1.21.11-R0.1-SNAPSHOT")
     implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8")
     implementation("com.charleskorn.kaml:kaml:0.67.0")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")

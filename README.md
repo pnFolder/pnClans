@@ -5,7 +5,7 @@
 ### Клановая система для Paper, в которой всё важное находится в одном меню
 
 [![GitHub Release](https://img.shields.io/github/v/release/pnFolder/pnClans?style=for-the-badge&color=FC7D37)](https://github.com/pnFolder/pnClans/releases)
-[![Paper](https://img.shields.io/badge/Paper-1.18+-5EFD7D?style=for-the-badge)](https://papermc.io/)
+[![Paper](https://img.shields.io/badge/Paper-1.21.11-5EFD7D?style=for-the-badge)](https://papermc.io/)
 [![Java](https://img.shields.io/badge/Java-25-FC65DF?style=for-the-badge)](https://adoptium.net/)
 [![Development](https://img.shields.io/badge/branch-dev-5EA9FD?style=for-the-badge)](https://github.com/pnFolder/pnClans/tree/dev)
 
@@ -69,7 +69,7 @@
 
 | Компонент | Назначение | Обязателен |
 | --- | --- | --- |
-| Paper `1.18+` | Полностью поддерживаемое серверное ядро | Да |
+| Paper `1.21.11` | Целевое ядро сборки и проверки релиза | Да |
 | Java `25` | Среда запуска и версия байткода плагина | Да |
 | Vault + экономика | Стоимость создания клана и казна | Для экономики |
 | PlaceholderAPI | Плейсхолдеры для TAB, чатов и скорбордов | Нет |
@@ -80,7 +80,8 @@
 ### Поддержка версий Minecraft
 
 - Минимальная заявленная версия: Paper `1.16.5`.
-- Полная поддержка и регулярная проверка: Paper `1.18` и новее, включая актуальные версии Paper.
+- Релиз компилируется против Paper API `1.21.11` и проверяется на Paper `1.21.11` с Java `25`.
+- Код не использует API ниже Paper `1.18` без необходимости, поэтому Paper `1.18` и новее остаётся поддерживаемым диапазоном при запуске на Java `25`.
 - Paper `1.16.5`–`1.17.1` работает в режиме best effort: требуется Java `25`, а корректная работа всех функций на этих версиях не гарантируется.
 - Если возникнет проблема совместимости, приложите лог запуска и версию Paper в issue: мы готовы разбирать и исправлять воспроизводимые случаи.
 

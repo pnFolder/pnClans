@@ -2,6 +2,8 @@ package ua.inventorytype.pnclans.impl.inventory.builder
 
 import org.bukkit.Bukkit
 import org.bukkit.Material
+import org.bukkit.NamespacedKey
+import org.bukkit.enchantments.Enchantment
 import org.bukkit.entity.Player
 import org.bukkit.event.inventory.InventoryClickEvent
 import org.bukkit.inventory.ItemFlag
@@ -51,7 +53,8 @@ class ItemBuilder(initialMaterial: Material) {
 
     fun glow(enabled: Boolean = true) {
         if (enabled) {
-            itemMeta?.addEnchant(org.bukkit.enchantments.Enchantment.DURABILITY, 1, true)
+            val unbreaking = Enchantment.getByKey(NamespacedKey.minecraft("unbreaking")) ?: return
+            itemMeta?.addEnchant(unbreaking, 1, true)
             itemMeta?.addItemFlags(ItemFlag.HIDE_ENCHANTS)
         }
     }
