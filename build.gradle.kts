@@ -7,7 +7,7 @@ plugins {
     id("xyz.jpenilla.run-paper") version "3.0.2"
 }
 
-version = "1.1.3"
+version = "1.1.4"
 
 val javaTarget = providers.gradleProperty("javaTarget").getOrElse("25")
     .also { require(it == "21" || it == "25") { "javaTarget must be 21 or 25" } }

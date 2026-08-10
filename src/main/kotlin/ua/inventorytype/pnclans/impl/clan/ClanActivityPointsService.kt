@@ -73,10 +73,12 @@ class ClanActivityPointsService(private val plugin: BukkitPlugin) : Listener {
         val now = System.currentTimeMillis()
         val timeoutMs = config.afkTimeoutSeconds.coerceAtLeast(1L) * 1000L
         val intervalMs = config.intervalSeconds.coerceAtLeast(1L) * 1000L
+        val processedClans = HashSet<String>()
         Bukkit.getOnlinePlayers().forEach { player ->
             val clan = plugin.clanService.getClanUser(player) ?: return@forEach
             val activeAt = lastActivity[player.uniqueId] ?: return@forEach
             if (now - activeAt > timeoutMs) return@forEach
+            if (!processedClans.add(clan.id)) return@forEach
 
             if (clan.activityPointsDate != today) {
                 clan.activityPointsDate = today

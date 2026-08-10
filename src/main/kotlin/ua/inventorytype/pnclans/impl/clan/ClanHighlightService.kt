@@ -95,17 +95,6 @@ class ClanHighlightService(private val plugin: BukkitPlugin) : Listener {
         val type = clan.highlightType
         onlineMembers.forEach(::trackPlayer)
 
-        plugin.logger.info(
-            "[pnClans] Синхронизация метки «${clan.name}»: участников=${clan.users.size}, " +
-                "онлайн=${onlineMembers.size}, статус=${if (clan.highlightEnabled) "вкл" else "выкл"}, тип=${type.key}, активно=$active; " +
-                "члены: ${
-                    clan.users.joinToString { u ->
-                        val online = Bukkit.getPlayer(u.uuid) != null
-                        "${u.name}(${u.uuid})${if (online) "[В СЕТИ]" else "[не в сети]"}"
-                    }
-                }"
-        )
-
         onlineMembers.forEach { viewer ->
             try {
                 val previous = viewerTargets[viewer.uniqueId]
