@@ -58,7 +58,7 @@ The included `examples/clan-missions-addon` project compiles against a locally b
 Then build the example through the root Gradle Wrapper. Pass `-PpnClansVersion=<version>-java25` to compile against the Java 25 API JAR, or use the `-java21` JAR for a Java 21-compatible add-on.
 
 ```powershell
-.\gradlew.bat -p .\examples\clan-missions-addon build "-PpnClansVersion=1.1.4-java25"
+.\gradlew.bat -p .\examples\clan-missions-addon build "-PpnClansVersion=1.1.5-java25"
 ```
 
 ## Public Services

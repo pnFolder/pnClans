@@ -15,12 +15,15 @@ import ua.inventorytype.pnclans.api.clan.ClanSetting
 import ua.inventorytype.pnclans.impl.clan.ClanImpl
 import ua.inventorytype.pnclans.impl.clan.ClanUser
 import java.io.File
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
 import java.util.UUID
 import ua.inventorytype.pnclans.api.clan.TreasuryTransaction
 import ua.inventorytype.pnclans.api.clan.TreasuryTransactionType
 import ua.inventorytype.pnclans.api.clan.ClanPointsTransaction
 import ua.inventorytype.pnclans.api.clan.ClanPointsTransactionType
 import ua.inventorytype.pnclans.api.clan.ClanPointsSource
+import ua.inventorytype.pnclans.api.permission.ClanPerms
 
 @Serializable
 data class ClanDataModel(
@@ -42,7 +45,9 @@ data class ClanDataModel(
     val settings: Map<String, Boolean> = emptyMap(),
     val homes: Map<String, ClanHomeModel> = emptyMap(),
     val treasuryLogs: List<TreasuryLogModel> = emptyList(),
-    val pointsLogs: List<ClanPointsLogModel> = emptyList()
+    val pointsLogs: List<ClanPointsLogModel> = emptyList(),
+    val rolePermissions: Map<String, Map<String, Boolean>> = emptyMap(),
+    val userPermissions: Map<String, Map<String, Boolean>> = emptyMap()
 )
 
 @Serializable
@@ -96,8 +101,8 @@ class ClanStorage(private val plugin: BukkitPlugin) : IClanStorage {
     private val chestDir: File
         get() = File(plugin.dataFolder, "chests").apply { if (!exists()) mkdirs() }
 
-    override fun saveClan(clan: Clan) {
-        runCatching {
+    override fun saveClan(clan: Clan): Boolean {
+        return runCatching {
             val memberModels = clan.users.map { user ->
                 ClanMemberModel(
                     uuid = user.uuid.toString(),
@@ -140,14 +145,21 @@ class ClanStorage(private val plugin: BukkitPlugin) : IClanStorage {
                 settings = settingModels,
                 homes = homeModels
                 ,treasuryLogs = clan.treasuryLogs.map { TreasuryLogModel(it.type.name, it.playerName, it.amount, it.timestamp) },
-                pointsLogs = clan.pointsLogs.map { ClanPointsLogModel(it.type.name, it.source.name, it.amount, it.balanceAfter, it.timestamp) }
+                pointsLogs = clan.pointsLogs.map { ClanPointsLogModel(it.type.name, it.source.name, it.amount, it.balanceAfter, it.timestamp) },
+                rolePermissions = (clan as? ClanImpl)?.rolePermissions.orEmpty()
+                    .mapKeys { it.key.name }
+                    .mapValues { (_, values) -> values.associate { it.first.node to it.second } },
+                userPermissions = (clan as? ClanImpl)?.userPermissions.orEmpty()
+                    .mapKeys { it.key.toString() }
+                    .mapValues { (_, values) -> values.associate { it.first.node to it.second } }
             )
 
             val file = File(storageDir, "${clan.id}.json")
-            file.writeText(json.encodeToString(dataModel))
+            writeAtomically(file, json.encodeToString(dataModel))
+            true
         }.onFailure { ex ->
             plugin.logger.severe("Failed to save clan ${clan.name}: ${ex.message}")
-        }
+        }.getOrDefault(false)
     }
 
     override fun loadAllClans(): List<Clan> {
@@ -194,6 +206,7 @@ class ClanStorage(private val plugin: BukkitPlugin) : IClanStorage {
                     model.pointsLogs.forEach { entry ->
                         runCatching { addPointsLog(ClanPointsTransaction(ClanPointsTransactionType.valueOf(entry.type), ClanPointsSource.valueOf(entry.source), entry.amount, entry.balanceAfter, entry.timestamp)) }
                     }
+                    restorePermissionOverrides(this, model.rolePermissions, model.userPermissions)
                 }
 
                 model.settings.forEach { (key, valBool) ->
@@ -229,7 +242,7 @@ class ClanStorage(private val plugin: BukkitPlugin) : IClanStorage {
         runCatching {
             val file = File(chestDir, "$clanId.dat")
             val encoded = ItemStackSerializer.toBase64(items)
-            file.writeText(encoded)
+            writeAtomically(file, encoded)
         }.onFailure { ex ->
             plugin.logger.severe("Failed to save chest for clan $clanId: ${ex.message}")
         }
@@ -241,5 +254,41 @@ class ClanStorage(private val plugin: BukkitPlugin) : IClanStorage {
         return runCatching {
             ItemStackSerializer.fromBase64(file.readText())
         }.getOrDefault(arrayOfNulls(54))
+    }
+}
+
+private fun writeAtomically(file: File, content: String) {
+    val temp = File(file.parentFile, "${file.name}.tmp")
+    temp.writeText(content)
+    try {
+        Files.move(
+            temp.toPath(),
+            file.toPath(),
+            StandardCopyOption.REPLACE_EXISTING,
+            StandardCopyOption.ATOMIC_MOVE
+        )
+    } catch (_: java.nio.file.AtomicMoveNotSupportedException) {
+        Files.move(temp.toPath(), file.toPath(), StandardCopyOption.REPLACE_EXISTING)
+    }
+}
+
+internal fun restorePermissionOverrides(
+    clan: ClanImpl,
+    rolePermissions: Map<String, Map<String, Boolean>>,
+    userPermissions: Map<String, Map<String, Boolean>>
+) {
+    rolePermissions.forEach { (roleName, permissions) ->
+        val role = runCatching { ClanRole.valueOf(roleName) }.getOrNull() ?: return@forEach
+        permissions.forEach { (node, enabled) ->
+            ClanPerms.ALL_PERMISSIONS.firstOrNull { it.node == node }
+                ?.let { clan.grantRolePermission(role, it to enabled) }
+        }
+    }
+    userPermissions.forEach { (uuidText, permissions) ->
+        val user = runCatching { UUID.fromString(uuidText) }.getOrNull()?.let(clan::getMember) ?: return@forEach
+        permissions.forEach { (node, enabled) ->
+            ClanPerms.ALL_PERMISSIONS.firstOrNull { it.node == node }
+                ?.let { clan.grantUserPermission(user, it to enabled) }
+        }
     }
 }

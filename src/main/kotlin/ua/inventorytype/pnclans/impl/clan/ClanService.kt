@@ -9,6 +9,7 @@ import ua.inventorytype.pnclans.BukkitPlugin
 import ua.inventorytype.pnclans.api.clan.Clan
 import ua.inventorytype.pnclans.api.clan.ClanRole
 import ua.inventorytype.pnclans.api.clan.ClanSetting
+import ua.inventorytype.pnclans.api.permission.ClanPerms
 import ua.inventorytype.pnclans.api.event.ClanCreatedEvent
 import ua.inventorytype.pnclans.api.event.ClanDisbandedEvent
 import ua.inventorytype.pnclans.api.event.ClanSavedEvent
@@ -246,6 +247,10 @@ class ClanService(
             return "§c[pnClans] Ошибка: Нельзя распустить клан, пока в хранилище хранятся предметы! Заберите все вещи перед удалением."
         }
 
+        val disbandEvent = ClanDisbandedEvent(clan)
+        Bukkit.getPluginManager().callEvent(disbandEvent)
+        if (disbandEvent.isCancelled) return "§c[pnClans] Распуск клана был отменён событием."
+
         // 2. Safety check for treasury bank balance
         if (clan.bankBalance > 0.0) {
             if (settings.disbandRequireEmptyBank) {
@@ -256,20 +261,17 @@ class ClanService(
                 val leaderUser = clan.users.find { clan.getUserRole(it) == ClanRole.LEADER }
                 val leader = leaderPlayer ?: (leaderUser?.let { Bukkit.getPlayer(it.uuid) })
 
-                if (leader != null) {
-                    economy.depositPlayer(leader, refundAmount)
-                    leader.sendMessage("§a[pnClans] Средства из казны (§e${refundAmount.toBigDecimal().stripTrailingZeros().toPlainString()} ⛁§a) переведены на ваш баланс!")
+                if (leader == null || !economy.depositPlayer(leader, refundAmount)) {
+                    return "§c[pnClans] Ошибка: не удалось вернуть средства из казны лидеру. Клан не был распущен."
                 }
+                leader.sendMessage("§a[pnClans] Средства из казны (§e${refundAmount.toBigDecimal().stripTrailingZeros().toPlainString()} ⛁§a) переведены на ваш баланс!")
             }
         }
-
-        val disbandEvent = ClanDisbandedEvent(clan)
-        Bukkit.getPluginManager().callEvent(disbandEvent)
-        if (disbandEvent.isCancelled) return "§c[pnClans] Распуск клана был отменён событием."
 
         val memberUuids = clan.users.map { it.uuid }
         memberUuids.forEach { _uuidToClan.remove(it) }
         _clans.remove(clan)
+        invalidateClanChest(clan.id)
         storage.deleteClan(clan)
         notifyClanDisbanded(memberUuids)
 
@@ -294,6 +296,14 @@ class ClanService(
      * @param clan The clan whose chest contents to display.
      */
     fun openClanChest(player: Player, clan: Clan): ClanOperationResult {
+        val member = clan.getMember(player.uniqueId)
+            ?: return ClanOperationResult.Rejected(ClanOperationRejection.NOT_A_CLAN_MEMBER)
+        if (!clan.hasPermission(member, ClanPerms.Action.OPEN_CHEST)) {
+            return ClanOperationResult.Rejected(ClanOperationRejection.NO_PERMISSION)
+        }
+        if (!clan.isSettingEnabled(ClanSetting.CHEST)) {
+            return ClanOperationResult.Rejected(ClanOperationRejection.SETTING_DISABLED)
+        }
         val event = ClanChestOpenEvent(clan, player)
         Bukkit.getPluginManager().callEvent(event)
         if (event.isCancelled) return ClanOperationResult.Rejected(ClanOperationRejection.CANCELLED_BY_EVENT)
@@ -309,6 +319,10 @@ class ClanService(
      */
     fun closeClanChest(clanId: String) {
         activeChestGuis.remove(clanId)
+    }
+
+    fun invalidateClanChest(clanId: String) {
+        activeChestGuis.remove(clanId)?.invalidate()
     }
 
     /**
@@ -363,11 +377,17 @@ class ClanService(
 
     /** Applies a role change only after add-ons approve the cancellable event. */
     fun changeMemberRole(clan: Clan, user: ua.inventorytype.pnclans.api.User, newRole: ClanRole): ClanOperationResult {
+        if (clan.getMember(user.uuid) == null) {
+            return ClanOperationResult.Rejected(ClanOperationRejection.MEMBER_NOT_FOUND)
+        }
         val oldRole = clan.getUserRole(user)
         if (oldRole == newRole) return ClanOperationResult.Rejected(ClanOperationRejection.ALREADY_IN_REQUESTED_STATE)
         val event = ClanMemberRoleChangeEvent(clan, user, oldRole, newRole)
         Bukkit.getPluginManager().callEvent(event)
         if (event.isCancelled) return ClanOperationResult.Rejected(ClanOperationRejection.CANCELLED_BY_EVENT)
+        if (event.newRole == ClanRole.LEADER && clan.getLeader()?.uuid != user.uuid) {
+            return ClanOperationResult.Rejected(ClanOperationRejection.INVALID_ROLE_TRANSITION)
+        }
         if (!clan.setUserRole(user, event.newRole)) return ClanOperationResult.Rejected(ClanOperationRejection.MEMBER_NOT_FOUND)
         saveClan(clan)
         return ClanOperationResult.Success
@@ -375,13 +395,23 @@ class ClanService(
 
     /** Transfers leadership atomically after both role changes have been approved. */
     fun transferLeadership(clan: Clan, currentLeader: ua.inventorytype.pnclans.api.User, newLeader: ua.inventorytype.pnclans.api.User): ClanOperationResult {
+        if (currentLeader.uuid == newLeader.uuid || clan.getMember(currentLeader.uuid) == null || clan.getMember(newLeader.uuid) == null) {
+            return ClanOperationResult.Rejected(ClanOperationRejection.MEMBER_NOT_FOUND)
+        }
+        if (clan.getUserRole(currentLeader) != ClanRole.LEADER || clan.getUserRole(newLeader) == ClanRole.LEADER) {
+            return ClanOperationResult.Rejected(ClanOperationRejection.INVALID_ROLE_TRANSITION)
+        }
         val demote = ClanMemberRoleChangeEvent(clan, currentLeader, clan.getUserRole(currentLeader), ClanRole.DEPUTY)
         val promote = ClanMemberRoleChangeEvent(clan, newLeader, clan.getUserRole(newLeader), ClanRole.LEADER)
         Bukkit.getPluginManager().callEvent(demote)
         Bukkit.getPluginManager().callEvent(promote)
         if (demote.isCancelled || promote.isCancelled) return ClanOperationResult.Rejected(ClanOperationRejection.CANCELLED_BY_EVENT)
         if (demote.newRole != ClanRole.DEPUTY || promote.newRole != ClanRole.LEADER) return ClanOperationResult.Rejected(ClanOperationRejection.INVALID_ROLE_TRANSITION)
-        if (!clan.setUserRole(currentLeader, ClanRole.DEPUTY) || !clan.setUserRole(newLeader, ClanRole.LEADER)) return ClanOperationResult.Rejected(ClanOperationRejection.MEMBER_NOT_FOUND)
+        if (!clan.setUserRole(currentLeader, ClanRole.DEPUTY)) return ClanOperationResult.Rejected(ClanOperationRejection.MEMBER_NOT_FOUND)
+        if (!clan.setUserRole(newLeader, ClanRole.LEADER)) {
+            clan.setUserRole(currentLeader, ClanRole.LEADER)
+            return ClanOperationResult.Rejected(ClanOperationRejection.MEMBER_NOT_FOUND)
+        }
         saveClan(clan)
         return ClanOperationResult.Success
     }
@@ -424,8 +454,11 @@ class ClanService(
      * @param clan The [Clan] instance to persist.
      */
     fun saveClan(clan: Clan) {
-        storage.saveClan(clan)
-        Bukkit.getPluginManager().callEvent(ClanSavedEvent(clan))
+        if (storage.saveClan(clan)) {
+            Bukkit.getPluginManager().callEvent(ClanSavedEvent(clan))
+        } else {
+            plugin.logger.warning("[pnClans] Клан «${clan.name}» не был сохранён; событие ClanSavedEvent не отправлено.")
+        }
     }
 
     private companion object {

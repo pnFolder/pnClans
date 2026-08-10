@@ -12,6 +12,8 @@ import ua.inventorytype.pnclans.api.ActionContext
 import ua.inventorytype.pnclans.api.clan.ClanRole
 import ua.inventorytype.pnclans.api.GiveItemAction
 import java.io.File
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
 
 /**
  * Service responsible for loading, saving, and managing all plugin configuration files.
@@ -92,7 +94,14 @@ class ConfigService(private val plugin: Plugin) {
 
     /** Persists shop changes made by the in-game administrator editor. */
     fun saveShop() {
-        File(plugin.dataFolder, "shop.yml").writeText(yaml.encodeToString(ClanShopConfig.serializer(), shop))
+        val file = File(plugin.dataFolder, "shop.yml")
+        val temp = File(plugin.dataFolder, "shop.yml.tmp")
+        temp.writeText(yaml.encodeToString(ClanShopConfig.serializer(), shop))
+        try {
+            Files.move(temp.toPath(), file.toPath(), StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE)
+        } catch (_: java.nio.file.AtomicMoveNotSupportedException) {
+            Files.move(temp.toPath(), file.toPath(), StandardCopyOption.REPLACE_EXISTING)
+        }
     }
 
     private fun migrateLegacyShop(existingVersion: Int, explicitProductRarities: Set<String>) {

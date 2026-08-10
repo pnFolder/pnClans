@@ -6,6 +6,7 @@ import org.bukkit.event.EventPriority
 import org.bukkit.event.Listener
 import org.bukkit.event.inventory.InventoryClickEvent
 import org.bukkit.event.inventory.InventoryCloseEvent
+import org.bukkit.event.inventory.InventoryDragEvent
 import org.bukkit.event.inventory.InventoryOpenEvent
 import org.bukkit.event.player.PlayerQuitEvent
 import ua.inventorytype.pnclans.BukkitPlugin
@@ -58,11 +59,19 @@ class GuiListener(val plugin: BukkitPlugin) : Listener {
 
     @EventHandler(priority = EventPriority.HIGH)
     fun onClick(event: InventoryClickEvent) {
+        if (event.isCancelled) return
         val topHolder = event.view.topInventory.holder as? HolderGui ?: return
         val gui = topHolder as BaseGui
 
         if (event.clickedInventory == null) return
         gui.handleClick(event)
+    }
+
+    @EventHandler(priority = EventPriority.HIGH)
+    fun onDrag(event: InventoryDragEvent) {
+        if (event.isCancelled) return
+        val topHolder = event.view.topInventory.holder as? HolderGui ?: return
+        (topHolder as BaseGui).handleDrag(event)
     }
 
     @EventHandler(priority = EventPriority.HIGH)

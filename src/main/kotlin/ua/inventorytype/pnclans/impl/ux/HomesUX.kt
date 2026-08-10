@@ -111,7 +111,7 @@ class HomesUX(
                         }
 
                         event.isRightClick && event.isShiftClick -> {
-                            if (!clan.hasPermission(user, ClanPerms.Homes.SET)) {
+                            if (!clan.hasPermission(user, ClanPerms.Homes.DELETE_ANY)) {
                                 cfg.send(player, msgCfg.homes.noPermissionDelete)
                                 return@onClick
                             }

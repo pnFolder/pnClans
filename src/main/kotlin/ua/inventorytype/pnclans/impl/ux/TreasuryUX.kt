@@ -158,8 +158,8 @@ class TreasuryUX(clanService: ClanService) : BaseGui(clanService) {
                     TreasuryUX(service).open(player)
                     return@prompt
                 }
-                val amount = input.replace(" ", "").replace(",", ".").toDoubleOrNull()
-                if (amount == null || amount <= 0.0) {
+                 val amount = input.replace(" ", "").replace(",", ".").toDoubleOrNull()
+                 if (amount == null || !amount.isFinite() || amount <= 0.0) {
                     player.sendMessage("§c[pnClans] Некорректная сумма: '$input'. Вводите только числа.")
                     TreasuryUX(service).open(player)
                     return@prompt
@@ -197,8 +197,8 @@ class TreasuryUX(clanService: ClanService) : BaseGui(clanService) {
                     TreasuryUX(service).open(player)
                     return@prompt
                 }
-                val amount = input.replace(" ", "").replace(",", ".").toDoubleOrNull()
-                if (amount == null || amount <= 0.0) {
+                 val amount = input.replace(" ", "").replace(",", ".").toDoubleOrNull()
+                 if (amount == null || !amount.isFinite() || amount <= 0.0) {
                     player.sendMessage("§c[pnClans] Некорректная сумма: '$input'. Вводите только числа.")
                     TreasuryUX(service).open(player)
                     return@prompt
@@ -216,7 +216,7 @@ class TreasuryUX(clanService: ClanService) : BaseGui(clanService) {
         val service = clanService
         val cfg = service.plugin.configService
         val clan = service.getClanUser(player)
-        if (clan == null || amount <= 0.0) {
+        if (clan == null || !amount.isFinite() || amount <= 0.0) {
             cfg.send(player, cfg.messages.general.invalidInput, mapOf("amount" to "0"))
             return
         }
@@ -254,7 +254,7 @@ class TreasuryUX(clanService: ClanService) : BaseGui(clanService) {
         val service = clanService
         val cfg = service.plugin.configService
         val clan = service.getClanUser(player)
-        if (clan == null || amount <= 0.0) {
+        if (clan == null || !amount.isFinite() || amount <= 0.0) {
             cfg.send(player, cfg.messages.general.invalidInput, mapOf("amount" to "0"))
             return
         }
@@ -264,7 +264,13 @@ class TreasuryUX(clanService: ClanService) : BaseGui(clanService) {
         if (transactionEvent.isCancelled) return
 
         if (clan.withdrawBank(amount)) {
-            service.economy.depositPlayer(player, amount)
+            if (!service.economy.depositPlayer(player, amount)) {
+                clan.depositBank(amount)
+                cfg.send(player, cfg.messages.treasury.insufficientClanFunds, mapOf("amount" to formatAmount(amount)))
+                playFeedback(player, false)
+                if (reopen) reopenTreasury(player) else refreshBalance(player)
+                return
+            }
              clan.addTreasuryLog(transaction)
              service.saveClan(clan)
              org.bukkit.Bukkit.getPluginManager().callEvent(ClanTreasuryTransactionEvent(clan, transaction, player))

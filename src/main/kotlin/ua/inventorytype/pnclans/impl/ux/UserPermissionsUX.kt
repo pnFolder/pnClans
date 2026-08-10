@@ -51,7 +51,7 @@ class UserPermissionsUX(
                     val roleName = cfg.getRoleDisplayName(targetRole)
 
                     val hasRolePerm = clan.hasRolePermission(targetRole, perm)
-                    val hasPersonalOverride = clan.hasUserPermission(targetMember, perm)
+                    val hasPersonalOverride = clan.hasUserPermissionOverride(targetMember, perm)
                     val effectiveState = clan.hasPermission(targetMember, perm)
 
                     val overrideStatus = if (hasPersonalOverride) {
@@ -89,7 +89,7 @@ class UserPermissionsUX(
                         return@onClick
                     }
 
-                    val hasPersonalOverride = clan.hasUserPermission(targetMember, perm)
+                    val hasPersonalOverride = clan.hasUserPermissionOverride(targetMember, perm)
 
                     if (event.isLeftClick) {
                         if (hasPersonalOverride) {

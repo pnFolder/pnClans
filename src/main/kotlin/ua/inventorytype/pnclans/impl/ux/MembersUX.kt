@@ -122,7 +122,7 @@ class MembersUX(
                             cfg.send(viewer, cfg.messages.members.noPermissionKick)
                             return@onClick
                         }
-                        service.removeUserFromClan(clan, targetUser.uuid)
+                        if (!service.removeUserFromClan(clan, targetUser.uuid)) return@onClick
                         service.saveClan(clan)
                         cfg.send(viewer, cfg.messages.members.kicked, mapOf("player" to targetUser.playerName))
                         this@MembersUX.update(viewer)

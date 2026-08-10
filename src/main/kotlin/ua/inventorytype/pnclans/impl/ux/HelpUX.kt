@@ -25,18 +25,10 @@ class HelpUX(clanService: ClanService) : BaseGui(clanService) {
         rows(menuCfg.rows)
         hotWorldDecor(true)
 
-        val clan = clanService.getAllClans().firstOrNull()
-        val level = clan?.level ?: 1
-        val nextLevel = (level + 1).coerceAtMost(MAX_LEVEL)
-        val placeholders = mapOf(
-            "level" to level.toString(),
-            "next_level" to nextLevel.toString()
-        )
-
         menuCfg.items["evolution"]?.let { itemCfg ->
             slot(itemCfg.slot) {
                 dynamicItem(this@HelpUX.parseMaterial(itemCfg.material, Material.BEACON)) { player ->
-                    this@HelpUX.renderConfigItem(this, player, itemCfg, placeholders)
+                    this@HelpUX.renderConfigItem(this, player, itemCfg, this@HelpUX.placeholders(player))
                     null
                 }
             }
@@ -45,7 +37,7 @@ class HelpUX(clanService: ClanService) : BaseGui(clanService) {
         menuCfg.items["rewards"]?.let { itemCfg ->
             slot(itemCfg.slot) {
                 dynamicItem(this@HelpUX.parseMaterial(itemCfg.material, Material.TOTEM_OF_UNDYING)) { player ->
-                    this@HelpUX.renderConfigItem(this, player, itemCfg, placeholders)
+                    this@HelpUX.renderConfigItem(this, player, itemCfg, this@HelpUX.placeholders(player))
                     null
                 }
             }
@@ -54,7 +46,7 @@ class HelpUX(clanService: ClanService) : BaseGui(clanService) {
         menuCfg.items["earning"]?.let { itemCfg ->
             slot(itemCfg.slot) {
                 dynamicItem(this@HelpUX.parseMaterial(itemCfg.material, Material.EXPERIENCE_BOTTLE)) { player ->
-                    this@HelpUX.renderConfigItem(this, player, itemCfg, placeholders)
+                    this@HelpUX.renderConfigItem(this, player, itemCfg, this@HelpUX.placeholders(player))
                     null
                 }
             }
@@ -63,7 +55,7 @@ class HelpUX(clanService: ClanService) : BaseGui(clanService) {
         menuCfg.items["back"]?.let { itemCfg ->
             slot(itemCfg.slot) {
                 dynamicItem(this@HelpUX.parseMaterial(itemCfg.material, Material.RED_CANDLE)) { player ->
-                    this@HelpUX.renderConfigItem(this, player, itemCfg, placeholders)
+                    this@HelpUX.renderConfigItem(this, player, itemCfg, this@HelpUX.placeholders(player))
                     null
                 }
                 onClick { player, _ -> MainUX(clanService).open(player) }
@@ -84,6 +76,14 @@ class HelpUX(clanService: ClanService) : BaseGui(clanService) {
 
     private fun parseMaterial(name: String, fallback: Material): Material =
         runCatching { Material.valueOf(name.uppercase()) }.getOrDefault(fallback)
+
+    private fun placeholders(player: Player): Map<String, String> {
+        val level = clanService.getClanUser(player)?.level ?: 1
+        return mapOf(
+            "level" to level.toString(),
+            "next_level" to (level + 1).coerceAtMost(MAX_LEVEL).toString()
+        )
+    }
 
     private companion object {
         const val MAX_LEVEL = 5

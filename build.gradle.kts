@@ -7,7 +7,7 @@ plugins {
     id("xyz.jpenilla.run-paper") version "3.0.2"
 }
 
-version = "1.1.4"
+version = "1.1.5"
 
 val javaTarget = providers.gradleProperty("javaTarget").getOrElse("25")
     .also { require(it == "21" || it == "25") { "javaTarget must be 21 or 25" } }
@@ -38,7 +38,6 @@ dependencies {
     compileOnly("com.github.MilkBowl:VaultAPI:1.7") {
         exclude(group = "org.bukkit", module = "bukkit")
     }
-    implementation("com.github.maquqdev:KGui:v1.0.1")
 }
 
 kotlin {

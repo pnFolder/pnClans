@@ -4,8 +4,11 @@ import org.bukkit.Material
 import org.bukkit.entity.Player
 import org.bukkit.event.inventory.InventoryClickEvent
 import org.bukkit.event.inventory.InventoryCloseEvent
+import org.bukkit.event.inventory.InventoryDragEvent
 import org.bukkit.inventory.ItemStack
 import ua.inventorytype.pnclans.api.clan.Clan
+import ua.inventorytype.pnclans.api.clan.ClanSetting
+import ua.inventorytype.pnclans.api.permission.ClanPerms
 import ua.inventorytype.pnclans.impl.clan.ClanService
 import ua.inventorytype.pnclans.impl.config.GuiItemConfig
 import ua.inventorytype.pnclans.impl.inventory.BaseGui
@@ -29,6 +32,7 @@ class ClanChestUX(
     clanService: ClanService,
     val clan: Clan
 ) : BaseGui(clanService) {
+    private var invalidated = false
 
     val unlockedSlotsCount: Int = when (clan.level) {
         1 -> 9
@@ -187,9 +191,14 @@ class ClanChestUX(
     }
 
     override fun handleClick(e: InventoryClickEvent) {
+        if (e.isCancelled) return
         val rawSlot = e.rawSlot
         val topSize = inventory.size // 54
         val player = e.whoClicked as? Player
+        if (player == null || !canAccess(player)) {
+            e.isCancelled = true
+            return
+        }
 
         if (rawSlot in 0 until topSize) {
             // Click is inside top inventory (Clan Chest)
@@ -198,7 +207,6 @@ class ClanChestUX(
                 super.handleClick(e)
             } else {
                 // Unlocked storage slot -> allow placing, taking, moving items freely
-                e.isCancelled = false
                 scheduleStatsUpdate(player)
             }
         } else {
@@ -220,7 +228,6 @@ class ClanChestUX(
                 scheduleStatsUpdate(player)
             }
             // Allow player to move items in their hand / player inventory freely
-            e.isCancelled = false
         }
     }
 
@@ -237,7 +244,8 @@ class ClanChestUX(
     }
 
     override fun handleClose(e: InventoryCloseEvent) {
-        saveChestContents()
+        val player = e.player as? Player
+        if (!invalidated && player != null && canAccess(player)) saveChestContents()
         if (inventory.viewers.size <= 1) {
             clanService.closeClanChest(clan.id)
         }
@@ -245,6 +253,7 @@ class ClanChestUX(
     }
 
     fun saveChestContents() {
+        if (invalidated) return
         val items = arrayOfNulls<ItemStack>(54)
         for (i in 0 until unlockedSlotsCount) {
             val item = inventory.getItem(i)
@@ -253,6 +262,29 @@ class ClanChestUX(
             }
         }
         clanService.saveChestItems(clan.id, items)
+    }
+
+    fun invalidate() {
+        invalidated = true
+        inventory.viewers.toList().forEach { it.closeInventory() }
+    }
+
+    override fun handleDrag(e: InventoryDragEvent) {
+        if (e.isCancelled) return
+        val player = e.whoClicked as? Player
+        if (player == null || !canAccess(player)) {
+            e.isCancelled = true
+            return
+        }
+        if (e.rawSlots.any { it in controlSlots || it >= unlockedSlotsCount && it < 45 }) {
+            e.isCancelled = true
+        }
+    }
+
+    private fun canAccess(player: Player): Boolean {
+        val member = clan.getMember(player.uniqueId) ?: return false
+        return clan.isSettingEnabled(ClanSetting.CHEST) &&
+            clan.hasPermission(member, ClanPerms.Action.OPEN_CHEST)
     }
 
     private fun buildProgressBar(percent: Int): String {

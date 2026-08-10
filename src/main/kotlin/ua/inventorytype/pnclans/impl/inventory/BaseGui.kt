@@ -5,6 +5,7 @@ import org.bukkit.Material
 import org.bukkit.entity.Player
 import org.bukkit.event.inventory.InventoryClickEvent
 import org.bukkit.event.inventory.InventoryCloseEvent
+import org.bukkit.event.inventory.InventoryDragEvent
 import org.bukkit.event.inventory.InventoryType
 import org.bukkit.inventory.Inventory
 import org.bukkit.inventory.InventoryHolder
@@ -127,7 +128,10 @@ abstract class BaseGui(
         guiConfig.items.forEach { (key, itemConfig) ->
             if (itemConfig.slot in 0 until (rows * 9)) {
                 slot(itemConfig.slot) {
-                    dynamicItem(runCatching { Material.valueOf(itemConfig.material.uppercase()) }.getOrDefault(Material.STONE)) { player ->
+                    dynamicItemNullable(runCatching { Material.valueOf(itemConfig.material.uppercase()) }.getOrDefault(Material.STONE)) { player ->
+                        if (!itemConfig.permission.isNullOrBlank() && !player.hasPermission(itemConfig.permission)) {
+                            return@dynamicItemNullable null
+                        }
                         val service = this@BaseGui.clanService
                         val formattedName = service.plugin.configService.formatMessage(player, itemConfig.name)
                         val formattedLore = itemConfig.lore.map { line ->
@@ -137,9 +141,13 @@ abstract class BaseGui(
                         name(formattedName)
                         lore(formattedLore)
                         glow(itemConfig.glow)
-                        null
+                        build()
                     }
                     onClick { player, event ->
+                        if (!itemConfig.permission.isNullOrBlank() && !player.hasPermission(itemConfig.permission)) {
+                            event.isCancelled = true
+                            return@onClick
+                        }
                         val service = this@BaseGui.clanService
                         val handler = clickHandlers[key]
                         handler?.invoke(player, event)
@@ -210,6 +218,12 @@ abstract class BaseGui(
         val player = e.whoClicked as? Player ?: return
         if (e.rawSlot !in 0 until inventory.size) return
         slots[e.rawSlot]?.executeClick(player, e)
+    }
+
+    open fun handleDrag(e: InventoryDragEvent) {
+        if (e.rawSlots.any { it in 0 until inventory.size }) {
+            e.isCancelled = true
+        }
     }
 }
 

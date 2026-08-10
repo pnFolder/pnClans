@@ -15,6 +15,8 @@ import ua.inventorytype.pnclans.impl.config.ClanShopProductConfig
 import ua.inventorytype.pnclans.impl.config.ClanShopPaymentOption
 import ua.inventorytype.pnclans.impl.storage.ItemStackSerializer
 import java.io.File
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
 import java.time.LocalDate
 import java.time.ZoneOffset
 
@@ -172,6 +174,17 @@ internal class ClanShopService(private val plugin: BukkitPlugin) {
     }
 
     private fun saveLedger() {
-        ledgerFile.writeText(json.encodeToString(ledger))
+        val tempFile = File(ledgerFile.parentFile, "${ledgerFile.name}.tmp")
+        tempFile.writeText(json.encodeToString(ledger))
+        try {
+            Files.move(
+                tempFile.toPath(),
+                ledgerFile.toPath(),
+                StandardCopyOption.REPLACE_EXISTING,
+                StandardCopyOption.ATOMIC_MOVE
+            )
+        } catch (_: java.nio.file.AtomicMoveNotSupportedException) {
+            Files.move(tempFile.toPath(), ledgerFile.toPath(), StandardCopyOption.REPLACE_EXISTING)
+        }
     }
 }

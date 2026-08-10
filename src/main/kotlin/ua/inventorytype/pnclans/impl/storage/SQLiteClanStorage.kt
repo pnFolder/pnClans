@@ -51,6 +51,13 @@ class SQLiteClanStorage(private val plugin: BukkitPlugin) : IClanStorage {
         return conn
     }
 
+    override fun close() {
+        synchronized(this) {
+            runCatching { connection?.close() }
+            connection = null
+        }
+    }
+
     private fun initDb() {
         val conn = getConnection()
         conn.createStatement().use { stmt ->
@@ -104,8 +111,8 @@ class SQLiteClanStorage(private val plugin: BukkitPlugin) : IClanStorage {
         }
     }
 
-    override fun saveClan(clan: Clan) {
-        runCatching {
+    override fun saveClan(clan: Clan): Boolean {
+        return runCatching {
             val memberModels = clan.users.map { user ->
                 ClanMemberModel(
                     uuid = user.uuid.toString(),
@@ -143,7 +150,13 @@ class SQLiteClanStorage(private val plugin: BukkitPlugin) : IClanStorage {
                 settings = settingModels,
                 homes = homeModels
                 ,treasuryLogs = clan.treasuryLogs.map { TreasuryLogModel(it.type.name, it.playerName, it.amount, it.timestamp) },
-                pointsLogs = clan.pointsLogs.map { ClanPointsLogModel(it.type.name, it.source.name, it.amount, it.balanceAfter, it.timestamp) }
+                pointsLogs = clan.pointsLogs.map { ClanPointsLogModel(it.type.name, it.source.name, it.amount, it.balanceAfter, it.timestamp) },
+                rolePermissions = (clan as? ClanImpl)?.rolePermissions.orEmpty()
+                    .mapKeys { it.key.name }
+                    .mapValues { (_, values) -> values.associate { it.first.node to it.second } },
+                userPermissions = (clan as? ClanImpl)?.userPermissions.orEmpty()
+                    .mapKeys { it.key.toString() }
+                    .mapValues { (_, values) -> values.associate { it.first.node to it.second } }
             )
 
             val jsonStr = json.encodeToString(dataModel)
@@ -166,9 +179,10 @@ class SQLiteClanStorage(private val plugin: BukkitPlugin) : IClanStorage {
                     pstmt.setString(11, jsonStr)
                 pstmt.executeUpdate()
             }
+            true
         }.onFailure { ex ->
             plugin.logger.severe("SQLite: Failed to save clan ${clan.name}: ${ex.message}")
-        }
+        }.getOrDefault(false)
     }
 
     override fun loadAllClans(): List<Clan> {
@@ -215,6 +229,7 @@ class SQLiteClanStorage(private val plugin: BukkitPlugin) : IClanStorage {
                             model.pointsLogs.forEach { entry ->
                                 runCatching { addPointsLog(ClanPointsTransaction(ClanPointsTransactionType.valueOf(entry.type), ClanPointsSource.valueOf(entry.source), entry.amount, entry.balanceAfter, entry.timestamp)) }
                             }
+                            restorePermissionOverrides(this, model.rolePermissions, model.userPermissions)
                     }
 
                     model.settings.forEach { (key, valBool) ->

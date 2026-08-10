@@ -53,6 +53,7 @@ class ClanHighlightService(private val plugin: BukkitPlugin) : Listener {
     private var packetListenerRegistered = false
     private val viewerTargets = ConcurrentHashMap<UUID, ViewerTargets>()
     private val entityIds = ConcurrentHashMap<Int, UUID>()
+    private val pendingClanSyncs = ConcurrentHashMap<String, Clan>()
 
     private val packetListener = object : PacketListenerAbstract(PacketListenerPriority.NORMAL) {
         override fun onPacketSend(event: PacketSendEvent) {
@@ -70,9 +71,6 @@ class ClanHighlightService(private val plugin: BukkitPlugin) : Listener {
     fun syncAll() {
         if (!PacketEvents.getAPI().isInitialized) return
         registerPacketListener()
-
-        // Clean up global glow that could have been left by earlier plugin builds.
-        Bukkit.getOnlinePlayers().forEach { it.isGlowing = false }
 
         entityIds.clear()
         viewerTargets.clear()
@@ -206,11 +204,17 @@ class ClanHighlightService(private val plugin: BukkitPlugin) : Listener {
         }
         viewerTargets.clear()
         entityIds.clear()
+        pendingClanSyncs.clear()
     }
 
     @EventHandler
     fun onClanSaved(event: ClanSavedEvent) {
-        syncClan(event.clan)
+        if (pendingClanSyncs.putIfAbsent(event.clan.id, event.clan) == null) {
+            Bukkit.getScheduler().runTask(plugin, Runnable {
+                val clan = pendingClanSyncs.remove(event.clan.id) ?: return@Runnable
+                if (plugin.isEnabled) syncClan(clan)
+            })
+        }
     }
 
     @EventHandler

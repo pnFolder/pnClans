@@ -45,6 +45,10 @@ class ClanCommand(
             sender.sendMessage("§cЭту команду может выполнять только игрок.")
             return true
         }
+        if (!sender.hasPermission("pnclans.use")) {
+            sender.sendMessage(msg(sender, cfg.msgNoPermission))
+            return true
+        }
 
         try {
             // Main /clan entry point opens GUI directly
@@ -158,7 +162,11 @@ class ClanCommand(
                         sender.sendMessage(msg(sender, cfg.msgNoClan))
                         return true
                     }
-                    clanService.openClanChest(sender, clan)
+                    when (clanService.openClanChest(sender, clan)) {
+                        ua.inventorytype.pnclans.api.operation.ClanOperationResult.Success -> Unit
+                        is ua.inventorytype.pnclans.api.operation.ClanOperationResult.Rejected ->
+                            sender.sendMessage(msg(sender, cfg.msgNoPermission))
+                    }
                 }
 
                 "create" -> {
@@ -183,24 +191,11 @@ class ClanCommand(
                         sender.sendMessage(msg(sender, cfg.msgNoPermission))
                         return true
                     }
+                    clanService.saveAll()
+                    plugin.guiListener.forceCloseAll()
                     plugin.configService.loadAll()
                     clanService.loadClans()
-
-                    var refreshedGuis = 0
-                    for (player in Bukkit.getOnlinePlayers()) {
-                        val topInv = player.openInventory.topInventory
-                        val holder = topInv.holder
-                        if (holder is ua.inventorytype.pnclans.impl.inventory.BaseGui) {
-                            try {
-                                holder.open(player)
-                                refreshedGuis++
-                            } catch (_: Throwable) {
-                                player.closeInventory()
-                            }
-                        }
-                    }
-
-                    sender.sendMessage("§a[pnClans] Все конфигурации (config.yml, menus.yml, messages.yml, levels.yml) и $refreshedGuis активных меню успешно перезагружены!")
+                    sender.sendMessage("§a[pnClans] Конфигурации перезагружены, данные кланов сохранены и загружены заново. Открытые меню закрыты для применения нового layout.")
                 }
 
 

@@ -32,16 +32,15 @@ class EconomyService {
     /**
      * Проверка: хватает ли у игрока денег
      */
-    fun has(player: Player, amount: Double): Boolean {
-        return economy?.has(player, amount) ?: error("Не удалось проверить баланс игрока ${player.name}: Vault не подключен!") // Если экономики нет, пропускаем бесплатно
-    }
+    fun has(player: Player, amount: Double): Boolean =
+        amount.isFinite() && amount >= 0.0 && (economy?.has(player, amount) ?: false)
 
     /**
      * Снятие денег с баланса игрока
      */
     fun withdraw(player: Player, amount: Double): Boolean {
-        val eco = economy ?: error("Не удалось снять баланс игрока ${player.name}: Vault не подключен!")
-        if (amount <= 0.0) return true
+        val eco = economy ?: return false
+        if (!amount.isFinite() || amount <= 0.0) return false
 
         val response = eco.withdrawPlayer(player, amount)
         return response.transactionSuccess()
@@ -51,8 +50,8 @@ class EconomyService {
      * Пополнить денег на баланса игрока
      */
     fun depositPlayer(player: Player, amount: Double): Boolean {
-        val eco = economy ?: error("Не удалось пополнить баланс игрока ${player.name}: Vault не подключен!")
-        if (amount <= 0.0) return true
+        val eco = economy ?: return false
+        if (!amount.isFinite() || amount <= 0.0) return false
 
         val response = eco.depositPlayer(player, amount)
         return response.transactionSuccess()

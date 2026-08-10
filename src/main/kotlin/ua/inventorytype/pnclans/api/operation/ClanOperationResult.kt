@@ -15,6 +15,9 @@ sealed interface ClanOperationResult {
 /** Machine-readable reasons for a rejected clan operation. */
 enum class ClanOperationRejection {
     CANCELLED_BY_EVENT,
+    NOT_A_CLAN_MEMBER,
+    NO_PERMISSION,
+    SETTING_DISABLED,
     MEMBER_NOT_FOUND,
     HOME_NOT_FOUND,
     ALREADY_IN_REQUESTED_STATE,

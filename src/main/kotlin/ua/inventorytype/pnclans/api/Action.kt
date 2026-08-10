@@ -14,7 +14,6 @@ import org.bukkit.entity.Player
 import org.bukkit.inventory.ItemStack
 import ua.inventorytype.pnclans.BukkitPlugin
 import ua.inventorytype.pnclans.api.placeholder.PlaceholderRegistry
-import ua.inventorytype.pnclans.impl.ux.ClanChestUX
 import ua.inventorytype.pnclans.impl.ux.MainUX
 import ua.inventorytype.pnclans.impl.ux.MembersUX
 import ua.inventorytype.pnclans.impl.ux.SettingsUX
@@ -422,7 +421,7 @@ data class OpenGuiAction(
             "TOP" -> TopClansUX(clanService).open(context.player)
             "CHEST" -> {
                 val clan = clanService.getClanUser(context.player)
-                if (clan != null) ClanChestUX(clanService, clan).open(context.player)
+                if (clan != null) clanService.openClanChest(context.player, clan)
             }
         }
     }

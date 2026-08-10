@@ -5,13 +5,17 @@ import ua.inventorytype.pnclans.BukkitPlugin
 import java.io.File
 import java.io.FileOutputStream
 import java.net.HttpURLConnection
+import java.net.URI
 import java.net.URL
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
+import java.util.jar.JarFile
 import java.util.logging.Level
 
 /**
  * Asynchronous background updater and cleanup engine for pnClans.
  *
- * - Checks GitHub Releases API (`https://api.github.com/repos/overdyn/pnClans/releases/latest`)
+ * - Checks GitHub Releases API (`https://api.github.com/repos/pnFolder/pnClans/releases/latest`)
  *   for newer plugin versions upon server startup.
  * - Downloads the updated Fat JAR into the Bukkit update folder (`/plugins/update/pnClans.jar`),
  *   allowing Paper/Spigot to automatically swap it on the next server restart.
@@ -23,7 +27,7 @@ import java.util.logging.Level
 class AutoUpdater(private val plugin: BukkitPlugin) {
 
     private val currentVersion: String = plugin.description.version
-    private val repo: String = "overdyn/pnClans"
+    private val repo: String = "pnFolder/pnClans"
 
     /**
      * Schedules asynchronous update check and old JAR cleanup on server startup.
@@ -99,7 +103,7 @@ class AutoUpdater(private val plugin: BukkitPlugin) {
         val responseText = connection.inputStream.use { it.bufferedReader().readText() }
         connection.disconnect()
         val latestTag = extractJsonField(responseText, "tag_name") ?: return
-        val downloadUrl = extractJarDownloadUrl(responseText)
+        val downloadUrl = extractJarDownloadUrl(responseText, targetArtifactSuffix())
 
         val cleanLatest = latestTag.removePrefix("v").removePrefix("V").trim()
         val cleanCurrent = currentVersion.removePrefix("v").removePrefix("V").trim()
@@ -135,15 +139,41 @@ class AutoUpdater(private val plugin: BukkitPlugin) {
             if (tempFile.exists()) tempFile.delete()
 
             val urlConnection = followRedirects(downloadUrl)
-            urlConnection.inputStream.use { input ->
-                FileOutputStream(tempFile).use { output ->
-                    input.copyTo(output)
+            try {
+                val contentLength = urlConnection.contentLengthLong
+                if (contentLength > MAX_UPDATE_BYTES) {
+                    throw IllegalStateException("Update is larger than the ${MAX_UPDATE_BYTES / 1024 / 1024} MB limit")
                 }
+                urlConnection.inputStream.use { input ->
+                    FileOutputStream(tempFile).use { output ->
+                        val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+                        var total = 0L
+                        while (true) {
+                            val read = input.read(buffer)
+                            if (read < 0) break
+                            total += read
+                            if (total > MAX_UPDATE_BYTES) {
+                                throw IllegalStateException("Update exceeded the ${MAX_UPDATE_BYTES / 1024 / 1024} MB limit")
+                            }
+                            output.write(buffer, 0, read)
+                        }
+                    }
+                }
+            } finally {
+                urlConnection.disconnect()
             }
 
-            if (tempFile.exists() && tempFile.length() > 0) {
-                if (targetFile.exists()) targetFile.delete()
-                tempFile.renameTo(targetFile)
+            if (tempFile.exists() && tempFile.length() > 0 && isExpectedPluginJar(tempFile, version)) {
+                try {
+                    Files.move(
+                        tempFile.toPath(),
+                        targetFile.toPath(),
+                        StandardCopyOption.REPLACE_EXISTING,
+                        StandardCopyOption.ATOMIC_MOVE
+                    )
+                } catch (_: java.nio.file.AtomicMoveNotSupportedException) {
+                    Files.move(tempFile.toPath(), targetFile.toPath(), StandardCopyOption.REPLACE_EXISTING)
+                }
                 plugin.logger.info("[pnClans] ✔ Обновление v$version успешно скачано в папку ${updateFolder.name}/pnClans.jar!")
                 plugin.logger.info("[pnClans] 🔄 Новая версия автоматически заменит текущий JAR при перезапуске сервера!")
             } else {
@@ -159,6 +189,9 @@ class AutoUpdater(private val plugin: BukkitPlugin) {
         var currentUrl = initialUrl
         var redirects = 0
         while (redirects < 5) {
+            val uri = URI(currentUrl)
+            require(uri.scheme.equals("https", ignoreCase = true)) { "Update URL must use HTTPS" }
+            require(uri.host.lowercase() in ALLOWED_DOWNLOAD_HOSTS) { "Update URL host is not trusted: ${uri.host}" }
             val conn = URL(currentUrl).openConnection() as HttpURLConnection
             conn.requestMethod = "GET"
             conn.setRequestProperty("User-Agent", "pnClans-AutoUpdater")
@@ -170,7 +203,7 @@ class AutoUpdater(private val plugin: BukkitPlugin) {
             if (code == HttpURLConnection.HTTP_MOVED_PERM || code == HttpURLConnection.HTTP_MOVED_TEMP || code == 307 || code == 308) {
                 val loc = conn.getHeaderField("Location")
                 if (loc != null) {
-                    currentUrl = loc
+                    currentUrl = uri.resolve(loc).toString()
                     redirects++
                     continue
                 }
@@ -208,7 +241,7 @@ class AutoUpdater(private val plugin: BukkitPlugin) {
         return json.substring(startQuote + 1, endQuote)
     }
 
-    private fun extractJarDownloadUrl(json: String): String? {
+    private fun extractJarDownloadUrl(json: String, artifactSuffix: String): String? {
         val key = "\"browser_download_url\":"
         var searchIndex = 0
         while (searchIndex < json.length) {
@@ -220,7 +253,7 @@ class AutoUpdater(private val plugin: BukkitPlugin) {
                 val endQuote = json.indexOf('"', startQuote + 1)
                 if (endQuote != -1) {
                     val url = json.substring(startQuote + 1, endQuote)
-                    if (url.endsWith(".jar")) {
+                    if (url.startsWith("https://github.com/$repo/releases/download/") && url.endsWith("$artifactSuffix.jar")) {
                         return url
                     }
                 }
@@ -229,7 +262,26 @@ class AutoUpdater(private val plugin: BukkitPlugin) {
         }
         return null
     }
+
+    private fun targetArtifactSuffix(): String =
+        if (Runtime.version().feature() >= 25) "java25-all" else "java21-all"
+
+    private fun isExpectedPluginJar(file: File, version: String): Boolean = runCatching {
+        JarFile(file).use { jar ->
+            val pluginYaml = jar.getJarEntry("plugin.yml") ?: return false
+            val content = jar.getInputStream(pluginYaml).bufferedReader().use { it.readText() }
+            Regex("(?m)^name:\\s*['\"]?pnClans['\"]?\\s*$").containsMatchIn(content) &&
+                Regex("(?m)^version:\\s*['\"]?${Regex.escape(version)}['\"]?\\s*$").containsMatchIn(content)
+        }
+    }.getOrDefault(false)
+
     private companion object {
+        const val MAX_UPDATE_BYTES = 50L * 1024L * 1024L
+        val ALLOWED_DOWNLOAD_HOSTS = setOf(
+            "github.com",
+            "objects.githubusercontent.com",
+            "release-assets.githubusercontent.com"
+        )
         val JAR_VERSION_REGEX = Regex("""pnClans[^\d]*(\d+\.\d+\.\d+).*""", RegexOption.IGNORE_CASE)
     }
 }

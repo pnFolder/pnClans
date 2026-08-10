@@ -216,14 +216,11 @@ interface Clan {
      */
     fun revokeUserPermission(user: User, vararg permissions: Permission)
 
-    /**
-     * Checks if a member has a personal permission override.
-     *
-     * @param user The member to check.
-     * @param permission The permission to evaluate.
-     * @return True if permitted, false otherwise.
-     */
+    /** Returns whether the member's effective permission is enabled. */
     fun hasUserPermission(user: User, permission: Permission): Boolean
+
+    /** Returns whether a personal override exists, without applying role defaults. */
+    fun hasUserPermissionOverride(user: User, permission: Permission): Boolean = false
 
     /**
      * Evaluates whether a user has access to perform a specific permission.

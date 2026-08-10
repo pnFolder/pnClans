@@ -184,10 +184,12 @@ class BukkitPlugin : JavaPlugin() {
         }
         if (::clanService.isInitialized) {
             clanService.saveAll()
+            clanService.storage.close()
         }
         if (PacketEvents.getAPI() != null && PacketEvents.getAPI().isInitialized) {
             PacketEvents.getAPI().terminate()
         }
+        ua.inventorytype.pnclans.impl.analytics.ErrorReporter.shutdown()
 
         // Print Rich Shutdown Banner
         PluginBanner.printDisableBanner(this, savedClansCount)

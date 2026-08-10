@@ -192,6 +192,9 @@ class ClanImpl(
         return foundPair?.second ?: hasPermission(user, permission)
     }
 
+    override fun hasUserPermissionOverride(user: User, permission: Permission): Boolean =
+        _userPermissions[user.uuid]?.any { it.first.node == permission.node } == true
+
     override fun hasPermission(user: User, permission: Permission): Boolean {
         val userRole = getUserRole(user)
         if (userRole == ClanRole.LEADER) {

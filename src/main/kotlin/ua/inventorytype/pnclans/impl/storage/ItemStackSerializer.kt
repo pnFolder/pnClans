@@ -12,6 +12,8 @@ import java.util.Base64
  * Preserves complete NBT tags, lore, display names, enchants, and Spigot/Paper item meta attributes.
  */
 object ItemStackSerializer {
+    private const val MAX_SLOTS = 54
+    private const val MAX_SERIALIZED_BYTES = 8 * 1024 * 1024
 
     /**
      * Serializes an array of [ItemStack] objects into a Base64 encoded string.
@@ -21,6 +23,7 @@ object ItemStackSerializer {
      */
     @Suppress("DEPRECATION")
     fun toBase64(items: Array<ItemStack?>): String {
+        require(items.size <= MAX_SLOTS) { "A clan chest cannot contain more than $MAX_SLOTS slots" }
         if (items.all { it == null }) return ""
         return runCatching {
             val outputStream = ByteArrayOutputStream()
@@ -31,7 +34,7 @@ object ItemStackSerializer {
                 }
             }
             Base64.getEncoder().encodeToString(outputStream.toByteArray())
-        }.getOrDefault("")
+        }.getOrElse { throw IllegalStateException("Unable to serialize item storage", it) }
     }
 
     /**
@@ -44,15 +47,18 @@ object ItemStackSerializer {
     fun fromBase64(data: String): Array<ItemStack?> {
         if (data.isEmpty()) return arrayOfNulls(54)
         return runCatching {
-            val inputStream = ByteArrayInputStream(Base64.getDecoder().decode(data))
+            val decoded = Base64.getDecoder().decode(data)
+            require(decoded.size <= MAX_SERIALIZED_BYTES) { "Serialized item storage is too large" }
+            val inputStream = ByteArrayInputStream(decoded)
             BukkitObjectInputStream(inputStream).use { dataInput ->
                 val size = dataInput.readInt()
+                require(size in 0..MAX_SLOTS) { "Invalid item storage size: $size" }
                 val items = arrayOfNulls<ItemStack>(size)
                 for (i in 0 until size) {
                     items[i] = dataInput.readObject() as? ItemStack
                 }
                 items
             }
-        }.getOrDefault(arrayOfNulls(54))
+        }.getOrElse { throw IllegalStateException("Unable to deserialize item storage", it) }
     }
 }

@@ -20,7 +20,7 @@ interface IClanStorage {
      *
      * @param clan The clan instance to save.
      */
-    fun saveClan(clan: Clan)
+    fun saveClan(clan: Clan): Boolean
 
     /**
      * Permanently deletes a clan and its virtual chest data from storage.
@@ -44,4 +44,7 @@ interface IClanStorage {
      * @return A 54-element array of deserialized [ItemStack] objects.
      */
     fun loadChest(clanId: String): Array<ItemStack?>
+
+    /** Releases backend resources during plugin shutdown. */
+    fun close() {}
 }

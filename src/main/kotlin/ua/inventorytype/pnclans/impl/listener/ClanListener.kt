@@ -97,9 +97,14 @@ class ClanListener(private val plugin: BukkitPlugin) : Listener {
         val message = event.message
         val prefix = chatConfig.prefix
         if (prefix.isEmpty() || !message.startsWith(prefix)) return
+        if (clanService.getClanByUuid(event.player.uniqueId) == null) return
 
         event.isCancelled = true
-        sendClanChat(event.player, message.removePrefix(prefix).trim())
+        val player = event.player
+        val clanMessage = message.removePrefix(prefix).trim()
+        plugin.server.scheduler.runTask(plugin, Runnable {
+            if (player.isOnline) sendClanChat(player, clanMessage)
+        })
     }
 
     @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = true)

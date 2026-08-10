@@ -139,8 +139,8 @@ class Settings {
     @YamlComment("Проверять ли наличие новых версий на GitHub при запуске сервера")
     val checkUpdates: Boolean = true
 
-    @YamlComment("Автоматически скачивать последнюю версию плагина в папку plugins/update/ (применяется при перезапуске по умолчанию)")
-    val autoUpdate: Boolean = true
+    @YamlComment("Автоматически скачивать последнюю версию плагина в папку plugins/update/. Отключено по умолчанию ради безопасности")
+    val autoUpdate: Boolean = false
 
     @YamlComment("Стоимость создания клана в монетах экономики Vault (0 — бесплатно)")
     val createClanCost: Double = 1000.0
