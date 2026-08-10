@@ -1,3 +1,5 @@
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+
 plugins {
     kotlin("jvm") version "2.4.20-Beta2"
     kotlin("plugin.serialization") version "2.4.20-Beta2"
@@ -5,7 +7,7 @@ plugins {
     id("xyz.jpenilla.run-paper") version "3.0.2"
 }
 
-version = "1.0.6"
+version = "1.1.0"
 
 repositories {
     mavenCentral()
@@ -21,7 +23,7 @@ repositories {
 }
 
 dependencies {
-    compileOnly("io.papermc.paper:paper-api:26.2.build.+")
+    compileOnly("io.papermc.paper:paper-api:1.18.2-R0.1-SNAPSHOT")
     implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8")
     implementation("com.charleskorn.kaml:kaml:0.67.0")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
@@ -38,6 +40,9 @@ dependencies {
 
 kotlin {
     jvmToolchain(25)
+    compilerOptions {
+        jvmTarget.set(JvmTarget.JVM_25)
+    }
 }
 
 tasks {
@@ -55,7 +60,7 @@ tasks {
     }
 
     runServer {
-        minecraftVersion("26.2")
+        minecraftVersion("1.21.11")
         jvmArgs("-Xms2G", "-Xmx2G")
         pluginJars.from(shadowJar.flatMap { it.archiveFile })
     }

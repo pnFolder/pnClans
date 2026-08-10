@@ -5,7 +5,7 @@
 ### Клановая система для Paper, в которой всё важное находится в одном меню
 
 [![GitHub Release](https://img.shields.io/github/v/release/pnFolder/pnClans?style=for-the-badge&color=FC7D37)](https://github.com/pnFolder/pnClans/releases)
-[![Paper](https://img.shields.io/badge/Paper-26.2-5EFD7D?style=for-the-badge)](https://papermc.io/)
+[![Paper](https://img.shields.io/badge/Paper-1.18+-5EFD7D?style=for-the-badge)](https://papermc.io/)
 [![Java](https://img.shields.io/badge/Java-25-FC65DF?style=for-the-badge)](https://adoptium.net/)
 [![Development](https://img.shields.io/badge/branch-dev-5EA9FD?style=for-the-badge)](https://github.com/pnFolder/pnClans/tree/dev)
 
@@ -69,12 +69,20 @@
 
 | Компонент | Назначение | Обязателен |
 | --- | --- | --- |
-| Paper `26.2` | Серверное ядро | Да |
-| Java `25` | Среда запуска | Да |
+| Paper `1.18+` | Полностью поддерживаемое серверное ядро | Да |
+| Java `25` | Среда запуска и версия байткода плагина | Да |
 | Vault + экономика | Стоимость создания клана и казна | Для экономики |
 | PlaceholderAPI | Плейсхолдеры для TAB, чатов и скорбордов | Нет |
+| PlayerPoints | Альтернативная валюта кланового магазина | Нет |
 
 </details>
+
+### Поддержка версий Minecraft
+
+- Минимальная заявленная версия: Paper `1.16.5`.
+- Полная поддержка и регулярная проверка: Paper `1.18` и новее, включая актуальные версии Paper.
+- Paper `1.16.5`–`1.17.1` работает в режиме best effort: требуется Java `25`, а корректная работа всех функций на этих версиях не гарантируется.
+- Если возникнет проблема совместимости, приложите лог запуска и версию Paper в issue: мы готовы разбирать и исправлять воспроизводимые случаи.
 
 ## Команды
 
@@ -113,8 +121,32 @@
 | `config.yml` | Модули, хранилище, экономика, роли, клановый чат, подсветка и системные сообщения. |
 | `menus.yml` | Внешний вид GUI, слоты, предметы и список клановых домов. |
 | `messages.yml` | Сообщения, звуки, title, action bar и частицы для игровых событий. |
+| `shop.yml` | Категории, редкости, товары, валюты, способы оплаты, награды и внешний вид кланового магазина. |
+| `quests.yml` | Каталог клановых квестов и требования магазина. |
 
 В `config.yml` можно отключить отдельные модули: `homes`, `treasury`, `chest`, `upgrades` и `pvp`. Для кланового чата доступны два режима: префикс сообщения, например `!Привет`, или отдельная команда, например `/cc Привет`.
+
+### Награды магазина
+
+Каждый товар в `shop.yml` может комбинировать несколько действий из `rewards`. Стандартные примеры включают команду консоли и зачарованный предмет.
+
+```yaml
+rewards:
+  - !console_command
+    command: "minecraft:give {player} golden_apple {quantity}"
+  - !item_reward
+    item: DIAMOND_SWORD
+    amount: 1
+    name: "&#5EA9FDКлинок клана"
+    lore:
+      - "&7Выдан игроку &f{player}"
+    enchantments:
+      SHARPNESS: 5
+      UNBREAKING: 3
+    unbreakable: true
+```
+
+В наградах доступны `{player}`, `{player_name}`, `{product}`, `{quantity}` и `{clan}`. Предметы с количеством выше размера стака выдаются несколькими стаками; остаток падает рядом с покупателем.
 
 ## PlaceholderAPI
 

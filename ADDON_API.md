@@ -16,7 +16,7 @@ Only import packages under `ua.inventorytype.pnclans.api.*`. Classes in `impl.*`
 name: ExampleAddon
 version: '1.0.0'
 main: com.example.addon.ExampleAddon
-api-version: '26.2'
+api-version: '1.16'
 depend: [pnClans]
 ```
 
@@ -55,10 +55,10 @@ The included `examples/clan-missions-addon` project compiles against a locally b
 .\gradlew.bat build
 ```
 
-Then build the example from its directory. Pass `-PpnClansVersion=<version>` when the pnClans version differs from `1.0.6`.
+Then build the example through the root Gradle Wrapper. Pass `-PpnClansVersion=<version>` when the pnClans version differs from `1.1.0`.
 
 ```powershell
-.\gradlew.bat build "-PpnClansVersion=1.0.6"
+.\gradlew.bat -p .\examples\clan-missions-addon build "-PpnClansVersion=1.1.0"
 ```
 
 ## Public Services
