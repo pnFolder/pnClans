@@ -12,6 +12,7 @@ import ua.inventorytype.pnclans.api.event.ClanShopPurchaseEvent
 import ua.inventorytype.pnclans.api.event.ClanShopPurchasePreEvent
 import ua.inventorytype.pnclans.api.shop.ClanShopCurrency
 import ua.inventorytype.pnclans.impl.config.ClanShopProductConfig
+import ua.inventorytype.pnclans.impl.config.ClanShopPaymentOption
 import ua.inventorytype.pnclans.impl.storage.ItemStackSerializer
 import java.io.File
 import java.time.LocalDate
@@ -20,18 +21,23 @@ import java.time.ZoneOffset
 internal enum class ClanShopPurchaseRejection {
     PRODUCT_NOT_FOUND,
     PAYMENT_NOT_CONFIGURED,
+    SHOP_CHANGED,
     REQUIREMENTS_NOT_MET,
     CLAN_LIMIT_REACHED,
     GLOBAL_LIMIT_REACHED,
     CURRENCY_UNAVAILABLE,
+    NO_PERMISSION,
     INSUFFICIENT_FUNDS,
     CANCELLED_BY_EVENT,
     REWARD_FAILED
 }
 
 internal sealed interface ClanShopPurchaseResult {
-    data object Success : ClanShopPurchaseResult
-    data class Rejected(val reason: ClanShopPurchaseRejection) : ClanShopPurchaseResult
+    data class Success(val chargedPrice: Long) : ClanShopPurchaseResult
+    data class Rejected(
+        val reason: ClanShopPurchaseRejection,
+        val requiredPrice: Long? = null
+    ) : ClanShopPurchaseResult
 }
 
 @Serializable
@@ -61,11 +67,28 @@ internal class ClanShopService(private val plugin: BukkitPlugin) {
         return ledger.globalPurchases[productId] ?: 0
     }
 
-    fun purchase(player: Player, clan: Clan, productId: String, currency: ClanShopCurrency): ClanShopPurchaseResult {
+    fun purchase(
+        player: Player,
+        clan: Clan,
+        productId: String,
+        paymentIndex: Int,
+        expectedProduct: ClanShopProductConfig,
+        expectedPayment: ClanShopPaymentOption
+    ): ClanShopPurchaseResult {
         val product = plugin.configService.shop.products[productId]
             ?: return ClanShopPurchaseResult.Rejected(ClanShopPurchaseRejection.PRODUCT_NOT_FOUND)
-        val payment = product.payments.firstOrNull { it.currency == currency }
+        if (product != expectedProduct) {
+            return ClanShopPurchaseResult.Rejected(ClanShopPurchaseRejection.SHOP_CHANGED)
+        }
+        val payment = product.payments.getOrNull(paymentIndex)
             ?: return ClanShopPurchaseResult.Rejected(ClanShopPurchaseRejection.PAYMENT_NOT_CONFIGURED)
+        if (payment != expectedPayment) {
+            return ClanShopPurchaseResult.Rejected(ClanShopPurchaseRejection.SHOP_CHANGED)
+        }
+        val currency = payment.currency
+        if (!payment.permission.isNullOrBlank() && !player.hasPermission(payment.permission)) {
+            return ClanShopPurchaseResult.Rejected(ClanShopPurchaseRejection.NO_PERMISSION)
+        }
         if (!meetsRequirements(clan, product)) return ClanShopPurchaseResult.Rejected(ClanShopPurchaseRejection.REQUIREMENTS_NOT_MET)
 
         resetDayIfNeeded()
@@ -81,8 +104,12 @@ internal class ClanShopService(private val plugin: BukkitPlugin) {
         Bukkit.getPluginManager().callEvent(event)
         if (event.isCancelled || event.price <= 0L) return ClanShopPurchaseResult.Rejected(ClanShopPurchaseRejection.CANCELLED_BY_EVENT)
         val balance = currencies.balance(currency, player, clan)
-        if (balance == null || balance < event.price) return ClanShopPurchaseResult.Rejected(ClanShopPurchaseRejection.INSUFFICIENT_FUNDS)
-        if (!currencies.withdraw(currency, player, clan, event.price)) return ClanShopPurchaseResult.Rejected(ClanShopPurchaseRejection.INSUFFICIENT_FUNDS)
+        if (balance == null || balance < event.price) {
+            return ClanShopPurchaseResult.Rejected(ClanShopPurchaseRejection.INSUFFICIENT_FUNDS, event.price)
+        }
+        if (!currencies.withdraw(currency, player, clan, event.price)) {
+            return ClanShopPurchaseResult.Rejected(ClanShopPurchaseRejection.INSUFFICIENT_FUNDS, event.price)
+        }
 
         val rewarded = runCatching { grantRewards(player, clan, productId, product) }.isSuccess
         if (!rewarded) {
@@ -94,7 +121,7 @@ internal class ClanShopService(private val plugin: BukkitPlugin) {
         ledger.globalPurchases.merge(productId, 1, Int::plus)
         saveLedger()
         Bukkit.getPluginManager().callEvent(ClanShopPurchaseEvent(clan, player, productId, currency, event.price))
-        return ClanShopPurchaseResult.Success
+        return ClanShopPurchaseResult.Success(event.price)
     }
 
     private fun meetsRequirements(clan: Clan, product: ClanShopProductConfig): Boolean =
@@ -104,14 +131,31 @@ internal class ClanShopService(private val plugin: BukkitPlugin) {
 
     private fun grantRewards(player: Player, clan: Clan, productId: String, product: ClanShopProductConfig) {
         product.itemStack?.takeIf { it.isNotBlank() }?.let { encoded ->
-            ItemStackSerializer.fromBase64(encoded).firstOrNull()?.clone()?.let { item ->
-                item.amount = product.itemAmount.coerceIn(1, item.maxStackSize)
-                player.inventory.addItem(item)
-            }
+            val item = ItemStackSerializer.fromBase64(encoded).firstOrNull()
+                ?: throw IllegalArgumentException("Invalid serialized shop item for $productId")
+            giveItem(player, item.clone(), product.itemAmount)
         }
-        val placeholders = mapOf("product" to productId, "clan" to clan.name, "quantity" to product.itemAmount.toString())
+        val placeholders = mapOf(
+            "player" to player.name,
+            "player_name" to player.name,
+            "product" to productId,
+            "clan" to clan.name,
+            "quantity" to product.itemAmount.toString()
+        )
         val context = ActionContext(player, plugin.placeholderRegistry, placeholders, plugin)
         product.rewards.forEach { it.execute(context) }
+    }
+
+    /** Delivers all units and drops inventory overflow at the buyer's feet. */
+    private fun giveItem(player: Player, template: org.bukkit.inventory.ItemStack, amount: Int) {
+        var remaining = amount.coerceAtLeast(1)
+        while (remaining > 0) {
+            val stack = template.clone().apply { this.amount = minOf(remaining, maxStackSize) }
+            player.inventory.addItem(stack).values.forEach { overflow ->
+                player.world.dropItemNaturally(player.location, overflow)
+            }
+            remaining -= stack.amount
+        }
     }
 
     private fun resetDayIfNeeded() {

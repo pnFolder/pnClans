@@ -9,6 +9,7 @@ import org.bukkit.Bukkit
 import org.bukkit.Material
 import org.bukkit.Particle
 import org.bukkit.Sound
+import org.bukkit.enchantments.Enchantment
 import org.bukkit.entity.Player
 import org.bukkit.inventory.ItemStack
 import ua.inventorytype.pnclans.BukkitPlugin
@@ -272,8 +273,112 @@ data class GiveItemAction(
     val amount: Int = 1
 ) : Action {
     override fun execute(context: ActionContext) {
-        val mat = runCatching { Material.valueOf(item.uppercase()) }.getOrNull() ?: return
-        context.player.inventory.addItem(ItemStack(mat, amount))
+        val material = runCatching { Material.valueOf(item.uppercase()) }.getOrNull()
+            ?: throw IllegalArgumentException("Unknown item material: $item")
+        giveItem(context.player, ItemStack(material), amount)
+    }
+}
+
+/**
+ * Gives a configurable item with display metadata and enchantments.
+ * YAML tag:
+ * !item_reward
+ *   item: DIAMOND_SWORD
+ *   amount: 1
+ *   name: "&bКлинок клана"
+ *   lore: ["&7Награда для {player}"]
+ *   enchantments: { SHARPNESS: 5, UNBREAKING: 3 }
+ */
+@Serializable
+@SerialName("item_reward")
+data class ItemRewardAction(
+    val item: String,
+    val amount: Int = 1,
+    val name: String? = null,
+    val lore: List<String> = emptyList(),
+    val enchantments: Map<String, Int> = emptyMap(),
+    val unbreakable: Boolean = false,
+    val unsafeEnchantments: Boolean = false
+) : Action {
+    @Suppress("DEPRECATION")
+    override fun execute(context: ActionContext) {
+        val material = runCatching { Material.valueOf(item.uppercase()) }.getOrNull()
+            ?: throw IllegalArgumentException("Unknown reward material: $item")
+        val reward = ItemStack(material)
+        val meta = reward.itemMeta ?: return
+
+        name?.let { meta.setDisplayName(context.placeholderRegistry.process(context.player, it, context.placeholders)) }
+        if (lore.isNotEmpty()) {
+            meta.lore = lore.map { context.placeholderRegistry.process(context.player, it, context.placeholders) }
+        }
+        meta.isUnbreakable = unbreakable
+        reward.itemMeta = meta
+
+        enchantments.forEach { (enchantmentName, level) ->
+            val enchantment = enchantment(enchantmentName)
+                ?: throw IllegalArgumentException("Unknown enchantment: $enchantmentName")
+            if (unsafeEnchantments) {
+                reward.addUnsafeEnchantment(enchantment, level)
+            } else {
+                reward.addEnchantment(enchantment, level)
+            }
+        }
+        giveItem(context.player, reward, amount)
+    }
+
+    @Suppress("DEPRECATION")
+    private fun enchantment(name: String): Enchantment? {
+        val legacyName = ENCHANTMENT_ALIASES[name.uppercase()] ?: name.uppercase()
+        return Enchantment.getByName(legacyName)
+    }
+
+    private companion object {
+        val ENCHANTMENT_ALIASES = mapOf(
+            "SHARPNESS" to "DAMAGE_ALL",
+            "SMITE" to "DAMAGE_UNDEAD",
+            "BANE_OF_ARTHROPODS" to "DAMAGE_ARTHROPODS",
+            "UNBREAKING" to "DURABILITY",
+            "EFFICIENCY" to "DIG_SPEED",
+            "FORTUNE" to "LOOT_BONUS_BLOCKS",
+            "LOOTING" to "LOOT_BONUS_MOBS",
+            "PROTECTION" to "PROTECTION_ENVIRONMENTAL",
+            "FIRE_PROTECTION" to "PROTECTION_FIRE",
+            "FEATHER_FALLING" to "PROTECTION_FALL",
+            "BLAST_PROTECTION" to "PROTECTION_EXPLOSIONS",
+            "PROJECTILE_PROTECTION" to "PROTECTION_PROJECTILE",
+            "POWER" to "ARROW_DAMAGE",
+            "PUNCH" to "ARROW_KNOCKBACK",
+            "FLAME" to "ARROW_FIRE",
+            "INFINITY" to "ARROW_INFINITE"
+        )
+    }
+}
+
+/**
+ * Runs a server-console command after formatting action placeholders.
+ * YAML tag: !console_command { command: "minecraft:give {player} diamond 3" }
+ */
+@Serializable
+@SerialName("console_command")
+data class ConsoleCommandAction(val command: String) : Action {
+    override fun execute(context: ActionContext) {
+        val formatted = context.placeholderRegistry.process(context.player, command, context.placeholders, colorize = false)
+            .removePrefix("/")
+            .trim()
+        require(formatted.isNotEmpty()) { "Console command cannot be empty" }
+        check(Bukkit.dispatchCommand(Bukkit.getConsoleSender(), formatted)) { "Console command failed: $formatted" }
+    }
+}
+
+/** Delivers every configured unit, dropping overflow rather than silently truncating the reward. */
+private fun giveItem(player: Player, template: ItemStack, amount: Int) {
+    var remaining = amount.coerceAtLeast(1)
+    while (remaining > 0) {
+        val stack = template.clone().apply { this.amount = minOf(remaining, maxStackSize) }
+        player.inventory.addItem(stack).values.forEach { overflow ->
+            player.world.dropItemNaturally(player.location, overflow)
+        }
+        remaining -= stack.amount
     }
 }
 
