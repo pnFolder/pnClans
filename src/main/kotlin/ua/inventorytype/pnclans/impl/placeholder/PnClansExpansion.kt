@@ -38,6 +38,8 @@ class PnClansExpansion(private val plugin: BukkitPlugin) : PlaceholderExpansion(
             "mmr" -> clan?.mmr?.toString() ?: "0"
             "kills" -> clan?.kills?.toString() ?: "0"
             "deaths" -> clan?.deaths?.toString() ?: "0"
+            "battle_wins", "wins" -> clan?.battleWins?.toString() ?: "0"
+            "battle_losses", "losses" -> clan?.battleLosses?.toString() ?: "0"
             "members" -> if (clan != null) "${clan.onlineCount}/${clan.users.size}" else "0/0"
             else -> null
         }

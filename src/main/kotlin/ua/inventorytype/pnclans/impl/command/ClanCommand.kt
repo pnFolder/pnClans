@@ -15,6 +15,10 @@ import ua.inventorytype.pnclans.impl.ux.MainUX
 import ua.inventorytype.pnclans.impl.ux.TopClansUX
 import ua.inventorytype.pnclans.impl.ux.HomesUX
 import ua.inventorytype.pnclans.impl.ux.TreasuryUX
+import ua.inventorytype.pnclans.impl.ux.ClanBattlesUX
+import ua.inventorytype.pnclans.impl.clan.ClanBattleOperation
+import ua.inventorytype.pnclans.impl.clan.ClanBattleRejection
+import ua.inventorytype.pnclans.impl.clan.ClanStatsPeriod
 import ua.inventorytype.pnclans.api.command.ClanCommandContext
 import ua.inventorytype.pnclans.api.event.ClanSubcommandExecuteEvent
 
@@ -34,6 +38,7 @@ class ClanCommand(
 
     private val clanService = plugin.clanService
     private val configService = plugin.configService
+    private val adminHandler = ClanAdminCommandHandler(plugin)
     private val cfg get() = configService.settings
 
     private fun msg(player: Player, template: String, customPlaceholders: Map<String, String> = emptyMap()): String {
@@ -41,16 +46,19 @@ class ClanCommand(
     }
 
     override fun onCommand(sender: CommandSender, command: Command, label: String, args: Array<out String>): Boolean {
-        if (sender !is Player) {
-            sender.sendMessage("§cЭту команду может выполнять только игрок.")
-            return true
-        }
-        if (!sender.hasPermission("pnclans.use")) {
-            sender.sendMessage(msg(sender, cfg.msgNoPermission))
-            return true
-        }
-
         try {
+            if (args.firstOrNull()?.equals("admin", ignoreCase = true) == true) {
+                return adminHandler.execute(sender, args.drop(1))
+            }
+            if (sender !is Player) {
+                sender.sendMessage("§cИгровые команды доступны только игроку. Для управления используйте /clan admin help.")
+                return true
+            }
+            if (!sender.hasPermission("pnclans.use")) {
+                sender.sendMessage(msg(sender, cfg.msgNoPermission))
+                return true
+            }
+
             // Main /clan entry point opens GUI directly
             if (args.isEmpty() || args[0].equals("menu", ignoreCase = true)) {
                 MainUX(clanService).open(sender)
@@ -74,6 +82,8 @@ class ClanCommand(
                     TopClansUX(clanService).open(sender)
                 }
 
+                "stats", "stat", "profile" -> showStats(sender, args.drop(1))
+
                 "home" -> {
                     if (!modules.homes) {
                         sender.sendMessage("§c[pnClans] Модуль точек дома отключён в конфигурации сервера.")
@@ -88,7 +98,7 @@ class ClanCommand(
                         return true
                     }
 
-                    val loc = clan.homes[homeEntry.key]
+                    val loc = clan.homes[homeEntry.key.lowercase()]
                     if (loc == null) {
                         configService.send(sender, configService.messages.homes.notSet, mapOf("home" to homeEntry.label))
                         return true
@@ -153,6 +163,38 @@ class ClanCommand(
                     TreasuryUX(clanService).open(sender)
                 }
 
+                "battle", "battles" -> {
+                    if (!configService.battles.enabled) {
+                        configService.send(sender, configService.messages.battles.disabled)
+                        return true
+                    }
+                    when (args.getOrNull(1)?.lowercase()) {
+                        "accept", "decline" -> {
+                            val challengeId = args.getOrNull(2)?.let { runCatching { java.util.UUID.fromString(it) }.getOrNull() }
+                            if (challengeId == null) {
+                                configService.send(sender, configService.messages.battles.challengeNotFound)
+                            } else {
+                                val result = if (args[1].equals("accept", true)) {
+                                    plugin.clanBattleService.acceptChallenge(sender, challengeId)
+                                } else {
+                                    plugin.clanBattleService.declineChallenge(sender, challengeId)
+                                }
+                                sendBattleResult(sender, result)
+                                if (result is ClanBattleOperation.Success) ClanBattlesUX(clanService).open(sender)
+                            }
+                        }
+                        null -> ClanBattlesUX(clanService).open(sender)
+                        else -> {
+                            val target = clanService.getClanByName(args.drop(1).joinToString(" "))
+                            if (target == null) {
+                                ClanBattlesUX(clanService).open(sender)
+                            } else {
+                                sendBattleResult(sender, plugin.clanBattleService.sendChallenge(sender, target))
+                            }
+                        }
+                    }
+                }
+
                 "chest" -> {
                     if (!modules.chest) {
                         sender.sendMessage("§c[pnClans] Модуль кланового склада отключён в конфигурации сервера.")
@@ -187,15 +229,7 @@ class ClanCommand(
                 }
 
                 "reload" -> {
-                    if (!sender.hasPermission("pnclans.admin")) {
-                        sender.sendMessage(msg(sender, cfg.msgNoPermission))
-                        return true
-                    }
-                    clanService.saveAll()
-                    plugin.guiListener.forceCloseAll()
-                    plugin.configService.loadAll()
-                    clanService.loadClans()
-                    sender.sendMessage("§a[pnClans] Конфигурации перезагружены, данные кланов сохранены и загружены заново. Открытые меню закрыты для применения нового layout.")
+                    adminHandler.execute(sender, listOf("reload"))
                 }
 
 
@@ -216,10 +250,10 @@ class ClanCommand(
             ErrorReporter.report(
                 context = "Unhandled Command Exception: /clan ${args.joinToString(" ")}",
                 throwable = throwable,
-                player = sender,
+                player = sender as? Player,
                 extraData = mapOf("Command Args" to args.joinToString(" "))
             )
-            sender.sendMessage("§c[pnClans] Произошла ошибка при выполнении команды. Отчет отправлен в Discord!")
+            sender.sendMessage("§c[pnClans] Произошла внутренняя ошибка. Подробности записаны в журнал сервера.")
         }
 
         return true
@@ -233,10 +267,16 @@ class ClanCommand(
         configService.menus.homesMenu.homes.firstOrNull()?.key.orEmpty()
 
     override fun onTabComplete(sender: CommandSender, command: Command, alias: String, args: Array<out String>): List<String> {
+        if (args.firstOrNull()?.equals("admin", ignoreCase = true) == true) {
+            if (!sender.hasPermission("pnclans.admin")) return emptyList()
+            return adminHandler.complete(args.drop(1))
+        }
         val modules = cfg.modules
 
         if (args.size == 1) {
-            val subcommands = mutableListOf("menu", "accept", "deny", "top", "reload")
+            val subcommands = mutableListOf("menu", "accept", "deny", "top", "stats")
+            if (sender.hasPermission("pnclans.admin")) subcommands.addAll(listOf("admin", "reload"))
+            if (configService.battles.enabled) subcommands.add("battle")
             if (modules.homes) subcommands.addAll(listOf("home", "sethome", "delhome"))
             if (modules.treasury) subcommands.addAll(listOf("deposit", "withdraw"))
             if (modules.chest) subcommands.add("chest")
@@ -256,6 +296,83 @@ class ClanCommand(
             }
         }
 
+        if (args.size == 2 && args[0].equals("battle", true) && configService.battles.enabled) {
+            return listOf("accept", "decline").filter { it.startsWith(args[1], ignoreCase = true) }
+        }
+
+        if (args.size == 2 && args[0].equals("stats", true)) {
+            val player = sender as? Player ?: return emptyList()
+            val clan = clanService.getClanUser(player) ?: return emptyList()
+            return (clan.users.map { it.playerName } + ClanStatsPeriod.entries.map { it.name.lowercase() })
+                .filter { it.startsWith(args[1], ignoreCase = true) }
+        }
+
+        if (args.size == 3 && args[0].equals("stats", true)) {
+            return ClanStatsPeriod.entries.map { it.name.lowercase() }
+                .filter { it.startsWith(args[2], ignoreCase = true) }
+        }
+
+        if (args.size == 3 && args[0].equals("battle", true) &&
+            (args[1].equals("accept", true) || args[1].equals("decline", true))
+        ) {
+            val player = sender as? Player ?: return emptyList()
+            val clan = clanService.getClanUser(player) ?: return emptyList()
+            return plugin.clanBattleService.incomingChallenges(clan)
+                .map { it.id.toString() }
+                .filter { it.startsWith(args[2], ignoreCase = true) }
+        }
+
+        val extension = args.firstOrNull()?.let(plugin::publicSubcommand)
+        if (extension != null && args.size >= 2) {
+            val player = sender as? Player
+            val extensionArgs = args.drop(1)
+            val context = ClanCommandContext(sender, extensionArgs, player?.let(clanService::getClanUser))
+            return extension.tabComplete(context)
+                .filter { it.startsWith(extensionArgs.last(), ignoreCase = true) }
+        }
+
         return emptyList()
+    }
+
+    private fun showStats(player: Player, args: List<String>) {
+        val clan = clanService.getClanUser(player) ?: run {
+            player.sendMessage(msg(player, cfg.msgNoClan))
+            return
+        }
+        val own = clan.getMember(player.uniqueId) ?: return
+        val first = args.getOrNull(0)
+        val ownPeriod = ClanStatsPeriod.fromInput(first)
+        if (first == null || ownPeriod != null) {
+            ClanStatsPresenter.send(player, clan, own, configService.getRoleDisplayName(clan.getUserRole(own)), clanService, ownPeriod)
+            return
+        }
+        val target = clan.users.firstOrNull { it.playerName.equals(first, ignoreCase = true) }
+        if (target == null) {
+            player.sendMessage(configService.formatMessage(player, "&#FC3737✖ &fИгрок &e$first &fне состоит в вашем клане."))
+            return
+        }
+        val period = args.getOrNull(1)?.let(ClanStatsPeriod::fromInput)
+        if (args.size > 1 && period == null) {
+            player.sendMessage(configService.formatMessage(player, "&#FFD700Использование: &f/clan stats [player] [day|week|month|all]"))
+            return
+        }
+        ClanStatsPresenter.send(player, clan, target, configService.getRoleDisplayName(clan.getUserRole(target)), clanService, period)
+    }
+
+    private fun sendBattleResult(player: Player, result: ClanBattleOperation) {
+        val rejected = result as? ClanBattleOperation.Rejected ?: return
+        val actions = when (rejected.reason) {
+            ClanBattleRejection.DISABLED -> configService.messages.battles.disabled
+            ClanBattleRejection.NO_PERMISSION -> configService.messages.battles.noPermission
+            ClanBattleRejection.CLAN_BUSY -> configService.messages.battles.clanBusy
+            ClanBattleRejection.CHALLENGE_EXISTS -> configService.messages.battles.challengeExists
+            ClanBattleRejection.CHALLENGE_NOT_FOUND, ClanBattleRejection.CHALLENGE_EXPIRED -> configService.messages.battles.challengeNotFound
+            ClanBattleRejection.NOT_TARGET_CLAN -> configService.messages.battles.notTarget
+            ClanBattleRejection.NOT_ENOUGH_ONLINE -> configService.messages.battles.notEnoughOnline
+            ClanBattleRejection.ARENA_UNAVAILABLE -> configService.messages.battles.arenaUnavailable
+            ClanBattleRejection.CANCELLED_BY_EVENT -> configService.messages.battles.cancelled
+            ClanBattleRejection.NO_CLAN, ClanBattleRejection.SAME_CLAN -> configService.messages.general.noPermission
+        }
+        configService.send(player, actions)
     }
 }

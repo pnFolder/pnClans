@@ -45,7 +45,7 @@ class HomesUX(
             slot(entry.slot) {
                 dynamicItem(lockedMat) { player ->
                     val clan = this@HomesUX.clanService.getClanUser(player) ?: return@dynamicItem null
-                    val loc = clan.homes[entry.key]
+                    val loc = clan.homes[entry.key.lowercase()]
                     val unlocked = clan.level >= entry.requiredLevel
                     val placeholders = basePlaceholders(entry, clan.level, maxPage)
 
@@ -84,7 +84,7 @@ class HomesUX(
                     val msgCfg = cfg.messages
                     val clan = this@HomesUX.clanService.getClanUser(player) ?: return@onClick
                     val user = clan.getMember(player.uniqueId) ?: return@onClick
-                    val loc = clan.homes[entry.key]
+                    val loc = clan.homes[entry.key.lowercase()]
 
                     if (clan.level < entry.requiredLevel) return@onClick
 

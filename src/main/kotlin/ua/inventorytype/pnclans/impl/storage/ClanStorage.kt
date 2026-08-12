@@ -14,6 +14,7 @@ import ua.inventorytype.pnclans.api.clan.ClanRole
 import ua.inventorytype.pnclans.api.clan.ClanSetting
 import ua.inventorytype.pnclans.impl.clan.ClanImpl
 import ua.inventorytype.pnclans.impl.clan.ClanUser
+import ua.inventorytype.pnclans.impl.clan.ClanDailyCombatStats
 import java.io.File
 import java.nio.file.Files
 import java.nio.file.StandardCopyOption
@@ -23,6 +24,7 @@ import ua.inventorytype.pnclans.api.clan.TreasuryTransactionType
 import ua.inventorytype.pnclans.api.clan.ClanPointsTransaction
 import ua.inventorytype.pnclans.api.clan.ClanPointsTransactionType
 import ua.inventorytype.pnclans.api.clan.ClanPointsSource
+import ua.inventorytype.pnclans.api.clan.ClanQuestProgress
 import ua.inventorytype.pnclans.api.permission.ClanPerms
 
 @Serializable
@@ -33,6 +35,8 @@ data class ClanDataModel(
     val mmr: Int = 1000,
     val kills: Int = 0,
     val deaths: Int = 0,
+    val battleWins: Int = 0,
+    val battleLosses: Int = 0,
     val bankBalance: Double = 0.0,
     val points: Long = 0L,
     val activityPointsDate: String = "",
@@ -47,7 +51,8 @@ data class ClanDataModel(
     val treasuryLogs: List<TreasuryLogModel> = emptyList(),
     val pointsLogs: List<ClanPointsLogModel> = emptyList(),
     val rolePermissions: Map<String, Map<String, Boolean>> = emptyMap(),
-    val userPermissions: Map<String, Map<String, Boolean>> = emptyMap()
+    val userPermissions: Map<String, Map<String, Boolean>> = emptyMap(),
+    val questProgress: Map<String, ClanQuestProgressModel> = emptyMap()
 )
 
 @Serializable
@@ -66,7 +71,14 @@ data class ClanMemberModel(
     val kills: Int = 0,
     val deaths: Int = 0,
     val playtimeSeconds: Long = 0L,
-    val points: Int = 0
+    val points: Int = 0,
+    val combatDays: Map<String, ClanDailyCombatStatsModel> = emptyMap()
+)
+
+@Serializable
+data class ClanDailyCombatStatsModel(
+    val kills: Int = 0,
+    val deaths: Int = 0
 )
 
 @Serializable
@@ -76,6 +88,15 @@ data class ClanPointsLogModel(
     val amount: Long,
     val balanceAfter: Long,
     val timestamp: Long
+)
+
+@Serializable
+data class ClanQuestProgressModel(
+    val progress: Long = 0L,
+    val completed: Boolean = false,
+    val completedAt: Long = 0L,
+    val completionCount: Int = 0,
+    val cycleKey: String = ""
 )
 
 @Serializable
@@ -111,7 +132,10 @@ class ClanStorage(private val plugin: BukkitPlugin) : IClanStorage {
                     kills = (user as? ClanUser)?.kills ?: 0,
                     deaths = (user as? ClanUser)?.deaths ?: 0,
                     playtimeSeconds = (user as? ClanUser)?.playtimeSeconds ?: 0L,
-                    points = (user as? ClanUser)?.points ?: 0
+                    points = (user as? ClanUser)?.points ?: 0,
+                    combatDays = (user as? ClanUser)?.dailyCombatStats.orEmpty().mapValues { (_, stats) ->
+                        ClanDailyCombatStatsModel(stats.kills, stats.deaths)
+                    }
                 )
             }
 
@@ -134,6 +158,8 @@ class ClanStorage(private val plugin: BukkitPlugin) : IClanStorage {
                 mmr = clan.mmr,
                 kills = clan.kills,
                 deaths = clan.deaths,
+                battleWins = clan.battleWins,
+                battleLosses = clan.battleLosses,
                 bankBalance = clan.bankBalance,
                 points = clan.points,
                 activityPointsDate = clan.activityPointsDate,
@@ -151,7 +177,10 @@ class ClanStorage(private val plugin: BukkitPlugin) : IClanStorage {
                     .mapValues { (_, values) -> values.associate { it.first.node to it.second } },
                 userPermissions = (clan as? ClanImpl)?.userPermissions.orEmpty()
                     .mapKeys { it.key.toString() }
-                    .mapValues { (_, values) -> values.associate { it.first.node to it.second } }
+                    .mapValues { (_, values) -> values.associate { it.first.node to it.second } },
+                questProgress = clan.questProgress.mapValues { (_, value) ->
+                    ClanQuestProgressModel(value.progress, value.completed, value.completedAt, value.completionCount, value.cycleKey)
+                }
             )
 
             val file = File(storageDir, "${clan.id}.json")
@@ -180,7 +209,10 @@ class ClanStorage(private val plugin: BukkitPlugin) : IClanStorage {
                         kills = m.kills,
                         deaths = m.deaths,
                         playtimeSeconds = m.playtimeSeconds,
-                        points = m.points
+                        points = m.points,
+                        initialCombatHistory = m.combatDays.mapValues { (_, stats) ->
+                            ClanDailyCombatStats(stats.kills, stats.deaths)
+                        }
                     ) to role
                 }.toSet()
 
@@ -193,6 +225,8 @@ class ClanStorage(private val plugin: BukkitPlugin) : IClanStorage {
                     mmr = model.mmr
                     kills = model.kills
                     deaths = model.deaths
+                    battleWins = model.battleWins
+                    battleLosses = model.battleLosses
                     bankBalance = model.bankBalance
                     points = model.points
                     activityPointsDate = model.activityPointsDate
@@ -207,6 +241,9 @@ class ClanStorage(private val plugin: BukkitPlugin) : IClanStorage {
                         runCatching { addPointsLog(ClanPointsTransaction(ClanPointsTransactionType.valueOf(entry.type), ClanPointsSource.valueOf(entry.source), entry.amount, entry.balanceAfter, entry.timestamp)) }
                     }
                     restorePermissionOverrides(this, model.rolePermissions, model.userPermissions)
+                    model.questProgress.forEach { (questId, value) ->
+                        setQuestProgress(questId, ClanQuestProgress(value.progress, value.completed, value.completedAt, value.completionCount, value.cycleKey))
+                    }
                 }
 
                 model.settings.forEach { (key, valBool) ->

@@ -123,13 +123,14 @@ internal class ClanShopService(private val plugin: BukkitPlugin) {
         ledger.globalPurchases.merge(productId, 1, Int::plus)
         saveLedger()
         Bukkit.getPluginManager().callEvent(ClanShopPurchaseEvent(clan, player, productId, currency, event.price))
+        plugin.clanQuestService.recordShopPurchase(clan, player)
         return ClanShopPurchaseResult.Success(event.price)
     }
 
     private fun meetsRequirements(clan: Clan, product: ClanShopProductConfig): Boolean =
         clan.level >= product.conditions.minimumClanLevel &&
             clan.users.size >= product.conditions.minimumMembers &&
-            product.conditions.requiredQuests.isEmpty()
+            plugin.clanQuestService.requiredQuestsMet(clan, product.conditions.requiredQuests)
 
     private fun grantRewards(player: Player, clan: Clan, productId: String, product: ClanShopProductConfig) {
         product.itemStack?.takeIf { it.isNotBlank() }?.let { encoded ->

@@ -32,6 +32,8 @@ class PlaceholderRegistry {
         register("clan_mmr") { player -> clanService.getClanUser(player)?.mmr?.toString() ?: "0" }
         register("clan_kills") { player -> clanService.getClanUser(player)?.kills?.toString() ?: "0" }
         register("clan_deaths") { player -> clanService.getClanUser(player)?.deaths?.toString() ?: "0" }
+        register("clan_battle_wins") { player -> clanService.getClanUser(player)?.battleWins?.toString() ?: "0" }
+        register("clan_battle_losses") { player -> clanService.getClanUser(player)?.battleLosses?.toString() ?: "0" }
         register("clan_members") { player -> clanService.getClanUser(player)?.let { "${it.onlineCount}/${it.users.size}" } ?: "0/0" }
         register("player_name") { player -> player.name }
     }

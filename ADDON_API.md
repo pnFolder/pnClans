@@ -58,7 +58,7 @@ The included `examples/clan-missions-addon` project compiles against a locally b
 Then build the example through the root Gradle Wrapper. Pass `-PpnClansVersion=<version>-java25` to compile against the Java 25 API JAR, or use the `-java21` JAR for a Java 21-compatible add-on.
 
 ```powershell
-.\gradlew.bat -p .\examples\clan-missions-addon build "-PpnClansVersion=1.1.5-java25"
+.\gradlew.bat -p .\examples\clan-missions-addon build "-PpnClansVersion=1.2.0-java25"
 ```
 
 ## Public Services
@@ -87,14 +87,15 @@ api.points.award(clan, 25, ClanPointsSource.QUEST)
 val purchased = api.points.spend(clan, 100, ClanPointsSource.SHOP)
 ```
 
-Available sources: `PLAYER_KILL`, `MOB_KILL`, `ACTIVITY`, `QUEST`, `SHOP`, and `ADMIN`.
+Available sources: `PLAYER_KILL`, `MOB_KILL`, `ACTIVITY`, `BATTLE`, `QUEST`, `SHOP`, and `ADMIN`.
 
 ## Events
 
 Events follow one rule:
 
 - `*PreEvent` is cancellable and runs before a mutation.
-- An event without `Pre` is a notification after a successful mutation and is not cancellable.
+- Quest and battle gate events are also cancellable because they protect their own state transitions.
+- Other events are notifications after a successful mutation and are not cancellable.
 
 Important events:
 
@@ -109,8 +110,15 @@ Important events:
 | `ClanSettingChangeEvent` | Before a clan setting changes; cancellable and the target value is mutable. |
 | `ClanHomeSetEvent`, `ClanHomeDeleteEvent` | Before a clan home is set, moved, or deleted; cancellable. |
 | `ClanChestOpenEvent` | Before the clan chest GUI opens; cancellable. |
+| `ClanQuestProgressEvent` | Before shared clan quest progress is saved; cancellable, progress is mutable, and `actor` may be null. |
+| `ClanQuestCompleteEvent` | Before quest completion and configured rewards; cancellable, and `actor` may be null. |
+| `ClanBattleChallengeEvent` | Before a clan challenge is created; cancellable. |
+| `ClanBattleStartEvent` | Before participants are moved to the configured arena; cancellable. |
+| `ClanBattleEndEvent` | After an active battle is resolved, including winner, loser, score, and reason. |
 | `ClanSavedEvent` | After a clan was persisted. |
 | `ClanSubcommandExecuteEvent` | Before an add-on subcommand runs; cancellable. |
+
+Quest event constructors retain their API 4 JVM overloads. Battle objects delivered through events are snapshots; changing their score fields does not mutate the active match.
 
 ```kotlin
 @EventHandler
@@ -207,4 +215,6 @@ mainMenu:
 
 ## API Compatibility
 
-The current public API version is `4`. Compare `api.apiVersion` only when using features introduced after the minimum version your add-on supports. Do not compare the plugin release version for API compatibility.
+The current public API version is `5`. Compare `api.apiVersion` only when using features introduced after the minimum version your add-on supports. Do not compare the plugin release version for API compatibility.
+
+API 5 adds battle types, battle events, battle statistics, quest progress access, `ClanPerms.Action.START_BATTLE`, and `ClanPointsSource.BATTLE`. Add-ons with an exhaustive `when` over `ClanPointsSource` must handle the new `BATTLE` value and should be recompiled against this release.

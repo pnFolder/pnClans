@@ -34,10 +34,17 @@ class ClanLeaveConfirmUX(clanService: ClanService) : BaseGui(clanService) {
                 dynamicItem(this@ClanLeaveConfirmUX.parseMaterial(confirmLeader.material, Material.RED_DYE)) { player ->
                     val clan = this@ClanLeaveConfirmUX.clanService.getClanUser(player) ?: return@dynamicItem null
                     val user = clan.getMember(player.uniqueId) ?: return@dynamicItem null
-                    val itemCfg = if (clan.getUserRole(user) == ClanRole.LEADER) confirmLeader else confirmMember
+                    val isLeader = clan.getUserRole(user) == ClanRole.LEADER
+                    val itemCfg = if (isLeader) confirmLeader else confirmMember
 
                     type(this@ClanLeaveConfirmUX.parseMaterial(itemCfg.material, Material.RED_DYE))
-                    this@ClanLeaveConfirmUX.renderConfigItem(this, player, itemCfg, mapOf("clan" to clan.name))
+                    this@ClanLeaveConfirmUX.renderConfigItem(
+                        this,
+                        player,
+                        itemCfg,
+                        mapOf("clan" to clan.name),
+                        this@ClanLeaveConfirmUX.battleWarning(clan, isLeader)
+                    )
                     null
                 }
                 onClick { player, _ ->
@@ -45,13 +52,16 @@ class ClanLeaveConfirmUX(clanService: ClanService) : BaseGui(clanService) {
                     val user = clan.getMember(player.uniqueId) ?: return@onClick
 
                     if (clan.getUserRole(user) == ClanRole.LEADER) {
-                        val errorMsg = this@ClanLeaveConfirmUX.clanService.disbandClan(clan, player)
+                        val errorMsg = this@ClanLeaveConfirmUX.clanService.disbandClan(
+                            clan,
+                            player,
+                            endActiveBattle = this@ClanLeaveConfirmUX.clanService.plugin.clanBattleService.hasActiveBattle(clan)
+                        )
                         if (errorMsg != null) {
                             player.sendMessage(errorMsg)
                             return@onClick
                         }
                     } else if (this@ClanLeaveConfirmUX.clanService.removeUserFromClan(clan, player.uniqueId)) {
-                        this@ClanLeaveConfirmUX.clanService.saveClan(clan)
                         this@ClanLeaveConfirmUX.clanService.notifyClanUpdated(player.uniqueId)
                         cfg.send(player, cfg.messages.clan.left, mapOf("clan" to clan.name))
                     }
@@ -64,7 +74,12 @@ class ClanLeaveConfirmUX(clanService: ClanService) : BaseGui(clanService) {
             slot(itemCfg.slot) {
                 dynamicItem(this@ClanLeaveConfirmUX.parseMaterial(itemCfg.material, Material.ENCHANTED_BOOK)) { player ->
                     val clan = this@ClanLeaveConfirmUX.clanService.getClanUser(player) ?: return@dynamicItem null
-                    this@ClanLeaveConfirmUX.renderConfigItem(this, player, itemCfg, mapOf("clan" to clan.name))
+                    this@ClanLeaveConfirmUX.renderConfigItem(
+                        this,
+                        player,
+                        itemCfg,
+                        mapOf("clan" to clan.name)
+                    )
                     null
                 }
             }
@@ -85,12 +100,43 @@ class ClanLeaveConfirmUX(clanService: ClanService) : BaseGui(clanService) {
         builder: ItemBuilder,
         player: Player,
         itemCfg: GuiItemConfig,
-        placeholders: Map<String, String>
+        placeholders: Map<String, String>,
+        additionalLore: List<String> = emptyList()
     ) {
         builder.name(clanService.plugin.configService.formatMessage(player, itemCfg.name, placeholders))
-        builder.lore(itemCfg.lore.map { line -> clanService.plugin.configService.formatMessage(player, line, placeholders) })
+        val actionIndex = itemCfg.lore.indexOfLast { it.contains("➥") }
+        val lore = if (additionalLore.isNotEmpty() && actionIndex >= 0) {
+            itemCfg.lore.take(actionIndex) + additionalLore + itemCfg.lore.drop(actionIndex)
+        } else {
+            itemCfg.lore + additionalLore
+        }
+        builder.lore(lore.map { line -> clanService.plugin.configService.formatMessage(player, line, placeholders) })
         builder.glow(itemCfg.glow)
     }
+
+    private fun battleWarning(clan: ua.inventorytype.pnclans.api.clan.Clan, isLeader: Boolean): List<String> =
+        if (clanService.plugin.clanBattleService.hasActiveBattle(clan)) {
+            if (isLeader) {
+                listOf(
+                    "",
+                    "&#FC3737 «Активная битва»",
+                    " &7- &fРоспуск немедленно завершит бой.",
+                    " &7- &fКлану засчитают техническое поражение",
+                    " &7- &fи снимут MMR.",
+                    ""
+                )
+            } else {
+                listOf(
+                    "",
+                    "&#FC3737 «Активная битва»",
+                    " &7- &fПосле выхода вы больше не сможете",
+                    " &7- &fучаствовать в текущей битве.",
+                    ""
+                )
+            }
+        } else {
+            emptyList()
+        }
 
     private fun parseMaterial(name: String, fallback: Material): Material =
         runCatching { Material.valueOf(name.uppercase()) }.getOrDefault(fallback)

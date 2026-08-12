@@ -119,10 +119,10 @@ class ClanShopUX(
                     val productLore = listedProduct.product.lore.ifEmpty { this@ClanShopUX.config.display.fallbackProductLore }
                     name(this@ClanShopUX.format(player, productName, placeholders))
                     val configuredLore = productLore.flatMap { line ->
-                        if (line == "{payment_lines}") {
-                            this@ClanShopUX.paymentLines(player, clan, listedProduct.product)
-                        } else {
-                            listOf(this@ClanShopUX.format(player, line, placeholders))
+                        when (line) {
+                            "{payment_lines}" -> this@ClanShopUX.paymentLines(player, clan, listedProduct.product)
+                            "{required_quest_lines}" -> this@ClanShopUX.requiredQuestLines(player, clan, listedProduct.product)
+                            else -> listOf(this@ClanShopUX.format(player, line, placeholders))
                         }
                     }
                     val categoryLore = if (productLore.any { it.contains("{category}") }) emptyList() else listOf(
@@ -130,7 +130,24 @@ class ClanShopUX(
                         this@ClanShopUX.format(player, "&#9EFC65 «Категория»"),
                         this@ClanShopUX.format(player, " &7- &f{category}", placeholders)
                     )
-                    lore(categoryLore + configuredLore)
+                    val questLore = if (
+                        listedProduct.product.conditions.requiredQuests.isNotEmpty() &&
+                        productLore.none { it.contains("{required_quests}") || it.contains("{required_quest_lines}") }
+                    ) {
+                        listOf(
+                            this@ClanShopUX.format(player, ""),
+                            this@ClanShopUX.format(player, "&#FFD700 «Квестовые условия»")
+                        ) + this@ClanShopUX.requiredQuestLines(player, clan, listedProduct.product)
+                    } else {
+                        emptyList()
+                    }
+                    val actionIndex = configuredLore.indexOfLast { it.contains("➥") }
+                    val productDetails = if (questLore.isNotEmpty() && actionIndex >= 0) {
+                        configuredLore.take(actionIndex) + questLore + configuredLore.drop(actionIndex)
+                    } else {
+                        configuredLore + questLore
+                    }
+                    lore(categoryLore + productDetails)
                     glow(this@ClanShopUX.meetsBasicRequirements(clan, listedProduct.product))
                     build()
                 }
@@ -335,10 +352,23 @@ class ClanShopUX(
             "quantity" to product.itemAmount.coerceAtLeast(1).toString(),
             "required_level" to product.conditions.minimumClanLevel.takeIf { it > 0 }?.toString().orEmpty().ifEmpty { config.display.notRequiredText },
             "required_members" to product.conditions.minimumMembers.takeIf { it > 0 }?.toString().orEmpty().ifEmpty { config.display.notRequiredText },
+            "required_quests" to product.conditions.requiredQuests.sorted().joinToString(", ") { questId ->
+                val quest = clanService.plugin.configService.quests.quests[questId]
+                val completed = clanService.plugin.clanQuestService.hasCompletedAtLeastOnce(clan, questId)
+                "${if (completed) "&#5EFD7D✔" else "&#FC3737✖"} ${quest?.name ?: questId}"
+            }.ifEmpty { config.display.notRequiredText },
             "clan_limit" to if (clanLimit <= 0) config.display.unlimitedText else "${shop.clanPurchasesToday(clan, id)}/$clanLimit",
             "global_limit" to if (globalLimit <= 0) config.display.unlimitedText else "${shop.globalPurchasesToday(id)}/$globalLimit"
         )
     }
+
+    private fun requiredQuestLines(player: Player, clan: Clan, product: ClanShopProductConfig): List<String> =
+        product.conditions.requiredQuests.sorted().map { questId ->
+            val quest = clanService.plugin.configService.quests.quests[questId]
+            val completed = clanService.plugin.clanQuestService.hasCompletedAtLeastOnce(clan, questId)
+            val icon = if (completed) "&#5EFD7D✔" else "&#FC3737✖"
+            format(player, " &7- $icon &f${quest?.name ?: questId}")
+        }
 
     private fun paymentLines(player: Player, clan: Clan, product: ClanShopProductConfig): List<String> =
         product.payments.map { payment ->
@@ -368,7 +398,9 @@ class ClanShopUX(
     }
 
     private fun meetsBasicRequirements(clan: Clan, product: ClanShopProductConfig): Boolean =
-        clan.level >= product.conditions.minimumClanLevel && clan.users.size >= product.conditions.minimumMembers
+        clan.level >= product.conditions.minimumClanLevel &&
+            clan.users.size >= product.conditions.minimumMembers &&
+            clanService.plugin.clanQuestService.requiredQuestsMet(clan, product.conditions.requiredQuests)
 
     private fun material(value: String, fallback: Material): Material =
         runCatching { Material.valueOf(value.uppercase()) }.getOrDefault(fallback)

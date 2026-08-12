@@ -13,6 +13,7 @@ import ua.inventorytype.pnclans.api.clan.ClanRole
 import ua.inventorytype.pnclans.api.clan.ClanSetting
 import ua.inventorytype.pnclans.impl.clan.ClanImpl
 import ua.inventorytype.pnclans.impl.clan.ClanUser
+import ua.inventorytype.pnclans.impl.clan.ClanDailyCombatStats
 import java.io.File
 import java.sql.DriverManager
 import java.util.UUID
@@ -121,7 +122,10 @@ class SQLiteClanStorage(private val plugin: BukkitPlugin) : IClanStorage {
                     kills = (user as? ClanUser)?.kills ?: 0,
                     deaths = (user as? ClanUser)?.deaths ?: 0,
                     playtimeSeconds = (user as? ClanUser)?.playtimeSeconds ?: 0L,
-                    points = (user as? ClanUser)?.points ?: 0
+                    points = (user as? ClanUser)?.points ?: 0,
+                    combatDays = (user as? ClanUser)?.dailyCombatStats.orEmpty().mapValues { (_, stats) ->
+                        ClanDailyCombatStatsModel(stats.kills, stats.deaths)
+                    }
                 )
             }
             val settingModels = clan.settings.mapKeys { it.key.key }
@@ -139,6 +143,8 @@ class SQLiteClanStorage(private val plugin: BukkitPlugin) : IClanStorage {
                 mmr = clan.mmr,
                 kills = clan.kills,
                 deaths = clan.deaths,
+                battleWins = clan.battleWins,
+                battleLosses = clan.battleLosses,
                 bankBalance = clan.bankBalance,
                 points = clan.points,
                 activityPointsDate = clan.activityPointsDate,
@@ -156,7 +162,10 @@ class SQLiteClanStorage(private val plugin: BukkitPlugin) : IClanStorage {
                     .mapValues { (_, values) -> values.associate { it.first.node to it.second } },
                 userPermissions = (clan as? ClanImpl)?.userPermissions.orEmpty()
                     .mapKeys { it.key.toString() }
-                    .mapValues { (_, values) -> values.associate { it.first.node to it.second } }
+                    .mapValues { (_, values) -> values.associate { it.first.node to it.second } },
+                questProgress = clan.questProgress.mapValues { (_, value) ->
+                    ClanQuestProgressModel(value.progress, value.completed, value.completedAt, value.completionCount, value.cycleKey)
+                }
             )
 
             val jsonStr = json.encodeToString(dataModel)
@@ -203,7 +212,10 @@ class SQLiteClanStorage(private val plugin: BukkitPlugin) : IClanStorage {
                             kills = m.kills,
                             deaths = m.deaths,
                             playtimeSeconds = m.playtimeSeconds,
-                            points = m.points
+                            points = m.points,
+                            initialCombatHistory = m.combatDays.mapValues { (_, stats) ->
+                                ClanDailyCombatStats(stats.kills, stats.deaths)
+                            }
                         ) to role
                     }.toSet()
 
@@ -216,6 +228,8 @@ class SQLiteClanStorage(private val plugin: BukkitPlugin) : IClanStorage {
                         mmr = model.mmr
                         kills = model.kills
                         deaths = model.deaths
+                            battleWins = model.battleWins
+                            battleLosses = model.battleLosses
                             bankBalance = model.bankBalance
                             points = model.points
                             activityPointsDate = model.activityPointsDate
@@ -230,6 +244,9 @@ class SQLiteClanStorage(private val plugin: BukkitPlugin) : IClanStorage {
                                 runCatching { addPointsLog(ClanPointsTransaction(ClanPointsTransactionType.valueOf(entry.type), ClanPointsSource.valueOf(entry.source), entry.amount, entry.balanceAfter, entry.timestamp)) }
                             }
                             restorePermissionOverrides(this, model.rolePermissions, model.userPermissions)
+                            model.questProgress.forEach { (questId, value) ->
+                                setQuestProgress(questId, ua.inventorytype.pnclans.api.clan.ClanQuestProgress(value.progress, value.completed, value.completedAt, value.completionCount, value.cycleKey))
+                            }
                     }
 
                     model.settings.forEach { (key, valBool) ->

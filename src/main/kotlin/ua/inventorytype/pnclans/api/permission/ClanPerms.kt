@@ -124,6 +124,13 @@ object ClanPerms {
             "Улучшение уровня",
             "Позволяет повышать общий уровень развития клана.",
             Material.NETHER_STAR
+        ),
+
+        /** Allows sending and answering organized clan battle challenges. */
+        START_BATTLE(
+            "Организация клановых битв",
+            "Позволяет отправлять, принимать и отклонять вызовы на клановые битвы.",
+            Material.CROSSBOW
         );
     }
 

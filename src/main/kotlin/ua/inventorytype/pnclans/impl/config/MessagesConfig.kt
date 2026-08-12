@@ -59,6 +59,89 @@ class MessagesConfig {
     @YamlComment("Сообщения виртуального клановое сундука")
     val chest: ChestMessages = ChestMessages()
 
+    @YamlComment("Сообщения общей системы клановых квестов")
+    val quests: QuestMessages = QuestMessages()
+
+    @YamlComment("Сообщения вызовов и результатов клановых битв")
+    val battles: BattleMessages = BattleMessages()
+
+    /**
+     * Messages for clan-wide quest progress and automatic rewards.
+     *
+     * Supported placeholders include `{quest}`, `{quest_name}`, `{clan}`, `{progress}`, `{target}`,
+     * `{reward_points}` and `{prerequisites}`.
+     */
+    @Serializable
+    data class QuestMessages(
+        @YamlComment("Квест завершён и награда выдана. Отправляется всем онлайн-участникам клана.")
+        val completed: List<Action> = listOf(
+            MessageAction("&#5EFD7D✔ &fКлан завершил квест {quest_name}&f: &#5EA9FD{progress} &7/ &f{target}. Награда: &#FFD700{reward_points} клановых очков&f."),
+            SoundAction("ENTITY_PLAYER_LEVELUP", 1.0f, 1.1f)
+        ),
+
+        @YamlComment("Квест заблокирован prerequisites. Переменная: {prerequisites}")
+        val locked: List<Action> = listOf(
+            MessageAction("&#FC3737✖ &fКвест пока закрыт. Сначала завершите: &e{prerequisites}&f."),
+            SoundAction("ENTITY_VILLAGER_NO", 1.0f, 1.2f)
+        ),
+
+        @YamlComment("Квест доступен, но прогресс ещё не начат")
+        val available: List<Action> = listOf(
+            MessageAction("&#FF8702➥ &fКвест доступен всему клану. Выполняйте цель вместе."),
+            SoundAction("UI_BUTTON_CLICK", 0.8f, 1.1f)
+        ),
+
+        @YamlComment("Квест уже имеет общий прогресс")
+        val inProgress: List<Action> = listOf(
+            MessageAction("&#5EA9FD⌚ &fПрогресс квеста: &#5EFD7D{progress}&7/&f{target} &7({percent}%)."),
+            SoundAction("UI_BUTTON_CLICK", 0.8f, 1.0f)
+        ),
+
+        @YamlComment("Квест завершён в текущем цикле")
+        val alreadyCompleted: List<Action> = listOf(
+            MessageAction("&#5EFD7D✔ &fЭтот квест уже завершён в текущем цикле."),
+            SoundAction("BLOCK_NOTE_BLOCK_PLING", 0.8f, 1.3f)
+        )
+    )
+
+    @Serializable
+    data class BattleMessages(
+        val challengeSent: List<Action> = listOf(
+            MessageAction("&#FC7D37⚔ &fВаш клан вызвал клан &#FC3737{opponent} &fна бой."),
+            SoundAction("ITEM_CROSSBOW_LOADING_START", 1.0f, 1.0f)
+        ),
+        val challengeReceived: List<Action> = listOf(
+            MessageAction("&#FC3737⚔ &fКлан &#FC7D37{challenger} &fвызвал вас на бой."),
+            MessageAction("&#FF8702➥ &fОткройте меню битв или используйте &e/clan battle accept {challenge_id}&f."),
+            SoundAction("ITEM_CROSSBOW_LOADING_END", 1.0f, 1.0f)
+        ),
+        val declined: List<Action> = listOf(
+            MessageAction("&#FC3737✖ &fКлан отклонил ваш боевой вызов."),
+            SoundAction("ENTITY_VILLAGER_NO", 1.0f, 1.1f)
+        ),
+        val declinedByYou: List<Action> = listOf(MessageAction("&#FC3737✖ &fБоевой вызов отклонён.")),
+        val challengeExpired: List<Action> = listOf(MessageAction("&#FFD700⌛ &fСрок боевого вызова истёк.")),
+        val started: List<Action> = listOf(
+            MessageAction("&#FC3737⚔ &fБитва началась: &#FC7D37{challenger} &7против &#5EA9FD{defender}&f."),
+            MessageAction("&7Счёт: &e{challenger_score} &7: &e{defender_score} &8• &7Осталось: &e{seconds} сек."),
+            SoundAction("EVENT_RAID_HORN", 1.0f, 1.0f)
+        ),
+        val finished: List<Action> = listOf(
+            MessageAction("&#FFD700♛ &fБитва завершена: &#FC7D37{challenger} &e{challenger_score} &7: &e{defender_score} &#5EA9FD{defender}&f."),
+            MessageAction("&#FFD700✦ &fИтог: &e{winner}&f."),
+            SoundAction("UI_TOAST_CHALLENGE_COMPLETE", 1.0f, 1.0f)
+        ),
+        val disabled: List<Action> = listOf(MessageAction("&#FC3737✖ &fМодуль клановых битв отключён.")),
+        val noPermission: List<Action> = listOf(MessageAction("&#FC3737✖ &fУ вас нет права организовывать клановые битвы.")),
+        val clanBusy: List<Action> = listOf(MessageAction("&#FC3737✖ &fУ вашего клана или соперника уже есть активный бой либо вызов.")),
+        val challengeExists: List<Action> = listOf(MessageAction("&#FFD700! &fУ одного из кланов уже есть активный вызов.")),
+        val challengeNotFound: List<Action> = listOf(MessageAction("&#FC3737✖ &fБоевой вызов не найден или уже обработан.")),
+        val notTarget: List<Action> = listOf(MessageAction("&#FC3737✖ &fЭтот вызов предназначен другому клану.")),
+        val notEnoughOnline: List<Action> = listOf(MessageAction("&#FC3737✖ &fДля начала боя нужно больше участников онлайн.")),
+        val arenaUnavailable: List<Action> = listOf(MessageAction("&#FC3737✖ &fСейчас нет доступной арены. Сообщите администратору.")),
+        val cancelled: List<Action> = listOf(MessageAction("&#FC3737✖ &fОперация с боем отменена другим плагином."))
+    )
+
     /**
      * General-purpose messages shared across multiple plugin features.
      *
@@ -556,6 +639,12 @@ class MessagesConfig {
         @YamlComment("Недостаточно MMR для улучшения")
         val insufficientMmr: List<Action> = listOf(
             MessageAction("&cКлан недостаточно силён (мало MMR)!"),
+            SoundAction("ENTITY_VILLAGER_NO", 1.0f, 1.2f)
+        ),
+
+        @YamlComment("Недостаточно завершённых квестов. Переменные: {completed_quests}, {required_quests}")
+        val insufficientQuests: List<Action> = listOf(
+            MessageAction("&#FC3737✖ &fНедостаточно завершений квестов: &e{completed_quests} &7/ &e{required_quests}&f."),
             SoundAction("ENTITY_VILLAGER_NO", 1.0f, 1.2f)
         ),
 

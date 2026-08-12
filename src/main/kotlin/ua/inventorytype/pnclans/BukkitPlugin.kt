@@ -19,6 +19,8 @@ import ua.inventorytype.pnclans.impl.clan.ClanHighlightService
 import ua.inventorytype.pnclans.impl.clan.ClanService
 import ua.inventorytype.pnclans.impl.clan.ClanPointsService
 import ua.inventorytype.pnclans.impl.clan.ClanActivityPointsService
+import ua.inventorytype.pnclans.impl.clan.ClanQuestService
+import ua.inventorytype.pnclans.impl.clan.ClanBattleService
 import ua.inventorytype.pnclans.impl.shop.ClanShopService
 import ua.inventorytype.pnclans.impl.api.PnClansApiImpl
 import ua.inventorytype.pnclans.impl.command.ClanCommand
@@ -58,6 +60,12 @@ class BukkitPlugin : JavaPlugin() {
         private set
 
     lateinit var clanActivityPointsService: ClanActivityPointsService
+        private set
+
+    internal lateinit var clanQuestService: ClanQuestService
+        private set
+
+    internal lateinit var clanBattleService: ClanBattleService
         private set
 
     internal lateinit var clanShopService: ClanShopService
@@ -114,6 +122,8 @@ class BukkitPlugin : JavaPlugin() {
         clanService = ClanService(this)
         clanPointsService = ClanPointsService(clanService)
         clanActivityPointsService = ClanActivityPointsService(this)
+        clanQuestService = ClanQuestService(this)
+        clanBattleService = ClanBattleService(this)
         clanShopService = ClanShopService(this)
         placeholderRegistry.registerDefaults(clanService)
         publicApi = PnClansApiImpl(clanService, clanPointsService)
@@ -173,6 +183,9 @@ class BukkitPlugin : JavaPlugin() {
         if (::clanActivityPointsService.isInitialized) {
             clanActivityPointsService.shutdown()
         }
+        if (::clanBattleService.isInitialized) {
+            clanBattleService.shutdown()
+        }
         if (::inviteService.isInitialized) {
             inviteService.clear()
         }
@@ -183,7 +196,7 @@ class BukkitPlugin : JavaPlugin() {
             clanHighlightService.shutdown()
         }
         if (::clanService.isInitialized) {
-            clanService.saveAll()
+            clanService.saveAll(finalizeSessions = true)
             clanService.storage.close()
         }
         if (PacketEvents.getAPI() != null && PacketEvents.getAPI().isInitialized) {

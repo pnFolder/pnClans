@@ -13,6 +13,7 @@ import java.time.LocalDate
 import java.util.concurrent.ConcurrentHashMap
 import ua.inventorytype.pnclans.api.clan.TreasuryTransaction
 import ua.inventorytype.pnclans.api.clan.ClanPointsTransaction
+import ua.inventorytype.pnclans.api.clan.ClanQuestProgress
 
 /**
  * High-performance, thread-safe implementation of the [Clan] contract.
@@ -32,6 +33,8 @@ class ClanImpl(
     override var mmr: Int = 1000
     override var kills: Int = 0
     override var deaths: Int = 0
+    override var battleWins: Int = 0
+    override var battleLosses: Int = 0
     override var bankBalance: Double = 0.0
     override var points: Long = 0L
     override var activityPointsDate: String = LocalDate.now().toString()
@@ -47,6 +50,21 @@ class ClanImpl(
             if (_pointsLogs.size > 500) _pointsLogs.removeAt(0)
         }
     }
+
+    internal fun restorePointsLogs(logs: List<ClanPointsTransaction>) {
+        synchronized(_pointsLogs) {
+            _pointsLogs.clear()
+            _pointsLogs.addAll(logs)
+        }
+    }
+
+    private val _questProgress = ConcurrentHashMap<String, ClanQuestProgress>()
+    override val questProgress: Map<String, ClanQuestProgress>
+        get() = _questProgress.toMap()
+
+    override fun setQuestProgress(questId: String, progress: ClanQuestProgress) {
+        _questProgress[questId] = progress
+    }
     override var highlightColor: ClanHighlightColor = ClanHighlightColor.AQUA
     override var highlightEnabled: Boolean = true
     override var highlightType: ClanHighlightType = ClanHighlightType.ARMOR
@@ -59,6 +77,13 @@ class ClanImpl(
         synchronized(_treasuryLogs) {
             _treasuryLogs.add(log)
             if (_treasuryLogs.size > 500) _treasuryLogs.removeAt(0)
+        }
+    }
+
+    internal fun restoreTreasuryLogs(logs: List<TreasuryTransaction>) {
+        synchronized(_treasuryLogs) {
+            _treasuryLogs.clear()
+            _treasuryLogs.addAll(logs)
         }
     }
 

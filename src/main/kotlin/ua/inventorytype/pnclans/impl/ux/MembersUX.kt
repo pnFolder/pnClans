@@ -6,6 +6,8 @@ import ua.inventorytype.pnclans.api.User
 import ua.inventorytype.pnclans.api.clan.ClanRole
 import ua.inventorytype.pnclans.api.permission.ClanPerms
 import ua.inventorytype.pnclans.impl.clan.ClanService
+import ua.inventorytype.pnclans.impl.clan.ClanStatsPeriod
+import ua.inventorytype.pnclans.impl.clan.ClanUser
 import ua.inventorytype.pnclans.impl.config.GuiItemConfig
 import ua.inventorytype.pnclans.impl.inventory.BaseGui
 import kotlin.math.ceil
@@ -69,6 +71,10 @@ class MembersUX(
 
                     val isOnline = targetUser.isOnline
                     val roleDisplayName = service.plugin.configService.getRoleDisplayName(targetRole)
+                    val combatMember = targetUser as? ClanUser
+                    val dayStats = combatMember?.combatStats(ClanStatsPeriod.DAY)
+                    val weekStats = combatMember?.combatStats(ClanStatsPeriod.WEEK)
+                    val monthStats = combatMember?.combatStats(ClanStatsPeriod.MONTH)
 
                     val memberTemplate = when {
                         isMe -> menuCfg.items["member_self"] ?: menuCfg.items["member"] ?: GuiItemConfig()
@@ -81,6 +87,14 @@ class MembersUX(
                         "role" to roleDisplayName,
                         "status" to if (isOnline) "&#5EFD7DОнлайн" else "&#FC3737Оффлайн",
                         "weight" to targetRole.weight.toString(),
+                        "kills_today" to (dayStats?.kills ?: 0).toString(),
+                        "deaths_today" to (dayStats?.deaths ?: 0).toString(),
+                        "kills_week" to (weekStats?.kills ?: 0).toString(),
+                        "deaths_week" to (weekStats?.deaths ?: 0).toString(),
+                        "kills_month" to (monthStats?.kills ?: 0).toString(),
+                        "deaths_month" to (monthStats?.deaths ?: 0).toString(),
+                        "kills_total" to (combatMember?.kills ?: 0).toString(),
+                        "deaths_total" to (combatMember?.deaths ?: 0).toString(),
                         "action_promote" to if (targetRole == ClanRole.DEPUTY && isLeader) "&#FFD700Передать лидерство" else "&#5EFD7DПовысить в должности"
                     )
 
@@ -122,8 +136,7 @@ class MembersUX(
                             cfg.send(viewer, cfg.messages.members.noPermissionKick)
                             return@onClick
                         }
-                        if (!service.removeUserFromClan(clan, targetUser.uuid)) return@onClick
-                        service.saveClan(clan)
+                        if (!service.removeUserFromClan(clan, targetUser.uuid, kicked = true)) return@onClick
                         cfg.send(viewer, cfg.messages.members.kicked, mapOf("player" to targetUser.playerName))
                         this@MembersUX.update(viewer)
                         return@onClick

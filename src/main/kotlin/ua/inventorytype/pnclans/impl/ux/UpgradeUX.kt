@@ -108,10 +108,26 @@ class UpgradeUX(clanService: ClanService) : BaseGui(clanService) {
             cfg.send(player, cfg.messages.upgrade.insufficientMmr)
             return
         }
+        val completedQuests = service.plugin.clanQuestService.completedQuestCount(clan)
+        if (service.plugin.configService.quests.enabled && completedQuests < next.requiredQuests) {
+            cfg.send(
+                player,
+                cfg.messages.upgrade.insufficientQuests,
+                mapOf("completed_quests" to completedQuests.toString(), "required_quests" to next.requiredQuests.toString())
+            )
+            return
+        }
 
+        val previousBalance = clan.bankBalance
+        val previousLevel = clan.level
         clan.withdrawBank(next.costMoney)
         clan.level = next.level
-        service.saveClan(clan)
+        if (!service.saveClan(clan)) {
+            clan.bankBalance = previousBalance
+            clan.level = previousLevel
+            player.sendMessage(cfg.formatMessage(player, "&#FC3737✖ &fУлучшение отменено: сохранить данные клана не удалось."))
+            return
+        }
         service.notifyClanUpdated(player.uniqueId)
 
         cfg.send(player, cfg.messages.upgrade.levelUp, mapOf("level" to next.level.toString()))
@@ -127,6 +143,8 @@ class UpgradeUX(clanService: ClanService) : BaseGui(clanService) {
             "next_level" to (next?.level ?: clan.level).toString(),
             "clan_required_money" to (next?.costMoney?.toString() ?: "0"),
             "clan_required_mmr" to (next?.requiredMmr?.toString() ?: clan.mmr.toString()),
+            "clan_quests" to serviceQuestCount(clan).toString(),
+            "clan_required_quests" to (next?.requiredQuests?.takeIf { cfg.quests.enabled } ?: 0).toString(),
             "clan_slots" to (clan.level * PER_LEVEL_MEMBERS).toString(),
             "clan_chest_rows" to (clan.level * PER_LEVEL_CHEST_ROWS).toString(),
             "clan_homes" to (clan.level * PER_LEVEL_HOMES).toString(),
@@ -145,7 +163,7 @@ class UpgradeUX(clanService: ClanService) : BaseGui(clanService) {
                 "clan_money_color" to "&#FFD700",
                 "clan_mmr" to clan.mmr.toString(),
                 "clan_mmr_color" to "&#FFD700",
-                "clan_quests" to "0",
+                "clan_quests" to serviceQuestCount(clan).toString(),
                 "clan_quests_color" to "&#FFD700",
                 "clan_required_money" to "0",
                 "clan_required_mmr" to "0",
@@ -155,7 +173,9 @@ class UpgradeUX(clanService: ClanService) : BaseGui(clanService) {
         val next = ClanLevels.getNext(clan.level)!!
         val hasMoney = clan.bankBalance >= next.costMoney
         val hasMMR = clan.mmr >= next.requiredMmr
-        val hasQuests = COMPLETED_QUESTS >= next.requiredQuests
+        val completedQuests = serviceQuestCount(clan)
+        val questsEnabled = cfg.quests.enabled
+        val hasQuests = !questsEnabled || completedQuests >= next.requiredQuests
         val ready = hasMoney && hasMMR && hasQuests
         val state = cfg.animatedFrame(beaconFramesFor(clan))
 
@@ -171,11 +191,11 @@ class UpgradeUX(clanService: ClanService) : BaseGui(clanService) {
             "clan_money_color" to (if (hasMoney) "&#5EFD7D" else "&#FC3737"),
             "clan_mmr" to clan.mmr.toString(),
             "clan_mmr_color" to (if (hasMMR) "&#5EFD7D" else "&#FC3737"),
-            "clan_quests" to COMPLETED_QUESTS.toString(),
+            "clan_quests" to completedQuests.toString(),
             "clan_quests_color" to (if (hasQuests) "&#5EFD7D" else "&#FC3737"),
             "clan_required_money" to next.costMoney.toString(),
             "clan_required_mmr" to next.requiredMmr.toString(),
-            "clan_required_quests" to next.requiredQuests.toString()
+            "clan_required_quests" to (if (questsEnabled) next.requiredQuests else 0).toString()
         )
     }
 
@@ -196,7 +216,7 @@ class UpgradeUX(clanService: ClanService) : BaseGui(clanService) {
             "level_perk" to levelData.unlockedPerk,
             "level_cost" to levelData.costMoney.toString(),
             "level_required_mmr" to levelData.requiredMmr.toString(),
-            "level_required_quests" to levelData.requiredQuests.toString()
+            "level_required_quests" to (if (clanService.plugin.configService.quests.enabled) levelData.requiredQuests else 0).toString()
         )
     }
 
@@ -206,7 +226,7 @@ class UpgradeUX(clanService: ClanService) : BaseGui(clanService) {
         val next = ClanLevels.getNext(clan.level) ?: return emptyList()
         val hasMoney = clan.bankBalance >= next.costMoney
         val hasMMR = clan.mmr >= next.requiredMmr
-        val hasQuests = COMPLETED_QUESTS >= next.requiredQuests
+        val hasQuests = !cfg.quests.enabled || serviceQuestCount(clan) >= next.requiredQuests
         val key = if (hasMoney && hasMMR && hasQuests) AnimationKey.UPGRADE_READY else AnimationKey.UPGRADE_BUSY
         return cfg.animationFrames(key)
     }
@@ -225,11 +245,12 @@ class UpgradeUX(clanService: ClanService) : BaseGui(clanService) {
     private fun parseMaterial(name: String, fallback: Material): Material =
         runCatching { Material.valueOf(name.uppercase()) }.getOrDefault(fallback)
 
+    private fun serviceQuestCount(clan: Clan): Int = clanService.plugin.clanQuestService.completedQuestCount(clan)
+
     private companion object {
         const val PER_LEVEL_MEMBERS = 5
         const val PER_LEVEL_CHEST_ROWS = 2
         const val PER_LEVEL_HOMES = 5
-        const val COMPLETED_QUESTS = 0
     }
 }
 

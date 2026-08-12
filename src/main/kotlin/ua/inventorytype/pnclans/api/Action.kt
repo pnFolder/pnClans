@@ -20,6 +20,7 @@ import ua.inventorytype.pnclans.impl.ux.SettingsUX
 import ua.inventorytype.pnclans.impl.ux.TopClansUX
 import ua.inventorytype.pnclans.impl.ux.TreasuryUX
 import ua.inventorytype.pnclans.impl.ux.UpgradeUX
+import ua.inventorytype.pnclans.impl.ux.ClanBattlesUX
 import kotlin.random.Random
 
 /**
@@ -418,6 +419,7 @@ data class OpenGuiAction(
             "SETTINGS" -> SettingsUX(clanService).open(context.player)
             "TREASURY" -> TreasuryUX(clanService).open(context.player)
             "UPGRADE" -> UpgradeUX(clanService).open(context.player)
+            "BATTLES" -> ClanBattlesUX(clanService).open(context.player)
             "TOP" -> TopClansUX(clanService).open(context.player)
             "CHEST" -> {
                 val clan = clanService.getClanUser(context.player)

@@ -4,6 +4,7 @@ import org.bukkit.Bukkit
 import org.bukkit.Material
 import org.bukkit.entity.Player
 import ua.inventorytype.pnclans.api.OpenGuiAction
+import ua.inventorytype.pnclans.api.SoundAction
 import ua.inventorytype.pnclans.api.clan.Clan
 import ua.inventorytype.pnclans.api.clan.ClanRole
 import ua.inventorytype.pnclans.api.clan.ClanSetting
@@ -137,6 +138,11 @@ class MainUX(clanService: ClanService) : BaseGui(clanService) {
             ClanQuestsUX(this@MainUX.clanService).open(player)
         }
 
+        if (cfg.battles.enabled) addMenuItem(menuCfg, "battles") { player, itemCfg ->
+            clickEffects(player, itemCfg)
+            ClanBattlesUX(this@MainUX.clanService).open(player)
+        }
+
         menuCfg.addons.forEach { (configId, addonConfig) ->
             if (addonConfig.slot !in 0 until menuCfg.rows * 9) return@forEach
             slot(addonConfig.slot) {
@@ -169,7 +175,28 @@ class MainUX(clanService: ClanService) : BaseGui(clanService) {
         key: String,
         onClick: ((Player, GuiItemConfig) -> Unit)? = null
     ) {
-        val itemCfg = menuCfg.items[key] ?: return
+        val itemCfg = menuCfg.items[key] ?: if (key == "battles" && menuCfg.items.values.none { it.slot == 35 }) {
+            GuiItemConfig(
+                slot = 35,
+                material = "CROSSBOW",
+                name = "&#FC3737⚔ Клановые битвы",
+                lore = listOf(
+                    "",
+                    "&#9EFC65 «Честный вызов»",
+                    " &7- &fСравните MMR и выберите соперника.",
+                    " &7- &fСражайтесь на отдельной арене.",
+                    "",
+                    "&#FC65DF «Награды»",
+                    " &7- &fПобеды приносят MMR и клановые очки.",
+                    " &7- &fБои продвигают боевые квесты.",
+                    "",
+                    "&#FF8702➥ &fНажмите, &eЛКМ &fчтобы открыть поле боя"
+                ),
+                actions = listOf(SoundAction("ITEM_CROSSBOW_LOADING_START"))
+            )
+        } else {
+            return
+        }
 
         slot(itemCfg.slot) {
             dynamicItem(this@MainUX.parseMaterial(itemCfg.material, Material.STONE)) { player ->
@@ -279,6 +306,8 @@ class MainUX(clanService: ClanService) : BaseGui(clanService) {
             "clan_mmr" to clan.mmr.toString(),
             "clan_kills" to clan.kills.toString(),
             "clan_deaths" to clan.deaths.toString(),
+            "clan_battle_wins" to clan.battleWins.toString(),
+            "clan_battle_losses" to clan.battleLosses.toString(),
             "clan_kda" to kda,
             "clan_members" to clan.users.size.toString(),
             "clan_online" to clan.onlineCount.toString(),

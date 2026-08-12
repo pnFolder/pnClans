@@ -6,6 +6,7 @@ import ua.inventorytype.pnclans.api.clan.TreasuryTransaction
 import ua.inventorytype.pnclans.api.clan.TreasuryTransactionType
 import ua.inventorytype.pnclans.api.event.ClanTreasuryTransactionEvent
 import ua.inventorytype.pnclans.api.event.ClanTreasuryTransactionPreEvent
+import ua.inventorytype.pnclans.impl.clan.ClanImpl
 import ua.inventorytype.pnclans.impl.clan.ClanService
 import ua.inventorytype.pnclans.impl.inventory.BaseGui
 import ua.inventorytype.pnclans.impl.util.ChatInputPrompt
@@ -226,10 +227,29 @@ class TreasuryUX(clanService: ClanService) : BaseGui(clanService) {
         if (transactionEvent.isCancelled) return
 
         if (service.economy.withdraw(player, amount)) {
+            val previousBalance = clan.bankBalance
+            val previousLogs = clan.treasuryLogs
             clan.depositBank(amount)
-             clan.addTreasuryLog(transaction)
-             service.saveClan(clan)
-             org.bukkit.Bukkit.getPluginManager().callEvent(ClanTreasuryTransactionEvent(clan, transaction, player))
+            clan.addTreasuryLog(transaction)
+            if (!service.saveClan(clan)) {
+                if (service.economy.depositPlayer(player, amount)) {
+                    clan.bankBalance = previousBalance
+                    (clan as? ClanImpl)?.restoreTreasuryLogs(previousLogs)
+                    sendPersistenceFailure(player)
+                    playFeedback(player, false)
+                    if (reopen) reopenTreasury(player) else refreshBalance(player)
+                    return
+                }
+                if (!service.saveClan(clan)) {
+                    service.plugin.logger.severe("[pnClans] Не удалось сохранить пополнение казны и вернуть ${formatAmount(amount)} игроку ${player.name}.")
+                    sendPersistenceFailure(player)
+                    playFeedback(player, false)
+                    if (reopen) reopenTreasury(player) else refreshBalance(player)
+                    return
+                }
+            }
+            service.plugin.clanQuestService.recordTreasuryDeposit(clan, player, amount)
+            org.bukkit.Bukkit.getPluginManager().callEvent(ClanTreasuryTransactionEvent(clan, transaction, player))
             service.notifyClanUpdated(player.uniqueId)
             val placeholders = mapOf(
                 "amount" to formatAmount(amount),
@@ -263,6 +283,8 @@ class TreasuryUX(clanService: ClanService) : BaseGui(clanService) {
         org.bukkit.Bukkit.getPluginManager().callEvent(transactionEvent)
         if (transactionEvent.isCancelled) return
 
+        val previousBalance = clan.bankBalance
+        val previousLogs = clan.treasuryLogs
         if (clan.withdrawBank(amount)) {
             if (!service.economy.depositPlayer(player, amount)) {
                 clan.depositBank(amount)
@@ -271,9 +293,25 @@ class TreasuryUX(clanService: ClanService) : BaseGui(clanService) {
                 if (reopen) reopenTreasury(player) else refreshBalance(player)
                 return
             }
-             clan.addTreasuryLog(transaction)
-             service.saveClan(clan)
-             org.bukkit.Bukkit.getPluginManager().callEvent(ClanTreasuryTransactionEvent(clan, transaction, player))
+            clan.addTreasuryLog(transaction)
+            if (!service.saveClan(clan)) {
+                if (service.economy.withdraw(player, amount)) {
+                    clan.bankBalance = previousBalance
+                    (clan as? ClanImpl)?.restoreTreasuryLogs(previousLogs)
+                    sendPersistenceFailure(player)
+                    playFeedback(player, false)
+                    if (reopen) reopenTreasury(player) else refreshBalance(player)
+                    return
+                }
+                if (!service.saveClan(clan)) {
+                    service.plugin.logger.severe("[pnClans] Не удалось сохранить снятие из казны и вернуть ${formatAmount(amount)} с баланса игрока ${player.name}.")
+                    sendPersistenceFailure(player)
+                    playFeedback(player, false)
+                    if (reopen) reopenTreasury(player) else refreshBalance(player)
+                    return
+                }
+            }
+            org.bukkit.Bukkit.getPluginManager().callEvent(ClanTreasuryTransactionEvent(clan, transaction, player))
             service.notifyClanUpdated(player.uniqueId)
             val placeholders = mapOf(
                 "amount" to formatAmount(amount),
@@ -305,6 +343,15 @@ class TreasuryUX(clanService: ClanService) : BaseGui(clanService) {
 
     private fun formatAmount(value: Double): String =
         value.toBigDecimal().stripTrailingZeros().toPlainString()
+
+    private fun sendPersistenceFailure(player: org.bukkit.entity.Player) {
+        player.sendMessage(
+            clanService.plugin.configService.formatMessage(
+                player,
+                "&#FC3737✖ &fОперация отменена: сохранить данные клана не удалось. Проверьте журнал сервера."
+            )
+        )
+    }
 
     private fun playFeedback(player: org.bukkit.entity.Player, success: Boolean) {
         val location = player.location

@@ -32,6 +32,8 @@ internal class PnClansApiImpl(
         override fun all(): Collection<Clan> = service.getAllClans()
         override fun find(idOrName: String): Clan? = service.getClanByName(idOrName)
         override fun findByMember(memberId: UUID): Clan? = service.getClanByUuid(memberId)
-        override fun save(clan: Clan) = service.saveClan(clan)
+        override fun save(clan: Clan) {
+            service.saveClan(clan)
+        }
     }
 }

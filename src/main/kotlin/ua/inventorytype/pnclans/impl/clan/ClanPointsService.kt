@@ -14,18 +14,32 @@ internal class ClanPointsService(private val clanService: ClanService) : ClanPoi
         val event = ClanPointsTransactionEvent(clan, ClanPointsTransactionType.AWARD, source, amount)
         clanService.plugin.server.pluginManager.callEvent(event)
         if (event.isCancelled || event.amount <= 0L) return false
+        if (clan.points > Long.MAX_VALUE - event.amount) return false
+        val previousPoints = clan.points
+        val previousLogs = clan.pointsLogs
         clan.addPoints(event.amount)
         record(clan, ClanPointsTransactionType.AWARD, source, event.amount)
-        clanService.saveClan(clan)
+        if (!clanService.saveClan(clan)) {
+            clan.points = previousPoints
+            (clan as? ClanImpl)?.restorePointsLogs(previousLogs)
+            return false
+        }
         return true
     }
 
     override fun spend(clan: Clan, amount: Long, source: ClanPointsSource): Boolean {
         val event = ClanPointsTransactionEvent(clan, ClanPointsTransactionType.SPEND, source, amount)
         clanService.plugin.server.pluginManager.callEvent(event)
-        if (event.isCancelled || event.amount <= 0L || !clan.withdrawPoints(event.amount)) return false
+        if (event.isCancelled || event.amount <= 0L) return false
+        val previousPoints = clan.points
+        val previousLogs = clan.pointsLogs
+        if (!clan.withdrawPoints(event.amount)) return false
         record(clan, ClanPointsTransactionType.SPEND, source, event.amount)
-        clanService.saveClan(clan)
+        if (!clanService.saveClan(clan)) {
+            clan.points = previousPoints
+            (clan as? ClanImpl)?.restorePointsLogs(previousLogs)
+            return false
+        }
         return true
     }
 

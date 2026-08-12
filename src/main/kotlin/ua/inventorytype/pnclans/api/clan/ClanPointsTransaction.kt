@@ -20,6 +20,7 @@ enum class ClanPointsSource {
     PLAYER_KILL,
     MOB_KILL,
     ACTIVITY,
+    BATTLE,
     QUEST,
     SHOP,
     ADMIN

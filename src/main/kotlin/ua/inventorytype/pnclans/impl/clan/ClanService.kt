@@ -80,12 +80,17 @@ class ClanService(
      * Called automatically during [init] and can be triggered for hot-reloads.
      */
     fun loadClans() {
+        val loaded = storage.loadAllClans()
+        val loadedByUuid = HashMap<UUID, Clan>()
+        loaded.forEach { clan -> clan.users.forEach { user -> loadedByUuid[user.uuid] = clan } }
         _clans.clear()
         _uuidToClan.clear()
-        val loaded = storage.loadAllClans()
         _clans.addAll(loaded)
-        loaded.forEach { clan -> clan.users.forEach { user -> _uuidToClan[user.uuid] = clan } }
+        _uuidToClan.putAll(loadedByUuid)
         playtimeTracker.clear()
+        Bukkit.getOnlinePlayers().forEach { player ->
+            getClanByUuid(player.uniqueId)?.let { clan -> playtimeTracker.markOnline(player.uniqueId, clan.id) }
+        }
         plugin.logger.info("Загружено кланов из хранилища (${storage::class.simpleName}): ${_clans.size}")
     }
 
@@ -93,9 +98,15 @@ class ClanService(
      * Persists all currently loaded clans to the storage backend.
      * Should be called during plugin shutdown to flush any unsaved changes.
      */
-    fun saveAll() {
-        playtimeTracker.flushAll(this)
-        _clans.forEach { storage.saveClan(it) }
+    fun saveAll(finalizeSessions: Boolean = false): Boolean {
+        if (finalizeSessions) {
+            playtimeTracker.flushAll(this)
+        } else {
+            playtimeTracker.checkpointAll(this)
+        }
+        var saved = true
+        _clans.forEach { clan -> if (!saveClan(clan)) saved = false }
+        return saved
     }
 
     /**
@@ -157,6 +168,12 @@ class ClanService(
      */
     fun getClanByUuid(uuid: UUID): Clan? = _uuidToClan[uuid]
 
+    /** Finds a current clan member by their last known Minecraft name. */
+    fun findMemberByName(playerName: String): Pair<Clan, ua.inventorytype.pnclans.api.User>? =
+        _clans.asSequence()
+            .mapNotNull { clan -> clan.users.firstOrNull { it.playerName.equals(playerName, ignoreCase = true) }?.let { clan to it } }
+            .firstOrNull()
+
     /**
      * Creates a new clan with the given name, assigning [leader] as the LEADER.
      *
@@ -214,7 +231,15 @@ class ClanService(
 
         _clans.add(clan)
         clan.users.forEach { user -> _uuidToClan[user.uuid] = clan }
-        saveClan(clan)
+        if (!saveClan(clan)) {
+            _clans.remove(clan)
+            clan.users.forEach { user -> _uuidToClan.remove(user.uuid, clan) }
+            if (cost > 0 && !economy.depositPlayer(leader, cost)) {
+                plugin.logger.severe("[pnClans] Не удалось вернуть стоимость создания клана ${leader.name}: $cost.")
+            }
+            leader.sendMessage(configService.formatMessage(leader, "&#FC3737✖ &fСоздать клан не удалось из-за ошибки сохранения данных."))
+            return null
+        }
         configService.send(leader, configService.messages.clan.created, mapOf("clan" to cleanName))
 
         playtimeTracker.markOnline(leader.uniqueId, clan.id)
@@ -239,8 +264,12 @@ class ClanService(
      * @param leaderPlayer The leader player executing the disband action (for messages and refund).
      * @return Error message string if disbanding was blocked, or null if successful.
      */
-    fun disbandClan(clan: Clan, leaderPlayer: Player? = null): String? {
+    fun disbandClan(clan: Clan, leaderPlayer: Player? = null, endActiveBattle: Boolean = false): String? {
         val settings = plugin.configService.settings
+
+        if (plugin.clanBattleService.hasActiveBattle(clan) && !endActiveBattle) {
+            return "§c[pnClans] Клан участвует в активной битве. Подтвердите роспуск через меню: бой будет завершён техническим поражением."
+        }
 
         // 1. Safety check for stored chest items
         if (settings.disbandRequireEmptyChest && hasChestItems(clan)) {
@@ -268,7 +297,10 @@ class ClanService(
             }
         }
 
+        plugin.clanBattleService.prepareClanRemoval(clan)
+
         val memberUuids = clan.users.map { it.uuid }
+        memberUuids.forEach(playtimeTracker::clearSession)
         memberUuids.forEach { _uuidToClan.remove(it) }
         _clans.remove(clan)
         invalidateClanChest(clan.id)
@@ -355,7 +387,18 @@ class ClanService(
         Bukkit.getPluginManager().callEvent(event)
         if (event.isCancelled) return false
         val added = clan.addUser(user, role)
-        if (added) _uuidToClan[user.uuid] = clan
+        if (added) {
+            _uuidToClan[user.uuid] = clan
+            if (!saveClan(clan)) {
+                clan.removeUser(user.uuid)
+                _uuidToClan.remove(user.uuid, clan)
+                return false
+            }
+            Bukkit.getPlayer(user.uuid)?.takeIf(Player::isOnline)?.let { player ->
+                playtimeTracker.markOnline(user.uuid, clan.id)
+                plugin.clanQuestService.recordMemberJoined(clan, player)
+            }
+        }
         return added
     }
 
@@ -364,14 +407,26 @@ class ClanService(
      *
      * @return True if the user was removed.
      */
-    fun removeUserFromClan(clan: Clan, uuid: UUID): Boolean {
+    fun removeUserFromClan(clan: Clan, uuid: UUID, kicked: Boolean = false): Boolean {
         val user = clan.getMember(uuid) ?: return false
-        val event = ClanMemberLeaveEvent(clan, user, kicked = false)
+        val role = clan.getUserRole(user)
+        val event = ClanMemberLeaveEvent(clan, user, kicked)
         Bukkit.getPluginManager().callEvent(event)
         if (event.isCancelled) return false
-        plugin.clanHighlightService.removeMember(clan, uuid)
+        playtimeTracker.flushSession(uuid, this)
         val removed = clan.removeUser(uuid)
-        if (removed) _uuidToClan.remove(uuid)
+        if (removed) {
+            if (!saveClan(clan)) {
+                clan.addUser(user, role)
+                Bukkit.getPlayer(uuid)?.takeIf(Player::isOnline)?.let { playtimeTracker.markOnline(uuid, clan.id) }
+                return false
+            }
+            _uuidToClan.remove(uuid)
+            plugin.clanHighlightService.removeMember(clan, uuid)
+            plugin.clanBattleService.handleMemberRemoved(clan, uuid)
+        } else {
+            Bukkit.getPlayer(uuid)?.takeIf(Player::isOnline)?.let { playtimeTracker.markOnline(uuid, clan.id) }
+        }
         return removed
     }
 
@@ -389,7 +444,10 @@ class ClanService(
             return ClanOperationResult.Rejected(ClanOperationRejection.INVALID_ROLE_TRANSITION)
         }
         if (!clan.setUserRole(user, event.newRole)) return ClanOperationResult.Rejected(ClanOperationRejection.MEMBER_NOT_FOUND)
-        saveClan(clan)
+        if (!saveClan(clan)) {
+            clan.setUserRole(user, oldRole)
+            return ClanOperationResult.Rejected(ClanOperationRejection.PERSISTENCE_FAILED)
+        }
         return ClanOperationResult.Success
     }
 
@@ -401,8 +459,9 @@ class ClanService(
         if (clan.getUserRole(currentLeader) != ClanRole.LEADER || clan.getUserRole(newLeader) == ClanRole.LEADER) {
             return ClanOperationResult.Rejected(ClanOperationRejection.INVALID_ROLE_TRANSITION)
         }
+        val previousNewLeaderRole = clan.getUserRole(newLeader)
         val demote = ClanMemberRoleChangeEvent(clan, currentLeader, clan.getUserRole(currentLeader), ClanRole.DEPUTY)
-        val promote = ClanMemberRoleChangeEvent(clan, newLeader, clan.getUserRole(newLeader), ClanRole.LEADER)
+        val promote = ClanMemberRoleChangeEvent(clan, newLeader, previousNewLeaderRole, ClanRole.LEADER)
         Bukkit.getPluginManager().callEvent(demote)
         Bukkit.getPluginManager().callEvent(promote)
         if (demote.isCancelled || promote.isCancelled) return ClanOperationResult.Rejected(ClanOperationRejection.CANCELLED_BY_EVENT)
@@ -412,7 +471,11 @@ class ClanService(
             clan.setUserRole(currentLeader, ClanRole.LEADER)
             return ClanOperationResult.Rejected(ClanOperationRejection.MEMBER_NOT_FOUND)
         }
-        saveClan(clan)
+        if (!saveClan(clan)) {
+            clan.setUserRole(newLeader, previousNewLeaderRole)
+            clan.setUserRole(currentLeader, ClanRole.LEADER)
+            return ClanOperationResult.Rejected(ClanOperationRejection.PERSISTENCE_FAILED)
+        }
         return ClanOperationResult.Success
     }
 
@@ -424,26 +487,40 @@ class ClanService(
         Bukkit.getPluginManager().callEvent(event)
         if (event.isCancelled) return ClanOperationResult.Rejected(ClanOperationRejection.CANCELLED_BY_EVENT)
         clan.setSetting(setting, event.newValue)
-        saveClan(clan)
+        if (!saveClan(clan)) {
+            clan.setSetting(setting, oldValue)
+            return ClanOperationResult.Rejected(ClanOperationRejection.PERSISTENCE_FAILED)
+        }
         return ClanOperationResult.Success
     }
 
     fun setClanHome(clan: Clan, actor: Player, homeId: String, location: Location): ClanOperationResult {
-        val event = ClanHomeSetEvent(clan, actor, homeId, location)
+        val normalizedHomeId = homeId.lowercase()
+        val previousLocation = clan.homes[normalizedHomeId]
+        val isNewHome = previousLocation == null
+        val event = ClanHomeSetEvent(clan, actor, normalizedHomeId, location)
         Bukkit.getPluginManager().callEvent(event)
         if (event.isCancelled) return ClanOperationResult.Rejected(ClanOperationRejection.CANCELLED_BY_EVENT)
-        clan.setHome(homeId, event.location)
-        saveClan(clan)
+        clan.setHome(normalizedHomeId, event.location)
+        if (!saveClan(clan)) {
+            if (previousLocation == null) clan.deleteHome(normalizedHomeId) else clan.setHome(normalizedHomeId, previousLocation)
+            return ClanOperationResult.Rejected(ClanOperationRejection.PERSISTENCE_FAILED)
+        }
+        if (isNewHome) plugin.clanQuestService.recordHomeSet(clan, actor)
         return ClanOperationResult.Success
     }
 
     fun deleteClanHome(clan: Clan, actor: Player, homeId: String): ClanOperationResult {
-        val location = clan.homes[homeId] ?: return ClanOperationResult.Rejected(ClanOperationRejection.HOME_NOT_FOUND)
-        val event = ClanHomeDeleteEvent(clan, actor, homeId, location)
+        val normalizedHomeId = homeId.lowercase()
+        val location = clan.homes[normalizedHomeId] ?: return ClanOperationResult.Rejected(ClanOperationRejection.HOME_NOT_FOUND)
+        val event = ClanHomeDeleteEvent(clan, actor, normalizedHomeId, location)
         Bukkit.getPluginManager().callEvent(event)
         if (event.isCancelled) return ClanOperationResult.Rejected(ClanOperationRejection.CANCELLED_BY_EVENT)
-        if (!clan.deleteHome(homeId)) return ClanOperationResult.Rejected(ClanOperationRejection.HOME_NOT_FOUND)
-        saveClan(clan)
+        if (!clan.deleteHome(normalizedHomeId)) return ClanOperationResult.Rejected(ClanOperationRejection.HOME_NOT_FOUND)
+        if (!saveClan(clan)) {
+            clan.setHome(normalizedHomeId, location)
+            return ClanOperationResult.Rejected(ClanOperationRejection.PERSISTENCE_FAILED)
+        }
         return ClanOperationResult.Success
     }
 
@@ -453,11 +530,13 @@ class ClanService(
      *
      * @param clan The [Clan] instance to persist.
      */
-    fun saveClan(clan: Clan) {
-        if (storage.saveClan(clan)) {
+    fun saveClan(clan: Clan): Boolean {
+        return if (storage.saveClan(clan)) {
             Bukkit.getPluginManager().callEvent(ClanSavedEvent(clan))
+            true
         } else {
             plugin.logger.warning("[pnClans] Клан «${clan.name}» не был сохранён; событие ClanSavedEvent не отправлено.")
+            false
         }
     }
 

@@ -20,6 +20,7 @@ import java.util.concurrent.ConcurrentHashMap
 /** Awards a capped amount of points to clans whose online members remain active. */
 class ClanActivityPointsService(private val plugin: BukkitPlugin) : Listener {
     private val lastActivity = ConcurrentHashMap<UUID, Long>()
+    private val lastQuestInterval = ConcurrentHashMap<String, Long>()
     private val task: BukkitTask
 
     init {
@@ -30,6 +31,7 @@ class ClanActivityPointsService(private val plugin: BukkitPlugin) : Listener {
     fun shutdown() {
         task.cancel()
         lastActivity.clear()
+        lastQuestInterval.clear()
     }
 
     @EventHandler
@@ -67,7 +69,10 @@ class ClanActivityPointsService(private val plugin: BukkitPlugin) : Listener {
 
     private fun tick() {
         val config = plugin.configService.settings.clanActivityPoints
-        if (!config.enabled || config.pointsPerInterval <= 0L || config.dailyClanLimit <= 0L) return
+        if (!config.enabled) {
+            lastQuestInterval.clear()
+            return
+        }
 
         val today = LocalDate.now().toString()
         val now = System.currentTimeMillis()
@@ -84,6 +89,12 @@ class ClanActivityPointsService(private val plugin: BukkitPlugin) : Listener {
                 clan.activityPointsDate = today
                 clan.activityPointsAwardedToday = 0L
             }
+            val lastQuestAt = lastQuestInterval.putIfAbsent(clan.id, now)
+            if (lastQuestAt != null && now - lastQuestAt >= intervalMs) {
+                plugin.clanQuestService.recordActivityInterval(clan, player)
+                lastQuestInterval[clan.id] = now
+            }
+            if (config.pointsPerInterval <= 0L || config.dailyClanLimit <= 0L) return@forEach
             val awarded = clan.activityPointsAwardedToday
             val remaining = config.dailyClanLimit - awarded
             if (remaining <= 0L) return@forEach
@@ -99,5 +110,6 @@ class ClanActivityPointsService(private val plugin: BukkitPlugin) : Listener {
                 plugin.clanService.saveClan(clan)
             }
         }
+        lastQuestInterval.keys.removeIf { it !in processedClans }
     }
 }

@@ -168,7 +168,6 @@ class ClanInviteService(private val clanService: ClanService) {
                 cfg.send(player, cfg.messages.invite.inviteInvalid)
                 return false
             }
-            clanService.saveClan(clan)
         }
 
         cfg.send(player, cfg.messages.invite.accepted, mapOf("clan" to clan.name))

@@ -129,7 +129,8 @@ class MenusConfig {
                     "&#FC65DF «Боевая сводка»",
                     " &7- &fУбийств: &#5EFD7D{clan_kills}",
                     " &7- &fСмертей: &#FC3737{clan_deaths}",
-                    " &7- &fKDA: &e{clan_kda}",
+                    " &7- &fБитвы: &#5EFD7D{clan_battle_wins} побед &7/ &#FC3737{clan_battle_losses} поражений",
+                    " &7- &fK/D: &e{clan_kda}",
                     "",
                     "&#FF8702➥ &fВыберите модуль управления ниже"
                 ),
@@ -316,6 +317,24 @@ class MenusConfig {
                 name = "&#5EA9FD✎ Клановые квесты",
                 lore = listOf("", "&#9EFC65 «Общие цели»", " &7- &fСражайтесь, исследуйте и развивайтесь.", " &7- &fОткрывайте награды для всего клана.", "", "&#FC65DF «Вклад каждого важен»", " &7- &fЛюбое действие приближает общую цель.", "", "&#FF8702➥ &fНажмите, &eЛКМ &fчтобы открыть квесты"),
                 actions = listOf(SoundAction("UI_BUTTON_CLICK"))
+            ),
+            "battles" to GuiItemConfig(
+                slot = 35,
+                material = "CROSSBOW",
+                name = "&#FC3737⚔ Клановые битвы",
+                lore = listOf(
+                    "",
+                    "&#9EFC65 «Честный вызов»",
+                    " &7- &fСравните MMR и выберите соперника.",
+                    " &7- &fСражайтесь на отдельной арене.",
+                    "",
+                    "&#FC65DF «Награды»",
+                    " &7- &fПобеды приносят MMR и клановые очки.",
+                    " &7- &fБои продвигают боевые квесты.",
+                    "",
+                    "&#FF8702➥ &fНажмите, &eЛКМ &fчтобы открыть поле боя"
+                ),
+                actions = listOf(SoundAction("ITEM_CROSSBOW_LOADING_START"))
             )
         )
     )
@@ -463,6 +482,14 @@ class MenusConfig {
                     " &7- &fСтатус: {status}",
                     " &7- &fИерархия: &e{weight}",
                     "",
+                    "&#5EA9FD «Боевая статистика в клане»",
+                    " &7- &fФормат: &#5EFD7Dубийства &7/ &#FC3737смерти",
+                    " &7- &fСегодня: &#5EFD7D{kills_today} &7/ &#FC3737{deaths_today}",
+                    " &7- &fНеделя: &#5EFD7D{kills_week} &7/ &#FC3737{deaths_week}",
+                    " &7- &fМесяц: &#5EFD7D{kills_month} &7/ &#FC3737{deaths_month}",
+                    " &7- &fВсё время: &#5EFD7D{kills_total} &7/ &#FC3737{deaths_total}",
+                    "&8Периоды рассчитываются по UTC.",
+                    "",
                     "&#FC65DF «Управление»",
                     " &7- &fЛКМ: {action_promote}",
                     " &7- &fПКМ: &#FC3737Понизить в должности",
@@ -483,8 +510,16 @@ class MenusConfig {
                     " &7- &fСтатус: {status}",
                     " &7- &fИерархия: &e{weight}",
                     "",
+                    "&#5EA9FD «Боевая статистика в клане»",
+                    " &7- &fФормат: &#5EFD7Dубийства &7/ &#FC3737смерти",
+                    " &7- &fСегодня: &#5EFD7D{kills_today} &7/ &#FC3737{deaths_today}",
+                    " &7- &fНеделя: &#5EFD7D{kills_week} &7/ &#FC3737{deaths_week}",
+                    " &7- &fМесяц: &#5EFD7D{kills_month} &7/ &#FC3737{deaths_month}",
+                    " &7- &fВсё время: &#5EFD7D{kills_total} &7/ &#FC3737{deaths_total}",
+                    "&8Периоды рассчитываются по UTC.",
+                    "",
                     "&#FC65DF «Личный профиль»",
-                    " &7- &fЭто ваш профиль в составе клана."
+                    " &7- &fПолный отчёт: &#FF8702/clan stats"
                 )
             ),
             "member_no_permission" to GuiItemConfig(
@@ -497,6 +532,17 @@ class MenusConfig {
                     " &7- &fДолжность: &#5EA9FD{role}",
                     " &7- &fСтатус: {status}",
                     " &7- &fИерархия: &e{weight}",
+                    "",
+                    "&#5EA9FD «Боевая статистика в клане»",
+                    " &7- &fФормат: &#5EFD7Dубийства &7/ &#FC3737смерти",
+                    " &7- &fСегодня: &#5EFD7D{kills_today} &7/ &#FC3737{deaths_today}",
+                    " &7- &fНеделя: &#5EFD7D{kills_week} &7/ &#FC3737{deaths_week}",
+                    " &7- &fМесяц: &#5EFD7D{kills_month} &7/ &#FC3737{deaths_month}",
+                    " &7- &fВсё время: &#5EFD7D{kills_total} &7/ &#FC3737{deaths_total}",
+                    "&8Периоды рассчитываются по UTC.",
+                    "",
+                    "&#FC65DF «Просмотр»",
+                    " &7- &fПолный отчёт: &#FF8702/clan stats {player}",
                     "",
                     "&c➥ У вас недостаточно прав для управления"
                 )
@@ -908,6 +954,7 @@ class MenusConfig {
                     " &7- &fСледующая цель: &6{next_level}",
                     " &7- &fСтоимость: &e{clan_required_money}⛁",
                     " &7- &fТребуемый MMR: &#FFD700{clan_required_mmr}",
+                    " &7- &fЗавершения квестов: &3{clan_quests} &7/ &3{clan_required_quests}",
                     "",
                     "&#FC65DF «Награда за уровень»",
                     " &7- &fСлотов участников: &b{clan_slots}",
@@ -935,7 +982,7 @@ class MenusConfig {
                     "&#5EA9FD «Требования для перехода»",
                     " &7- &fКазна: &e{level_cost}⛁",
                     " &7- &fMMR: &#FFD700{level_required_mmr}",
-                    " &7- &fКвестов: &3{level_required_quests}"
+                    " &7- &fНужно завершений: &3{level_required_quests}"
                 )
             ),
             "upgrade" to GuiItemConfig(
@@ -947,7 +994,7 @@ class MenusConfig {
                     "&#9EFC65 «Текущий прогресс»",
                     " &7- &fКазна: {clan_money_color}{clan_money} &7/ &e{clan_required_money} ⛁",
                     " &7- &fMMR: {clan_mmr_color}{clan_mmr} &7/ &6{clan_required_mmr}",
-                    " &7- &fКвесты: {clan_quests_color}{clan_quests} &7/ &3{clan_required_quests} шт.",
+                    " &7- &fЗавершения квестов: {clan_quests_color}{clan_quests} &7/ &3{clan_required_quests}",
                     "",
                     "&#FC65DF «Состояние ритуала»",
                     " &7- &f{beacon_state}",
@@ -1009,7 +1056,7 @@ class MenusConfig {
                     "&#FC65DF «Боевая мощь»",
                     " &7- &fРейтинг MMR: &#FFD700{mmr}",
                     " &7- &fУбийств: &#5EFD7D{kills} &7/ &fСмертей: &#FC3737{deaths}",
-                    " &7- &fОбщий KDA: &e{kda}",
+                    " &7- &fОбщий K/D: &e{kda}",
                     "",
                     "&#5EA9FD «Состав»",
                     " &7- &fУчастников: &e{members}",

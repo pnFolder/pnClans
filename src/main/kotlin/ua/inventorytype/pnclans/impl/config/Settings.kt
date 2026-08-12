@@ -134,7 +134,7 @@ class Settings {
     val modules: ModuleConfig = ModuleConfig()
 
     @YamlComment("Тип хранилища данных кланов и сундуков: SQLITE (рекомендуется) или JSON")
-    val storageType: String = "SQLITE"
+    var storageType: String = "SQLITE"
 
     @YamlComment("Проверять ли наличие новых версий на GitHub при запуске сервера")
     val checkUpdates: Boolean = true

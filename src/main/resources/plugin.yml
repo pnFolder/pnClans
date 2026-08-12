@@ -12,8 +12,8 @@ softdepend:
 
 commands:
   clan:
-    description: Main clan command
-    usage: /clan [create <name>|list <page>|info|help]
+    description: Main pnClans command
+    usage: /clan [menu|stats|battle|admin]
     aliases: [c, clans]
 
 permissions:
@@ -21,5 +21,5 @@ permissions:
     description: Base permission for clan commands
     default: true
   pnclans.admin:
-    description: Administrative access to pnClans
+    description: Administrative access to clan inspection, balances, MMR, members, quests, battles, save, and reload
     default: op

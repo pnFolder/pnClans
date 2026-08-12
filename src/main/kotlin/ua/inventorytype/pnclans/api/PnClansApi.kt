@@ -37,7 +37,7 @@ interface PnClansApi {
 }
 
 object PnClansProvider {
-    const val API_VERSION = 4
+    const val API_VERSION = 5
 
     fun get(): PnClansApi? = Bukkit.getServicesManager()
         .getRegistration(PnClansApi::class.java)

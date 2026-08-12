@@ -48,13 +48,16 @@ class ClanListener(private val plugin: BukkitPlugin) : Listener {
     fun onPlayerDeath(event: PlayerDeathEvent) {
         val victim = event.entity
         val killer = victim.killer
+        val victimBattle = plugin.clanBattleService.battleForPlayer(victim)
+        val organizedBattleKill = victimBattle != null && killer != null &&
+            victimBattle.id == plugin.clanBattleService.battleForPlayer(killer)?.id
 
         val victimClan = clanService.getClanUser(victim)
         if (victimClan != null) {
             victimClan.deaths += 1
-            if (victimClan.mmr > 0) victimClan.mmr -= 5
+            if (!organizedBattleKill && victimClan.mmr > 0) victimClan.mmr -= 5
             val victimUser = victimClan.getMember(victim.uniqueId) as? ua.inventorytype.pnclans.impl.clan.ClanUser
-            victimUser?.deaths = victimUser.deaths + 1
+            victimUser?.recordDeath()
             victimUser?.points = (victimUser.points - 1).coerceAtLeast(0)
             clanService.saveClan(victimClan)
         }
@@ -63,15 +66,16 @@ class ClanListener(private val plugin: BukkitPlugin) : Listener {
             val killerClan = clanService.getClanUser(killer)
             if (killerClan != null) {
                 killerClan.kills += 1
-                killerClan.mmr += 10
+                if (!organizedBattleKill) killerClan.mmr += 10
                 val killerUser = killerClan.getMember(killer.uniqueId) as? ua.inventorytype.pnclans.impl.clan.ClanUser
-                killerUser?.kills = killerUser.kills + 1
+                killerUser?.recordKill()
                 killerUser?.points = (killerUser.points + 3).coerceAtLeast(0)
-                val awarded = plugin.clanPointsService.award(
+                val awarded = organizedBattleKill || plugin.clanPointsService.award(
                     killerClan,
                     cfg.clanPointsPerPlayerKill,
                     ClanPointsSource.PLAYER_KILL
                 )
+                plugin.clanQuestService.recordPlayerKill(killerClan, killer)
                 if (!awarded) clanService.saveClan(killerClan)
             }
         }
@@ -81,11 +85,12 @@ class ClanListener(private val plugin: BukkitPlugin) : Listener {
     fun onMobDeath(event: EntityDeathEvent) {
         if (event.entity is Player) return
         val killer = event.entity.killer ?: return
-        val reward = cfg.clanPointsPerMobKill[event.entity.type.name] ?: return
-        if (reward <= 0L) return
-
         val clan = clanService.getClanUser(killer) ?: return
-        plugin.clanPointsService.award(clan, reward, ClanPointsSource.MOB_KILL)
+        val reward = cfg.clanPointsPerMobKill[event.entity.type.name] ?: 0L
+        if (reward > 0L) {
+            plugin.clanPointsService.award(clan, reward, ClanPointsSource.MOB_KILL)
+        }
+        plugin.clanQuestService.recordMobKill(clan, killer, event.entity.type.name)
     }
 
     @Suppress("DEPRECATION")

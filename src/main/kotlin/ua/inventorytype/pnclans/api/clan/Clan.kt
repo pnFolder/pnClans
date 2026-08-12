@@ -47,6 +47,16 @@ interface Clan {
     /** Total deaths accumulated by clan members. */
     var deaths: Int
 
+    /** Number of organized clan battles won. */
+    var battleWins: Int
+        get() = 0
+        set(_) {}
+
+    /** Number of organized clan battles lost. */
+    var battleLosses: Int
+        get() = 0
+        set(_) {}
+
     /** Current monetary balance stored in the clan bank. */
     var bankBalance: Double
 
@@ -63,6 +73,13 @@ interface Clan {
     val pointsLogs: List<ClanPointsTransaction>
 
     fun addPointsLog(log: ClanPointsTransaction)
+
+    /** Persisted progress for configured clan quests, keyed by quest ID. */
+    val questProgress: Map<String, ClanQuestProgress>
+        get() = emptyMap()
+
+    /** Stores the current progress of one quest. */
+    fun setQuestProgress(questId: String, progress: ClanQuestProgress) {}
 
     /** Client-side visual highlight color used for teammates. */
     var highlightColor: ClanHighlightColor

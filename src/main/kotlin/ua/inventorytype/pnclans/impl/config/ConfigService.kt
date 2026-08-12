@@ -22,6 +22,8 @@ import java.nio.file.StandardCopyOption
  * - `config.yml`   → [Settings]      — general plugin settings, storage type, economy options
  * - `menus.yml`    → [MenusConfig]   — 100% config-driven GUI layout, item slots, actions
  * - `messages.yml` → [MessagesConfig] — all player-facing event responses as [Action] lists
+ * - `quests.yml`   → [ClanQuestsConfig] — shared quest objectives, cycles, prerequisites, and rewards
+ * - `battles.yml`  → [ClanBattlesConfig] — arena battles, rules, rewards, and battle GUI
  *
  * Uses [Yaml] with [PolymorphismStyle.Tag] to support polymorphic [ua.inventorytype.pnclans.api.Action]
  * deserialization across both `menus.yml` and `messages.yml`.
@@ -63,6 +65,9 @@ class ConfigService(private val plugin: Plugin) {
     /** Loaded clan quest definitions from `quests.yml`. */
     lateinit var quests: ClanQuestsConfig private set
 
+    /** Loaded clan battle rules, arenas, and GUI display definitions. */
+    lateinit var battles: ClanBattlesConfig private set
+
     /**
      * Loads or generates all plugin configuration files on startup.
      *
@@ -70,26 +75,64 @@ class ConfigService(private val plugin: Plugin) {
      * Called once during [ua.inventorytype.pnclans.BukkitPlugin.onEnable].
      */
     fun loadAll() {
-        if (!plugin.dataFolder.exists()) {
-            plugin.dataFolder.mkdirs()
-        }
+        val previousSettings = if (::settings.isInitialized) settings else null
+        val previousMenus = if (::menus.isInitialized) menus else null
+        val previousMessages = if (::messages.isInitialized) messages else null
+        val previousShop = if (::shop.isInitialized) shop else null
+        val previousQuests = if (::quests.isInitialized) quests else null
+        val previousBattles = if (::battles.isInitialized) battles else null
+        try {
+            if (!plugin.dataFolder.exists()) {
+                plugin.dataFolder.mkdirs()
+            }
 
-        appendMissingClanChatSection()
-        settings = loadOrCreate("config.yml", Settings.serializer(), Settings())
-        menus = loadOrCreate("menus.yml", MenusConfig.serializer(), MenusConfig())
-        messages = loadOrCreate("messages.yml", MessagesConfig.serializer(), MessagesConfig())
-        val defaultShop = ClanShopConfig()
-        val shopFile = File(plugin.dataFolder, "shop.yml")
-        val existingShopContent = shopFile.takeIf(File::exists)?.readText()
-        val existingShopVersion = existingShopContent
-            ?.let { Regex("(?m)^schemaVersion\\s*:\\s*(\\d+)").find(it)?.groupValues?.get(1)?.toIntOrNull() ?: 0 }
-            ?: defaultShop.schemaVersion
-        val explicitProductRarities = explicitProductRarityIds(existingShopContent)
-        shop = loadOrCreate("shop.yml", ClanShopConfig.serializer(), ClanShopConfig())
-        if (existingShopVersion < defaultShop.schemaVersion) {
-            migrateLegacyShop(existingShopVersion, explicitProductRarities)
+            appendMissingClanChatSection()
+            settings = loadOrCreate("config.yml", Settings.serializer(), Settings())
+            menus = loadOrCreate("menus.yml", MenusConfig.serializer(), MenusConfig())
+            messages = loadOrCreate("messages.yml", MessagesConfig.serializer(), MessagesConfig())
+            val defaultShop = ClanShopConfig()
+            val shopFile = File(plugin.dataFolder, "shop.yml")
+            val existingShopContent = shopFile.takeIf(File::exists)?.readText()
+            val existingShopVersion = schemaVersion(existingShopContent, defaultShop.schemaVersion)
+            val explicitProductRarities = explicitProductRarityIds(existingShopContent)
+            shop = loadOrCreate("shop.yml", ClanShopConfig.serializer(), ClanShopConfig())
+            if (existingShopVersion < defaultShop.schemaVersion) {
+                migrateLegacyShop(existingShopVersion, explicitProductRarities)
+            }
+            val defaultQuests = ClanQuestsConfig()
+            val questFile = File(plugin.dataFolder, "quests.yml")
+            val existingQuestVersion = schemaVersion(questFile.takeIf(File::exists)?.readText(), defaultQuests.schemaVersion)
+            val loadedQuests = loadOrCreate("quests.yml", ClanQuestsConfig.serializer(), defaultQuests)
+            quests = if (existingQuestVersion < defaultQuests.schemaVersion) {
+                loadedQuests.copy(
+                    schemaVersion = defaultQuests.schemaVersion,
+                    display = defaultQuests.display,
+                    quests = loadedQuests.quests.filterKeys { it !in defaultQuests.quests } + defaultQuests.quests
+                ).also { saveQuests(it) }
+            } else {
+                loadedQuests
+            }
+            val defaultBattles = ClanBattlesConfig()
+            val battleFile = File(plugin.dataFolder, "battles.yml")
+            val existingBattleVersion = schemaVersion(battleFile.takeIf(File::exists)?.readText(), defaultBattles.schemaVersion)
+            val loadedBattles = loadOrCreate("battles.yml", ClanBattlesConfig.serializer(), defaultBattles)
+            battles = if (existingBattleVersion < defaultBattles.schemaVersion) {
+                loadedBattles.copy(
+                    schemaVersion = defaultBattles.schemaVersion,
+                    display = defaultBattles.display
+                ).also { saveBattles(it) }
+            } else {
+                loadedBattles
+            }
+        } catch (error: Throwable) {
+            previousSettings?.let { settings = it }
+            previousMenus?.let { menus = it }
+            previousMessages?.let { messages = it }
+            previousShop?.let { shop = it }
+            previousQuests?.let { quests = it }
+            previousBattles?.let { battles = it }
+            throw error
         }
-        quests = loadOrCreate("quests.yml", ClanQuestsConfig.serializer(), ClanQuestsConfig())
     }
 
     /** Persists shop changes made by the in-game administrator editor. */
@@ -97,6 +140,28 @@ class ConfigService(private val plugin: Plugin) {
         val file = File(plugin.dataFolder, "shop.yml")
         val temp = File(plugin.dataFolder, "shop.yml.tmp")
         temp.writeText(yaml.encodeToString(ClanShopConfig.serializer(), shop))
+        try {
+            Files.move(temp.toPath(), file.toPath(), StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE)
+        } catch (_: java.nio.file.AtomicMoveNotSupportedException) {
+            Files.move(temp.toPath(), file.toPath(), StandardCopyOption.REPLACE_EXISTING)
+        }
+    }
+
+    private fun saveQuests(value: ClanQuestsConfig) {
+        val file = File(plugin.dataFolder, "quests.yml")
+        val temp = File(plugin.dataFolder, "quests.yml.tmp")
+        temp.writeText(yaml.encodeToString(ClanQuestsConfig.serializer(), value))
+        try {
+            Files.move(temp.toPath(), file.toPath(), StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE)
+        } catch (_: java.nio.file.AtomicMoveNotSupportedException) {
+            Files.move(temp.toPath(), file.toPath(), StandardCopyOption.REPLACE_EXISTING)
+        }
+    }
+
+    private fun saveBattles(value: ClanBattlesConfig) {
+        val file = File(plugin.dataFolder, "battles.yml")
+        val temp = File(plugin.dataFolder, "battles.yml.tmp")
+        temp.writeText(yaml.encodeToString(ClanBattlesConfig.serializer(), value))
         try {
             Files.move(temp.toPath(), file.toPath(), StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE)
         } catch (_: java.nio.file.AtomicMoveNotSupportedException) {
@@ -180,6 +245,16 @@ class ConfigService(private val plugin: Plugin) {
             }
         }
         return result
+    }
+
+    private fun schemaVersion(content: String?, defaultVersion: Int): Int {
+        if (content == null) return defaultVersion
+        return Regex("(?m)^schemaVersion\\s*:\\s*(\\d+)")
+            .find(content)
+            ?.groupValues
+            ?.get(1)
+            ?.toIntOrNull()
+            ?: 0
     }
 
     /** Upgrades only untouched v2 defaults while preserving administrator-owned display text. */

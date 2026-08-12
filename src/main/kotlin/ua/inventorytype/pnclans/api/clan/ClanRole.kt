@@ -57,6 +57,7 @@ enum class ClanRole(
             ClanPerms.Homes.DELETE_ANY,
             ClanPerms.Action.OPEN_CHEST,
             ClanPerms.Action.UPGRADE_LEVEL,
+            ClanPerms.Action.START_BATTLE,
             ClanPerms.Settings.TOGGLE_CHAT
         )
     ),

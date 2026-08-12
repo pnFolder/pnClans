@@ -87,6 +87,11 @@ object PluginBanner {
 
         logRaw(middleBorder)
         logRaw(formatBoxLine("&#9EFC65&l⚡ СТАТУС: Плагин pnClans v$version успешно запущен и готов к работе!"))
+        logRaw(middleBorder)
+        logRaw(formatBoxLine("&#5EA9FD✦ ИДЕИ И ПРЕДЛОЖЕНИЯ"))
+        logRaw(formatBoxLine("&#ffffffНужен новый плагин или хотите что-то изменить, добавить либо убрать?"))
+        logRaw(formatBoxLine("&#ffffffСоздайте тему на форуме или напишите в чат Discord."))
+        logRaw(formatBoxLine("&#5EA9FDhttps://discord.gg/TFdnyvMft"))
         logRaw(bottomBorder)
         logRaw("")
     }
