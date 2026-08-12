@@ -9,6 +9,8 @@
 [![Java](https://img.shields.io/badge/Java-21%20%2F%2025-FC65DF?style=for-the-badge)](https://adoptium.net/)
 [![Development](https://img.shields.io/badge/branch-dev-5EA9FD?style=for-the-badge)](https://github.com/pnFolder/pnClans/tree/dev)
 
+<img width="1900" height="887" alt="image" src="https://github.com/user-attachments/assets/d6be1a35-55dc-4696-971b-c450c9b74124" />
+
 <a href=".github/assets/v1.0.5/media_1786052370284.png">
   <img src=".github/assets/v1.0.5/media_1786052370284.png" alt="Подсветка соклановца контуром" width="640">
 </a>
