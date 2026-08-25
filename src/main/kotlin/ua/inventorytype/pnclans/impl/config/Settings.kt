@@ -2,12 +2,24 @@ package ua.inventorytype.pnclans.impl.config
 
 import com.charleskorn.kaml.YamlComment
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.Transient
 
 /** Available activation methods for the private clan chat channel. */
 @Serializable
 enum class ClanChatMode {
     COMMAND,
     PREFIX
+}
+
+/**
+ * GitHub Release channel accepted by the automatic updater.
+ * STABLE accepts only final releases, BETA also accepts beta builds, ALPHA accepts every recognized build.
+ */
+@Serializable
+enum class UpdateChannel {
+    STABLE,
+    BETA,
+    ALPHA
 }
 
 @Serializable
@@ -136,11 +148,22 @@ class Settings {
     @YamlComment("Тип хранилища данных кланов и сундуков: SQLITE (рекомендуется) или JSON")
     var storageType: String = "SQLITE"
 
-    @YamlComment("Проверять ли наличие новых версий на GitHub при запуске сервера")
+    @YamlComment("Канал автоматических обновлений GitHub. STABLE — только полностью выпущенные и проверенные версии. BETA — стабильные версии и тестовые beta-сборки; рекомендуется по умолчанию. ALPHA — абсолютно самые свежие alpha, beta и stable-сборки, включая ранние версии в разработке.")
+    val updateChannel: UpdateChannel = UpdateChannel.BETA
+
+    /**
+     * Legacy compatibility only. Update checks are always enabled now and this field is intentionally
+     * not serialized into config.yml. An old `checkUpdates:` key is ignored by strictMode=false.
+     */
+    @Transient
     val checkUpdates: Boolean = true
 
-    @YamlComment("Автоматически скачивать последнюю версию плагина в папку plugins/update/. Отключено по умолчанию ради безопасности")
-    val autoUpdate: Boolean = false
+    /**
+     * Kept out of generated config.yml intentionally. AutoUpdater reads an explicitly added
+     * `autoUpdate: false` directly from the YAML file; when absent, automatic downloading is enabled.
+     */
+    @Transient
+    val autoUpdate: Boolean = true
 
     @YamlComment("Стоимость создания клана в монетах экономики Vault (0 — бесплатно)")
     val createClanCost: Double = 1000.0
