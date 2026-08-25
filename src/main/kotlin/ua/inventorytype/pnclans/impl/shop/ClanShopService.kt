@@ -4,9 +4,18 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import org.bukkit.Bukkit
+import org.bukkit.Material
+import org.bukkit.enchantments.Enchantment
 import org.bukkit.entity.Player
+import org.bukkit.inventory.ItemStack
 import ua.inventorytype.pnclans.BukkitPlugin
+import ua.inventorytype.pnclans.api.Action
 import ua.inventorytype.pnclans.api.ActionContext
+import ua.inventorytype.pnclans.api.BarterAction
+import ua.inventorytype.pnclans.api.ChanceAction
+import ua.inventorytype.pnclans.api.ConsoleCommandAction
+import ua.inventorytype.pnclans.api.GiveItemAction
+import ua.inventorytype.pnclans.api.ItemRewardAction
 import ua.inventorytype.pnclans.api.clan.Clan
 import ua.inventorytype.pnclans.api.event.ClanShopPurchaseEvent
 import ua.inventorytype.pnclans.api.event.ClanShopPurchasePreEvent
@@ -123,7 +132,7 @@ internal class ClanShopService(private val plugin: BukkitPlugin) {
             return ClanShopPurchaseResult.Rejected(ClanShopPurchaseRejection.CURRENCY_UNAVAILABLE)
         }
 
-        val preparedItem = runCatching { prepareItemReward(productId, product) }
+        val preparedItem = runCatching { prepareRewards(productId, product) }
             .getOrElse { error ->
                 plugin.logger.log(Level.SEVERE, "Invalid clan shop reward configuration for product '$productId'.", error)
                 return ClanShopPurchaseResult.Rejected(ClanShopPurchaseRejection.REWARD_FAILED)
@@ -186,19 +195,64 @@ internal class ClanShopService(private val plugin: BukkitPlugin) {
             clan.users.size >= product.conditions.minimumMembers &&
             plugin.clanQuestService.requiredQuestsMet(clan, product.conditions.requiredQuests)
 
-    /** Decode static item data before charging so a broken item config cannot take a player's currency. */
-    private fun prepareItemReward(productId: String, product: ClanShopProductConfig): org.bukkit.inventory.ItemStack? =
-        product.itemStack?.takeIf { it.isNotBlank() }?.let { encoded ->
+    /** Validate every deterministic reward configuration before charging the player. */
+    private fun prepareRewards(productId: String, product: ClanShopProductConfig): ItemStack? {
+        product.rewards.forEach { validateAction(it, productId) }
+        return product.itemStack?.takeIf { it.isNotBlank() }?.let { encoded ->
             ItemStackSerializer.fromBase64(encoded).firstOrNull()?.clone()
                 ?: throw IllegalArgumentException("Invalid serialized shop item for $productId")
         }
+    }
+
+    private fun validateAction(action: Action, productId: String) {
+        when (action) {
+            is GiveItemAction -> requireMaterial(action.item, productId)
+            is ItemRewardAction -> validateItemReward(action, productId)
+            is ConsoleCommandAction -> require(action.command.removePrefix("/").trim().isNotEmpty()) {
+                "Empty console command in shop product $productId"
+            }
+            is BarterAction -> requireMaterial(action.item, productId)
+            is ChanceAction -> {
+                require(action.percentage in 0.0..100.0) {
+                    "Chance percentage must be between 0 and 100 in shop product $productId"
+                }
+                action.successActions.forEach { validateAction(it, productId) }
+                action.failedActions.forEach { validateAction(it, productId) }
+            }
+            else -> Unit
+        }
+    }
+
+    private fun validateItemReward(action: ItemRewardAction, productId: String) {
+        val material = requireMaterial(action.item, productId)
+        val probe = ItemStack(material)
+        action.enchantments.forEach { (name, level) ->
+            val enchantment = enchantment(name)
+                ?: throw IllegalArgumentException("Unknown enchantment '$name' in shop product $productId")
+            if (action.unsafeEnchantments) {
+                probe.addUnsafeEnchantment(enchantment, level)
+            } else {
+                probe.addEnchantment(enchantment, level)
+            }
+        }
+    }
+
+    private fun requireMaterial(name: String, productId: String): Material =
+        runCatching { Material.valueOf(name.uppercase()) }.getOrNull()
+            ?: throw IllegalArgumentException("Unknown material '$name' in shop product $productId")
+
+    @Suppress("DEPRECATION")
+    private fun enchantment(name: String): Enchantment? {
+        val legacyName = ENCHANTMENT_ALIASES[name.uppercase()] ?: name.uppercase()
+        return Enchantment.getByName(legacyName)
+    }
 
     private fun deliverRewards(
         player: Player,
         clan: Clan,
         productId: String,
         product: ClanShopProductConfig,
-        preparedItem: org.bukkit.inventory.ItemStack?
+        preparedItem: ItemStack?
     ): RewardDeliveryResult {
         var deliveryStarted = false
         return try {
@@ -227,7 +281,7 @@ internal class ClanShopService(private val plugin: BukkitPlugin) {
     }
 
     /** Delivers all units and drops inventory overflow at the buyer's feet. */
-    private fun giveItem(player: Player, template: org.bukkit.inventory.ItemStack, amount: Int) {
+    private fun giveItem(player: Player, template: ItemStack, amount: Int) {
         var remaining = amount.coerceAtLeast(1)
         while (remaining > 0) {
             val stack = template.clone().apply { this.amount = minOf(remaining, maxStackSize) }
@@ -316,6 +370,27 @@ internal class ClanShopService(private val plugin: BukkitPlugin) {
                 )
                 false
             }
+        )
+    }
+
+    private companion object {
+        val ENCHANTMENT_ALIASES = mapOf(
+            "SHARPNESS" to "DAMAGE_ALL",
+            "SMITE" to "DAMAGE_UNDEAD",
+            "BANE_OF_ARTHROPODS" to "DAMAGE_ARTHROPODS",
+            "UNBREAKING" to "DURABILITY",
+            "EFFICIENCY" to "DIG_SPEED",
+            "FORTUNE" to "LOOT_BONUS_BLOCKS",
+            "LOOTING" to "LOOT_BONUS_MOBS",
+            "PROTECTION" to "PROTECTION_ENVIRONMENTAL",
+            "FIRE_PROTECTION" to "PROTECTION_FIRE",
+            "FEATHER_FALLING" to "PROTECTION_FALL",
+            "BLAST_PROTECTION" to "PROTECTION_EXPLOSIONS",
+            "PROJECTILE_PROTECTION" to "PROTECTION_PROJECTILE",
+            "POWER" to "ARROW_DAMAGE",
+            "PUNCH" to "ARROW_KNOCKBACK",
+            "FLAME" to "ARROW_FIRE",
+            "INFINITY" to "ARROW_INFINITE"
         )
     }
 }
