@@ -28,6 +28,8 @@ import ua.inventorytype.pnclans.impl.config.ConfigMigrationSafety
 import ua.inventorytype.pnclans.impl.config.ConfigService
 import ua.inventorytype.pnclans.impl.config.ConfigValidator
 import ua.inventorytype.pnclans.impl.config.ConfigurationBackfill
+import ua.inventorytype.pnclans.impl.config.SupplementalMenusConfig
+import ua.inventorytype.pnclans.impl.config.SupplementalMenusLoader
 import ua.inventorytype.pnclans.impl.economy.EconomyService
 import ua.inventorytype.pnclans.impl.inventory.listener.GuiListener
 import ua.inventorytype.pnclans.impl.listener.ClanListener
@@ -51,6 +53,9 @@ class BukkitPlugin : JavaPlugin() {
         private set
 
     lateinit var configService: ConfigService
+        private set
+
+    internal var supplementalMenus: SupplementalMenusConfig = SupplementalMenusConfig()
         private set
 
     lateinit var placeholderRegistry: PlaceholderRegistry
@@ -114,6 +119,7 @@ class BukkitPlugin : JavaPlugin() {
         }
         ConfigurationBackfill.applyV121(this, configService)
         ConfigurationBackfill.applyV122(this, configService)
+        supplementalMenus = SupplementalMenusLoader.loadAndBackfill(this)
         ConfigValidator.validate(this, configService)
     }
 
