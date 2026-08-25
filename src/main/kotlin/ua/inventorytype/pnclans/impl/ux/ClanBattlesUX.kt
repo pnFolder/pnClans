@@ -4,15 +4,16 @@ import org.bukkit.Material
 import org.bukkit.entity.Player
 import org.bukkit.event.inventory.InventoryClickEvent
 import ua.inventorytype.pnclans.api.battle.ClanBattle
+import ua.inventorytype.pnclans.impl.clan.ClanBattleLobbySnapshot
 import ua.inventorytype.pnclans.impl.clan.ClanBattleOperation
 import ua.inventorytype.pnclans.impl.clan.ClanBattleRejection
 import ua.inventorytype.pnclans.impl.clan.ClanBattleService
 import ua.inventorytype.pnclans.impl.clan.ClanService
 import ua.inventorytype.pnclans.impl.inventory.BaseGui
-import kotlin.math.ceil
 import kotlin.math.abs
+import kotlin.math.ceil
 
-/** Battle headquarters: challenge board, incoming calls, and live battle status. */
+/** Battle headquarters: challenge board, lobby roster/ready controls, and live battle status. */
 class ClanBattlesUX(
     clanService: ClanService,
     selectedPage: Int = 0
@@ -22,7 +23,16 @@ class ClanBattlesUX(
     private val battleService: ClanBattleService = clanService.plugin.clanBattleService
     private val guiRows = config.rows.coerceIn(1, 6)
     private val inventorySize = guiRows * 9
-    private val reservedSlots = setOf(display.headerSlot, display.ownSlot, display.incomingSlot, display.backSlot, display.previousSlot, display.pageSlot, display.nextSlot, display.refreshSlot)
+    private val reservedSlots = setOf(
+        display.headerSlot,
+        display.ownSlot,
+        display.incomingSlot,
+        display.backSlot,
+        display.previousSlot,
+        display.pageSlot,
+        display.nextSlot,
+        display.refreshSlot
+    )
     private val opponentSlots = display.opponentSlots
         .filter { it in 0 until inventorySize && it !in reservedSlots }
         .distinct()
@@ -61,7 +71,8 @@ class ClanBattlesUX(
             dynamicItem(this@ClanBattlesUX.material(this@ClanBattlesUX.display.headerMaterial, Material.CROSSBOW)) { player ->
                 val clan = this@ClanBattlesUX.clanService.getClanUser(player) ?: return@dynamicItem null
                 val battle = this@ClanBattlesUX.battleService.battleForClan(clan)
-                val placeholders = this@ClanBattlesUX.headerPlaceholders(clan, battle)
+                val lobby = this@ClanBattlesUX.battleService.lobbyForClan(clan)
+                val placeholders = this@ClanBattlesUX.headerPlaceholders(player, clan, battle, lobby)
                 name(this@ClanBattlesUX.format(player, this@ClanBattlesUX.display.headerName, placeholders))
                 lore(this@ClanBattlesUX.display.headerLore.map { this@ClanBattlesUX.format(player, it, placeholders) })
                 glow(true)
@@ -76,13 +87,22 @@ class ClanBattlesUX(
             dynamicItem(this@ClanBattlesUX.material(this@ClanBattlesUX.display.ownMaterial, Material.SHIELD)) { player ->
                 val clan = this@ClanBattlesUX.clanService.getClanUser(player) ?: return@dynamicItem null
                 val battle = this@ClanBattlesUX.battleService.battleForClan(clan)
-                val placeholders = this@ClanBattlesUX.ownPlaceholders(clan, battle)
-                type(this@ClanBattlesUX.material(if (battle == null) "SHIELD" else "DIAMOND_SWORD", Material.SHIELD))
+                val lobby = this@ClanBattlesUX.battleService.lobbyForClan(clan)
+                val placeholders = this@ClanBattlesUX.ownPlaceholders(player, clan, battle, lobby)
+                type(
+                    when {
+                        battle != null -> Material.DIAMOND_SWORD
+                        lobby?.countdownActive == true -> Material.CLOCK
+                        lobby != null -> Material.SHIELD
+                        else -> this@ClanBattlesUX.material(this@ClanBattlesUX.display.ownMaterial, Material.SHIELD)
+                    }
+                )
                 name(this@ClanBattlesUX.format(player, this@ClanBattlesUX.display.ownName, placeholders))
                 lore(this@ClanBattlesUX.display.ownLore.map { this@ClanBattlesUX.format(player, it, placeholders) })
-                glow(battle != null)
+                glow(battle != null || lobby != null)
                 null
             }
+            onClick { player, event -> this@ClanBattlesUX.handleOwnStatus(player, event) }
         }
     }
 
@@ -91,6 +111,7 @@ class ClanBattlesUX(
         slot(display.incomingSlot) {
             dynamicItemNullable(this@ClanBattlesUX.material(this@ClanBattlesUX.display.incomingMaterial, Material.IRON_SWORD)) { player ->
                 val clan = this@ClanBattlesUX.clanService.getClanUser(player) ?: return@dynamicItemNullable null
+                if (this@ClanBattlesUX.battleService.lobbyForClan(clan) != null) return@dynamicItemNullable null
                 val challenge = this@ClanBattlesUX.battleService.incomingChallenges(clan).firstOrNull()
                     ?: return@dynamicItemNullable null
                 val challenger = this@ClanBattlesUX.clanService.getClanByName(challenge.challengerClanId)
@@ -114,7 +135,8 @@ class ClanBattlesUX(
             slot(slotIndex) {
                 dynamicItemNullable(this@ClanBattlesUX.material(this@ClanBattlesUX.display.opponentMaterial, Material.IRON_SWORD)) { player ->
                     val clan = this@ClanBattlesUX.clanService.getClanUser(player) ?: return@dynamicItemNullable null
-                    val opponent = this@ClanBattlesUX.opponents(clan).getOrNull(this@ClanBattlesUX.page * this@ClanBattlesUX.opponentSlots.size + index)
+                    val opponent = this@ClanBattlesUX.opponents(clan)
+                        .getOrNull(this@ClanBattlesUX.page * this@ClanBattlesUX.opponentSlots.size + index)
                         ?: run {
                             if (index != 0 || this@ClanBattlesUX.opponents(clan).isNotEmpty()) return@dynamicItemNullable null
                             type(this@ClanBattlesUX.material(this@ClanBattlesUX.display.emptyMaterial, Material.SPYGLASS))
@@ -226,6 +248,20 @@ class ClanBattlesUX(
         refresh(player)
     }
 
+    private fun handleOwnStatus(player: Player, event: InventoryClickEvent) {
+        val clan = clanService.getClanUser(player) ?: return
+        if (battleService.battleForClan(clan) != null) return
+        if (battleService.lobbyForClan(clan) == null) return
+
+        val result = when {
+            event.isLeftClick && !event.isShiftClick -> battleService.toggleLobbyParticipation(player)
+            event.isRightClick && !event.isShiftClick -> battleService.toggleLobbyReady(player)
+            else -> return
+        }
+        handle(player, result)
+        refresh(player)
+    }
+
     private fun handleIncoming(player: Player, event: InventoryClickEvent) {
         val clan = clanService.getClanUser(player) ?: return
         val challenge = battleService.incomingChallenges(clan).firstOrNull() ?: return
@@ -235,26 +271,43 @@ class ClanBattlesUX(
             else -> return
         }
         handle(player, result)
-        if (result is ClanBattleOperation.Success) {
-            player.closeInventory()
-        } else {
-            refresh(player)
-        }
+        refresh(player)
     }
 
     private fun handle(player: Player, result: ClanBattleOperation) {
         val rejected = result as? ClanBattleOperation.Rejected ?: return
+        when (rejected.reason) {
+            ClanBattleRejection.LOBBY_NOT_FOUND -> {
+                player.sendMessage(format(player, "&#FC3737✖ &fСбор состава уже завершён или не найден."))
+                return
+            }
+            ClanBattleRejection.LOBBY_FULL -> {
+                player.sendMessage(format(player, "&#FC3737✖ &fБоевой состав вашей стороны уже заполнен."))
+                return
+            }
+            ClanBattleRejection.NOT_ENOUGH_SELECTED -> {
+                player.sendMessage(format(player, "&#FFD700⌚ &fСначала выберите минимум &e${config.minimumOnlineMembers.coerceAtLeast(1)} &fучастника(ов) в состав."))
+                return
+            }
+            else -> Unit
+        }
+
         val actions = when (rejected.reason) {
             ClanBattleRejection.DISABLED -> clanService.plugin.configService.messages.battles.disabled
             ClanBattleRejection.NO_PERMISSION -> clanService.plugin.configService.messages.battles.noPermission
             ClanBattleRejection.CLAN_BUSY -> clanService.plugin.configService.messages.battles.clanBusy
             ClanBattleRejection.CHALLENGE_EXISTS -> clanService.plugin.configService.messages.battles.challengeExists
-            ClanBattleRejection.CHALLENGE_NOT_FOUND, ClanBattleRejection.CHALLENGE_EXPIRED -> clanService.plugin.configService.messages.battles.challengeNotFound
+            ClanBattleRejection.CHALLENGE_NOT_FOUND,
+            ClanBattleRejection.CHALLENGE_EXPIRED -> clanService.plugin.configService.messages.battles.challengeNotFound
             ClanBattleRejection.NOT_TARGET_CLAN -> clanService.plugin.configService.messages.battles.notTarget
             ClanBattleRejection.NOT_ENOUGH_ONLINE -> clanService.plugin.configService.messages.battles.notEnoughOnline
             ClanBattleRejection.ARENA_UNAVAILABLE -> clanService.plugin.configService.messages.battles.arenaUnavailable
             ClanBattleRejection.CANCELLED_BY_EVENT -> clanService.plugin.configService.messages.battles.cancelled
-            ClanBattleRejection.NO_CLAN, ClanBattleRejection.SAME_CLAN -> clanService.plugin.configService.messages.general.noPermission
+            ClanBattleRejection.NO_CLAN,
+            ClanBattleRejection.SAME_CLAN -> clanService.plugin.configService.messages.general.noPermission
+            ClanBattleRejection.LOBBY_NOT_FOUND,
+            ClanBattleRejection.LOBBY_FULL,
+            ClanBattleRejection.NOT_ENOUGH_SELECTED -> return
         }
         clanService.plugin.configService.send(player, actions)
     }
@@ -285,6 +338,7 @@ class ClanBattlesUX(
     private fun opponents(clan: ua.inventorytype.pnclans.api.clan.Clan): List<ua.inventorytype.pnclans.api.clan.Clan> =
         if (
             battleService.battleForClan(clan) != null ||
+            battleService.lobbyForClan(clan) != null ||
             battleService.incomingChallenges(clan).isNotEmpty() ||
             battleService.outgoingChallenges(clan).isNotEmpty()
         ) {
@@ -295,6 +349,7 @@ class ClanBattlesUX(
 
     private fun emptyReason(clan: ua.inventorytype.pnclans.api.clan.Clan): String = when {
         battleService.battleForClan(clan) != null -> "Сначала завершите текущую битву."
+        battleService.lobbyForClan(clan) != null -> "Сначала завершите сбор боевого состава."
         battleService.incomingChallenges(clan).isNotEmpty() -> "Сначала примите или отклоните входящий вызов."
         battleService.outgoingChallenges(clan).isNotEmpty() -> "Сначала дождитесь ответа на отправленный вызов."
         else -> "Нет кланов с достаточным онлайном."
@@ -305,13 +360,45 @@ class ClanBattlesUX(
 
     private fun pageCount(): Int = ceil(opponentsForViewer().size.toDouble() / opponentSlots.size.coerceAtLeast(1)).toInt().coerceAtLeast(1)
 
-    private fun headerPlaceholders(clan: ua.inventorytype.pnclans.api.clan.Clan, battle: ClanBattle?): Map<String, String> {
-        val opponentId = battle?.let { if (it.challengerClanId == clan.id) it.defenderClanId else it.challengerClanId }
+    private fun headerPlaceholders(
+        player: Player,
+        clan: ua.inventorytype.pnclans.api.clan.Clan,
+        battle: ClanBattle?,
+        lobby: ClanBattleLobbySnapshot?
+    ): Map<String, String> = statePlaceholders(player, clan, battle, lobby)
+
+    private fun ownPlaceholders(
+        player: Player,
+        clan: ua.inventorytype.pnclans.api.clan.Clan,
+        battle: ClanBattle?,
+        lobby: ClanBattleLobbySnapshot?
+    ): Map<String, String> = statePlaceholders(player, clan, battle, lobby)
+
+    private fun statePlaceholders(
+        player: Player,
+        clan: ua.inventorytype.pnclans.api.clan.Clan,
+        battle: ClanBattle?,
+        lobby: ClanBattleLobbySnapshot?
+    ): Map<String, String> {
+        val battleOpponentId = battle?.let {
+            if (it.challengerClanId == clan.id) it.defenderClanId else it.challengerClanId
+        }
+        val lobbyOpponentId = lobby?.opponentId(clan.id)
+        val opponentId = battleOpponentId ?: lobbyOpponentId
         val opponent = opponentId?.let(clanService::getClanByName)
-        val incoming = battleService.incomingChallenges(clan).firstOrNull()
-        val outgoing = battleService.outgoingChallenges(clan).firstOrNull()
+        val incoming = if (lobby == null) battleService.incomingChallenges(clan).firstOrNull() else null
+        val outgoing = if (lobby == null) battleService.outgoingChallenges(clan).firstOrNull() else null
         val pendingOpponent = incoming?.challengerClanId?.let(clanService::getClanByName)
             ?: outgoing?.defenderClanId?.let(clanService::getClanByName)
+
+        val ownRoster = lobby?.participantsFor(clan.id).orEmpty()
+        val enemyRoster = lobbyOpponentId?.let { lobby?.participantsFor(it) }.orEmpty()
+        val selected = player.uniqueId in ownRoster
+        val ownReady = lobby?.isReady(clan.id) == true
+        val enemyReady = lobbyOpponentId?.let { lobby?.isReady(it) } == true
+        val countdownSeconds = lobby?.takeIf { it.countdownActive }
+            ?.let { ((it.countdownEndsAt - System.currentTimeMillis()).coerceAtLeast(0L) + 999L) / 1000L }
+
         return mapOf(
             "clan_mmr" to clan.mmr.toString(),
             "wins" to clan.battleWins.toString(),
@@ -320,13 +407,23 @@ class ClanBattlesUX(
             "opponent" to (opponent?.name ?: pendingOpponent?.name ?: "Нет"),
             "battle_state" to when {
                 battle != null -> "&#FC3737Битва идёт"
+                countdownSeconds != null -> "&#FC3737Старт через $countdownSeconds сек."
+                lobby != null -> "&#5EA9FDСбор состава"
                 incoming != null -> "&#FFD700Есть входящий вызов"
                 outgoing != null -> "&#5EA9FDВызов отправлен"
                 else -> "&#5EFD7DГотов к вызову"
             },
-            "score" to if (battle == null || opponentId == null) "&8—" else "${battle.scoreFor(clan.id)} : ${battle.scoreFor(opponentId)}",
+            "score" to when {
+                battle != null && battleOpponentId != null -> "${battle.scoreFor(clan.id)} : ${battle.scoreFor(battleOpponentId)}"
+                lobby != null -> "${ownRoster.size}/${config.maximumParticipants.coerceAtLeast(1)} &8• &fсоперник ${enemyRoster.size}/${config.maximumParticipants.coerceAtLeast(1)}"
+                else -> "&8—"
+            },
             "battle_action" to when {
                 battle != null -> "&#FC3737✖ &fБой уже идёт."
+                countdownSeconds != null -> "&#FC3737⚔ &fНе меняйте состав: старт через &e$countdownSeconds сек."
+                lobby != null && selected && ownReady -> "&#5EFD7D✔ &fВы в составе. Сторона READY: ${readyLabel(ownReady)} &8• &fсоперник: ${readyLabel(enemyReady)} &8• &#FFD700ПКМ &fснять READY."
+                lobby != null && selected -> "&#5EA9FD✔ &fВы в составе. &#FFD700ПКМ &f— READY стороны, &#FC3737ЛКМ &f— выйти."
+                lobby != null -> "&#FF8702➥ &fЛКМ — войти в состав. READY: ${readyLabel(ownReady)} &8• &fсоперник: ${readyLabel(enemyReady)}."
                 incoming != null -> "&#FF8702➥ &fПримите или отклоните вызов справа."
                 outgoing != null -> "&#5EA9FD⌚ &fОжидайте ответа соперника."
                 else -> "&#FF8702➥ &fВыберите соперника ниже."
@@ -334,8 +431,7 @@ class ClanBattlesUX(
         )
     }
 
-    private fun ownPlaceholders(clan: ua.inventorytype.pnclans.api.clan.Clan, battle: ClanBattle?): Map<String, String> =
-        headerPlaceholders(clan, battle)
+    private fun readyLabel(ready: Boolean): String = if (ready) "&#5EFD7DREADY" else "&#FFD700WAIT"
 
     private fun material(value: String, fallback: Material): Material =
         runCatching { Material.valueOf(value.uppercase()) }.getOrDefault(fallback)
