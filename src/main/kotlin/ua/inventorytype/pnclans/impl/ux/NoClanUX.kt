@@ -3,6 +3,7 @@ package ua.inventorytype.pnclans.impl.ux
 import org.bukkit.Material
 import org.bukkit.entity.Player
 import ua.inventorytype.pnclans.impl.clan.ClanService
+import ua.inventorytype.pnclans.impl.config.ClanCreationConfig
 import ua.inventorytype.pnclans.impl.config.GuiItemConfig
 import ua.inventorytype.pnclans.impl.inventory.BaseGui
 import ua.inventorytype.pnclans.impl.inventory.builder.ItemBuilder
@@ -43,16 +44,29 @@ class NoClanUX(clanService: ClanService) : BaseGui(clanService) {
     }
 
     private fun startCreatePrompt(player: Player) {
+        val cfg = clanService.plugin.configService
+        val promptCfg = cfg.settings.clanCreation
+        val timeoutSeconds = promptCfg.promptTimeoutSeconds.coerceAtLeast(1)
+        val cancelInputs = promptCfg.cancelInputs
+            .map(String::trim)
+            .filter(String::isNotEmpty)
+            .ifEmpty { ClanCreationConfig().cancelInputs }
+        val placeholders = mapOf(
+            "seconds" to timeoutSeconds.toString(),
+            "cancel" to cancelInputs.first()
+        )
+
         player.closeInventory()
-        player.sendMessage("§a[pnClans] §fВведите желаемое название для вашего нового клана в чат (или §c'cancel'§f для отмены):")
+        cfg.send(player, cfg.messages.clan.creationPromptStarted, placeholders)
 
         ChatInputPrompt.prompt(
             plugin = clanService.plugin,
             player = player,
-            timeoutTicks = 600L,
-            onInput = { input ->
-                if (input.equals("cancel", ignoreCase = true)) {
-                    player.sendMessage("§c[pnClans] Создание клана отменено.")
+            timeoutTicks = timeoutSeconds.toLong() * 20L,
+            onInput = { rawInput ->
+                val input = rawInput.trim()
+                if (cancelInputs.any { it.equals(input, ignoreCase = true) }) {
+                    cfg.send(player, cfg.messages.clan.creationPromptCancelled)
                     NoClanUX(clanService).open(player)
                     return@prompt
                 }
@@ -60,7 +74,7 @@ class NoClanUX(clanService: ClanService) : BaseGui(clanService) {
                 else NoClanUX(clanService).open(player)
             },
             onTimeout = {
-                player.sendMessage("§c[pnClans] Время на ввод названия клана истекло.")
+                cfg.send(player, cfg.messages.clan.creationPromptTimedOut)
                 NoClanUX(clanService).open(player)
             }
         )
