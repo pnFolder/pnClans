@@ -35,14 +35,16 @@ internal class ClanShopCurrencyService(private val plugin: BukkitPlugin) {
         }
     }
 
-    fun refund(currency: ClanShopCurrency, player: Player, clan: Clan, amount: Long) {
-        when (currency) {
+    /** Refunds a previously charged amount and reports whether the refund really succeeded. */
+    fun refund(currency: ClanShopCurrency, player: Player, clan: Clan, amount: Long): Boolean {
+        if (amount <= 0L) return false
+        return when (currency) {
             ClanShopCurrency.CLAN_POINTS -> plugin.clanPointsService.award(clan, amount, ClanPointsSource.SHOP)
-            ClanShopCurrency.VAULT -> if (plugin.economyService.isEnabled) plugin.economyService.depositPlayer(player, amount.toDouble())
-            ClanShopCurrency.PLAYER_POINTS -> if (amount in 0..Int.MAX_VALUE.toLong()) {
-                invokePlayerPoints("give", player.uniqueId, amount.toInt())
+            ClanShopCurrency.VAULT -> plugin.economyService.isEnabled && plugin.economyService.depositPlayer(player, amount.toDouble())
+            ClanShopCurrency.PLAYER_POINTS -> if (amount <= Int.MAX_VALUE) {
+                invokePlayerPoints("give", player.uniqueId, amount.toInt()) as? Boolean ?: false
             } else {
-                null
+                false
             }
         }
     }
