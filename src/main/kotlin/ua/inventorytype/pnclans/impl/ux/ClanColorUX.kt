@@ -78,14 +78,19 @@ class ClanColorUX(clanService: ClanService) : BaseGui(clanService) {
         }
     }
 
-    private fun commonPlaceholders(clan: Clan): Map<String, String> = mapOf(
-        "type" to clan.highlightType.displayName,
-        "status" to if (clan.highlightEnabled) "&#5EFD7DВключена" else "&#FC3737Выключена",
-        "color" to clan.highlightColor.displayName
-    )
+    private fun commonPlaceholders(clan: Clan): Map<String, String> {
+        val display = clanService.plugin.configService.settings.clanHighlightDisplay
+        return mapOf(
+            "type" to clan.highlightType.displayName,
+            "status" to if (clan.highlightEnabled) display.enabledText else display.disabledText,
+            "color" to clan.highlightColor.displayName
+        )
+    }
 
-    private fun selectedText(selected: Boolean): String =
-        if (selected) "&#5EFD7DДа" else "&#FC3737Нет"
+    private fun selectedText(selected: Boolean): String {
+        val display = clanService.plugin.configService.settings.clanHighlightDisplay
+        return if (selected) display.selectedYes else display.selectedNo
+    }
 
     private fun render(
         builder: ItemBuilder,
@@ -109,10 +114,8 @@ class ClanColorUX(clanService: ClanService) : BaseGui(clanService) {
             return
         }
         clan.highlightColor = color
-        if (!clanService.saveClan(clan)) return
-        clanService.plugin.clanHighlightService.syncClan(clan)
-        clanService.plugin.clanHighlightService.resyncClanLater(clan)
-        player.sendMessage(cfg.formatMessage(player, "&#5EFD7D✔ &fЦвет метки изменён на &e${color.displayName}&f.", emptyMap()))
+        if (!saveHighlight(clan, player)) return
+        cfg.send(player, cfg.messages.settings.highlightColorChanged, mapOf("color" to color.displayName))
         update(player)
     }
 
@@ -125,10 +128,8 @@ class ClanColorUX(clanService: ClanService) : BaseGui(clanService) {
             return
         }
         clan.highlightType = type
-        if (!clanService.saveClan(clan)) return
-        clanService.plugin.clanHighlightService.syncClan(clan)
-        clanService.plugin.clanHighlightService.resyncClanLater(clan)
-        player.sendMessage(cfg.formatMessage(player, "&#5EFD7D✔ &fТип метки изменён на &e${type.displayName}&f.", emptyMap()))
+        if (!saveHighlight(clan, player)) return
+        cfg.send(player, cfg.messages.settings.highlightTypeChanged, mapOf("type" to type.displayName))
         update(player)
     }
 
@@ -141,10 +142,8 @@ class ClanColorUX(clanService: ClanService) : BaseGui(clanService) {
             return
         }
         clan.highlightEnabled = enabled
-        if (!clanService.saveClan(clan)) return
-        clanService.plugin.clanHighlightService.syncClan(clan)
-        clanService.plugin.clanHighlightService.resyncClanLater(clan)
-        player.sendMessage(cfg.formatMessage(player, if (enabled) "&#5EFD7D✔ &fМетка соклановцев включена." else "&#FC3737✖ &fМетка соклановцев выключена.", emptyMap()))
+        if (!saveHighlight(clan, player)) return
+        cfg.send(player, if (enabled) cfg.messages.settings.highlightEnabled else cfg.messages.settings.highlightDisabled)
         update(player)
     }
 
@@ -156,14 +155,24 @@ class ClanColorUX(clanService: ClanService) : BaseGui(clanService) {
             cfg.send(player, cfg.messages.settings.noPermission)
             return
         }
-        clan.highlightEnabled = true
-        clan.highlightType = ClanHighlightType.ARMOR
-        clan.highlightColor = ClanHighlightColor.AQUA
-        if (!clanService.saveClan(clan)) return
+
+        val display = cfg.settings.clanHighlightDisplay
+        clan.highlightEnabled = display.resetEnabled
+        clan.highlightType = runCatching { ClanHighlightType.valueOf(display.resetType.uppercase()) }.getOrDefault(ClanHighlightType.ARMOR)
+        clan.highlightColor = ClanHighlightColor.fromKey(display.resetColor) ?: ClanHighlightColor.AQUA
+        if (!saveHighlight(clan, player)) return
+        cfg.send(player, cfg.messages.settings.highlightReset)
+        update(player)
+    }
+
+    private fun saveHighlight(clan: Clan, player: Player): Boolean {
+        if (!clanService.saveClan(clan)) {
+            clanService.plugin.configService.send(player, clanService.plugin.configService.messages.settings.highlightSaveFailed)
+            return false
+        }
         clanService.plugin.clanHighlightService.syncClan(clan)
         clanService.plugin.clanHighlightService.resyncClanLater(clan)
-        player.sendMessage(cfg.formatMessage(player, "&#FFD700↺ &fНастройки метки сброшены к стандартным.", emptyMap()))
-        update(player)
+        return true
     }
 
     private fun parseMaterial(value: String, fallback: Material): Material =
