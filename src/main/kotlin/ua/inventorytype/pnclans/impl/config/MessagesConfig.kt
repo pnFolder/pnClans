@@ -256,6 +256,15 @@ class MessagesConfig {
         val moduleDisabled: List<Action> = listOf(MessageAction("&#FC3737✖ &fМодуль клановой казны отключён.")),
         val noPermissionDeposit: List<Action> = listOf(MessageAction("&#FC3737✖ &fУ роли &e{role} &fнет права пополнять казну."), SoundAction("ENTITY_VILLAGER_NO", 1.0f, 1.2f)),
         val noPermissionWithdraw: List<Action> = listOf(MessageAction("&#FC3737✖ &fУ роли &e{role} &fнет права снимать средства из казны."), SoundAction("ENTITY_VILLAGER_NO", 1.0f, 1.2f)),
+        @YamlComment("Начало ввода произвольной суммы пополнения. Переменные: {seconds}, {cancel}.")
+        val depositPromptStarted: List<Action> = listOf(MessageAction("&#5EFD7D⛁ &fВведите сумму пополнения в чат. Для отмены: &e{cancel}&f. Время: &e{seconds} сек.")),
+        @YamlComment("Начало ввода произвольной суммы снятия. Переменные: {seconds}, {cancel}.")
+        val withdrawPromptStarted: List<Action> = listOf(MessageAction("&#FC65DF⛁ &fВведите сумму снятия в чат. Для отмены: &e{cancel}&f. Время: &e{seconds} сек.")),
+        val promptCancelled: List<Action> = listOf(MessageAction("&#FFD700⌁ &fВвод суммы казны отменён.")),
+        val promptInvalidAmount: List<Action> = listOf(MessageAction("&#FC3737✖ &fНекорректная сумма: &e{input}&f. Укажите положительное число."), SoundAction("ENTITY_VILLAGER_NO", 1.0f, 1.2f)),
+        val promptTimedOut: List<Action> = listOf(MessageAction("&#FC3737⌛ &fВремя на ввод суммы казны истекло."), SoundAction("ENTITY_VILLAGER_NO", 1.0f, 1.2f)),
+        val persistenceFailed: List<Action> = listOf(MessageAction("&#FC3737✖ &fОперация отменена: сохранить данные клана не удалось. Проверьте журнал сервера."), SoundAction("ENTITY_VILLAGER_NO", 1.0f, 1.2f)),
+        val cancelledByPlugin: List<Action> = listOf(MessageAction("&#FFD700⌁ &fОперация с казной отменена другим плагином.")),
         val deposited: List<Action> = listOf(MessageAction("&#5EFD7D✔ &fВы пополнили казну на &e{amount} ⛁&f. Баланс: &a{balance}⛁"), SoundAction("ENTITY_EXPERIENCE_ORB_PICKUP", 1.0f, 1.2f)),
         val withdrawn: List<Action> = listOf(MessageAction("&#5EFD7D✔ &fВы сняли с казны &e{amount} ⛁&f. Баланс: &a{balance}⛁"), SoundAction("ENTITY_EXPERIENCE_ORB_PICKUP", 1.0f, 0.8f)),
         val insufficientPersonalFunds: List<Action> = listOf(MessageAction("&#FC3737✖ &fНедостаточно личных средств для пополнения на &e{amount} ⛁&f."), SoundAction("ENTITY_VILLAGER_NO", 1.0f, 1.2f)),
