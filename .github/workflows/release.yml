@@ -73,6 +73,21 @@ jobs:
             echo "Unable to resolve project version from build.gradle.kts" >&2
             exit 1
           fi
+
+          if [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            CHANNEL="STABLE"
+            PRERELEASE="false"
+          elif [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+-beta\.[0-9]+$ ]]; then
+            CHANNEL="BETA"
+            PRERELEASE="true"
+          elif [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+-alpha\.[0-9]+$ ]]; then
+            CHANNEL="ALPHA"
+            PRERELEASE="true"
+          else
+            echo "Unsupported release version '$VERSION'. Expected X.Y.Z, X.Y.Z-beta.N or X.Y.Z-alpha.N" >&2
+            exit 1
+          fi
+
           NOTES="RELEASE_${VERSION}.md"
           if [ ! -f "$NOTES" ]; then
             echo "Missing release notes file: $NOTES" >&2
@@ -85,6 +100,8 @@ jobs:
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "notes=$NOTES" >> "$GITHUB_OUTPUT"
           echo "title=$TITLE" >> "$GITHUB_OUTPUT"
+          echo "channel=$CHANNEL" >> "$GITHUB_OUTPUT"
+          echo "prerelease=$PRERELEASE" >> "$GITHUB_OUTPUT"
 
       - name: Verify release assets
         shell: bash
@@ -104,9 +121,17 @@ jobs:
             echo "Release $TAG already exists; nothing to publish."
             exit 0
           fi
+
+          EXTRA_ARGS=()
+          if [ "${{ steps.metadata.outputs.prerelease }}" = "true" ]; then
+            EXTRA_ARGS+=(--prerelease)
+          fi
+
+          echo "Publishing $TAG as ${{ steps.metadata.outputs.channel }}"
           gh release create "$TAG" \
             "release-artifacts/pnClans-${{ steps.metadata.outputs.version }}-java21-all.jar" \
             "release-artifacts/pnClans-${{ steps.metadata.outputs.version }}-java25-all.jar" \
             --target "$GITHUB_SHA" \
             --title "${{ steps.metadata.outputs.title }}" \
-            --notes-file "${{ steps.metadata.outputs.notes }}"
+            --notes-file "${{ steps.metadata.outputs.notes }}" \
+            "${EXTRA_ARGS[@]}"
