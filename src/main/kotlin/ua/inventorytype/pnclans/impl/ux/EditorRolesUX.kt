@@ -51,7 +51,7 @@ class EditorRolesUX(clanService: ClanService) : BaseGui(clanService) {
             roles.forEachIndexed { index, role ->
                 val slotIndex = roleSlots.getOrNull(index) ?: return@forEachIndexed
                 slot(slotIndex) {
-                    dynamicItem(this@EditorRolesUX.parseMaterial(roleTemplate.material, role.icon)) { player ->
+                    dynamicItem(parseMaterial(roleTemplate.material, role.icon)) { player ->
                         val roleDisplayName = this@EditorRolesUX.clanService.plugin.configService.getRoleDisplayName(role)
                         val placeholders = mapOf(
                             "role" to roleDisplayName,
