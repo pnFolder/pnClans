@@ -32,15 +32,11 @@ internal object ConfigurationBackfill {
 
     fun applyV122(plugin: BukkitPlugin, config: ConfigService) {
         migrateLegacyUpdaterSettings(plugin)
-
         mergeMissingRootFields(plugin, "config.yml", Settings.serializer(), config.settings)
         mergeMissingNestedFields(plugin, "config.yml", Settings.serializer(), config.settings)
-
-        // New and migrated GUI definitions must be physically visible in an existing menus.yml as well.
-        // ConfigService still remains the only loader; this only fills missing serialized fields/IDs.
         mergeMissingRootFields(plugin, "menus.yml", MenusConfig.serializer(), config.menus)
         mergeMissingNestedFields(plugin, "menus.yml", MenusConfig.serializer(), config.menus)
-
+        mergeMissingMenuItemKeys(plugin, config.menus)
         mergeMissingNestedFields(plugin, "messages.yml", MessagesConfig.serializer(), config.messages)
     }
 
@@ -158,6 +154,86 @@ internal object ConfigurationBackfill {
         }.onFailure { error ->
             plugin.logger.log(Level.WARNING, "[pnClans] Failed to merge missing fields into $fileName.", error)
         }
+    }
+
+    /**
+     * Recursively backfills the actual `items.<id>` maps in menus.yml. The generic nested merger stops
+     * at `items:` itself, which previously meant newly introduced buttons were not visible in an
+     * existing administrator-owned menus.yml.
+     */
+    private fun mergeMissingMenuItemKeys(plugin: BukkitPlugin, menus: MenusConfig) {
+        val file = File(plugin.dataFolder, "menus.yml")
+        if (!file.exists()) return
+
+        runCatching {
+            val target = file.readText().lines().toMutableList()
+            val source = yaml.encodeToString(MenusConfig.serializer(), menus).lines()
+            var changed = false
+
+            directBlocks(source, 0).forEach { sourceSection ->
+                val sourceItemsBlock = directBlocks(sourceSection.lines, 2).firstOrNull { it.key == "items" }
+                    ?: return@forEach
+                val sourceItems = directBlocks(sourceItemsBlock.lines, 4)
+                if (sourceItems.isEmpty()) return@forEach
+
+                val targetSection = directBlocks(target, 0).firstOrNull { it.key == sourceSection.key }
+                    ?: return@forEach
+                val targetItemsBlock = directBlocks(targetSection.lines, 2).firstOrNull { it.key == "items" }
+                    ?: return@forEach
+                val existingItemKeys = directBlocks(targetItemsBlock.lines, 4).mapTo(mutableSetOf()) { it.key }
+                val missingItems = sourceItems.filter { it.key !in existingItemKeys }
+                if (missingItems.isEmpty()) return@forEach
+
+                val insertAt = (targetSection.start + targetItemsBlock.endExclusive).coerceAtMost(target.size)
+                val insertion = mutableListOf<String>()
+                missingItems.forEachIndexed { index, block ->
+                    if (index > 0) insertion += ""
+                    insertion += block.lines
+                }
+                target.addAll(insertAt, insertion)
+                changed = true
+            }
+
+            // userPermissionsMenu historically reused editorRolesMenu.permission and therefore had no
+            // dedicated key in menus.yml. Make that shared template explicit in the file so the GUI never
+            // depends on an invisible fallback.
+            val permissionTemplate = menus.userPermissionsMenu.items["permission"]
+                ?: menus.editorRolesMenu.items["permission"]
+            if (permissionTemplate != null) {
+                changed = insertExplicitMenuItemIfMissing(
+                    target = target,
+                    sectionKey = "userPermissionsMenu",
+                    itemKey = "permission",
+                    item = permissionTemplate
+                ) || changed
+            }
+
+            if (changed) {
+                writeAtomic(plugin, file, target.joinToString("\n").trimEnd() + "\n")
+            }
+        }.onFailure { error ->
+            plugin.logger.log(Level.WARNING, "[pnClans] Failed to backfill menu item IDs in menus.yml.", error)
+        }
+    }
+
+    private fun insertExplicitMenuItemIfMissing(
+        target: MutableList<String>,
+        sectionKey: String,
+        itemKey: String,
+        item: GuiItemConfig
+    ): Boolean {
+        val section = directBlocks(target, 0).firstOrNull { it.key == sectionKey } ?: return false
+        val itemsBlock = directBlocks(section.lines, 2).firstOrNull { it.key == "items" } ?: return false
+        if (directBlocks(itemsBlock.lines, 4).any { it.key == itemKey }) return false
+
+        val serialized = yaml.encodeToString(GuiItemConfig.serializer(), item).lines()
+        val insertion = buildList {
+            add("    $itemKey:")
+            serialized.forEach { line -> add("      $line") }
+        }
+        val insertAt = (section.start + itemsBlock.endExclusive).coerceAtMost(target.size)
+        target.addAll(insertAt, insertion)
+        return true
     }
 
     /** Finds YAML mapping fields declared exactly at [indent] and keeps each complete value block. */
