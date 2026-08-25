@@ -26,11 +26,13 @@ internal object ConfigurationBackfill {
 
     fun applyV121(plugin: BukkitPlugin, config: ConfigService) {
         mergeMissingRootFields(plugin, "battles.yml", ClanBattlesConfig.serializer(), config.battles)
+        mergeMissingNestedFields(plugin, "battles.yml", ClanBattlesConfig.serializer(), config.battles)
         mergeMissingNestedFields(plugin, "messages.yml", MessagesConfig.serializer(), config.messages)
     }
 
     fun applyV122(plugin: BukkitPlugin, config: ConfigService) {
         mergeMissingRootFields(plugin, "config.yml", Settings.serializer(), config.settings)
+        mergeMissingNestedFields(plugin, "config.yml", Settings.serializer(), config.settings)
         mergeMissingNestedFields(plugin, "messages.yml", MessagesConfig.serializer(), config.messages)
     }
 
