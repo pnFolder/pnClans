@@ -194,18 +194,49 @@ internal object ConfigurationBackfill {
                 changed = true
             }
 
-            // userPermissionsMenu historically reused editorRolesMenu.permission and therefore had no
-            // dedicated key in menus.yml. Make that shared template explicit in the file so the GUI never
-            // depends on an invisible fallback.
+            // Some old GUI templates never had their own IDs in MenusConfig. Materialize them explicitly
+            // so both new and existing installations expose every visual item that UX code reads.
             val permissionTemplate = menus.userPermissionsMenu.items["permission"]
                 ?: menus.editorRolesMenu.items["permission"]
-            if (permissionTemplate != null) {
-                changed = insertExplicitMenuItemIfMissing(
-                    target = target,
-                    sectionKey = "userPermissionsMenu",
-                    itemKey = "permission",
-                    item = permissionTemplate
-                ) || changed
+            val explicitItems = buildList {
+                if (permissionTemplate != null) {
+                    add(Triple("userPermissionsMenu", "permission", permissionTemplate))
+                }
+                add(
+                    Triple(
+                        "chestMenu",
+                        "lockedSlot",
+                        GuiItemConfig(
+                            slot = 0,
+                            material = "RED_STAINED_GLASS_PANE",
+                            name = "&#FF3B3B🔒 СЛОТ ЗАБЛОКИРОВАН",
+                            lore = listOf(
+                                "",
+                                "&#9EFC65 «Информация»",
+                                " &7- &fСтатус: &#FC3737Закрыт для хранения",
+                                " &7- &fТребуется уровень клана: &e{level} лвл.",
+                                "",
+                                "&#FC65DF «Как разблокировать?»",
+                                " &7- &fКаждый уровень клана открывает",
+                                " &7- &fдополнительно &e9 новых слотов&f!",
+                                "",
+                                "&#FF8702➥ &fНажмите &eЭволюция Клана &fдля прокачки!"
+                            )
+                        )
+                    )
+                )
+                listOf(46, 47, 51, 52).forEach { slot ->
+                    add(
+                        Triple(
+                            "chestMenu",
+                            "decor_$slot",
+                            GuiItemConfig(slot = slot, material = "BLACK_STAINED_GLASS_PANE", name = " ")
+                        )
+                    )
+                }
+            }
+            explicitItems.forEach { (section, key, item) ->
+                changed = insertExplicitMenuItemIfMissing(target, section, key, item) || changed
             }
 
             if (changed) {
