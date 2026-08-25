@@ -1,6 +1,7 @@
 package ua.inventorytype.pnclans.impl.ux
 
 import org.bukkit.Material
+import org.bukkit.entity.Player
 import ua.inventorytype.pnclans.api.permission.ClanPerms
 import ua.inventorytype.pnclans.api.clan.TreasuryTransaction
 import ua.inventorytype.pnclans.api.clan.TreasuryTransactionType
@@ -8,8 +9,12 @@ import ua.inventorytype.pnclans.api.event.ClanTreasuryTransactionEvent
 import ua.inventorytype.pnclans.api.event.ClanTreasuryTransactionPreEvent
 import ua.inventorytype.pnclans.impl.clan.ClanImpl
 import ua.inventorytype.pnclans.impl.clan.ClanService
+import ua.inventorytype.pnclans.impl.config.GuiItemConfig
 import ua.inventorytype.pnclans.impl.inventory.BaseGui
+import ua.inventorytype.pnclans.impl.inventory.builder.ItemBuilder
 import ua.inventorytype.pnclans.impl.util.ChatInputPrompt
+import java.text.SimpleDateFormat
+import java.util.Date
 
 /** Clan treasury GUI for deposits, withdrawals, presets and transaction history. */
 class TreasuryUX(clanService: ClanService) : BaseGui(clanService) {
@@ -141,7 +146,7 @@ class TreasuryUX(clanService: ClanService) : BaseGui(clanService) {
         }
     }
 
-    private fun openDepositPrompt(player: org.bukkit.entity.Player) {
+    private fun openDepositPrompt(player: Player) {
         val service = clanService
         val cfg = service.plugin.configService
         val clan = service.getClanUser(player) ?: return
@@ -155,7 +160,7 @@ class TreasuryUX(clanService: ClanService) : BaseGui(clanService) {
         openAmountPrompt(player, withdraw = false)
     }
 
-    private fun openWithdrawPrompt(player: org.bukkit.entity.Player) {
+    private fun openWithdrawPrompt(player: Player) {
         val service = clanService
         val cfg = service.plugin.configService
         val clan = service.getClanUser(player) ?: return
@@ -169,7 +174,7 @@ class TreasuryUX(clanService: ClanService) : BaseGui(clanService) {
         openAmountPrompt(player, withdraw = true)
     }
 
-    private fun openAmountPrompt(player: org.bukkit.entity.Player, withdraw: Boolean) {
+    private fun openAmountPrompt(player: Player, withdraw: Boolean) {
         val service = clanService
         val cfg = service.plugin.configService
         val timeoutSeconds = cfg.settings.treasuryPromptTimeoutSeconds.coerceAtLeast(1)
@@ -221,7 +226,7 @@ class TreasuryUX(clanService: ClanService) : BaseGui(clanService) {
         )
     }
 
-    private fun performDeposit(player: org.bukkit.entity.Player, amount: Double, reopen: Boolean) {
+    private fun performDeposit(player: Player, amount: Double, reopen: Boolean) {
         val service = clanService
         val cfg = service.plugin.configService
         val clan = service.getClanUser(player)
@@ -276,7 +281,7 @@ class TreasuryUX(clanService: ClanService) : BaseGui(clanService) {
         if (reopen) reopenTreasury(player) else refreshBalance(player)
     }
 
-    private fun performWithdraw(player: org.bukkit.entity.Player, amount: Double, reopen: Boolean) {
+    private fun performWithdraw(player: Player, amount: Double, reopen: Boolean) {
         val service = clanService
         val cfg = service.plugin.configService
         val clan = service.getClanUser(player)
@@ -335,11 +340,11 @@ class TreasuryUX(clanService: ClanService) : BaseGui(clanService) {
         if (reopen) reopenTreasury(player) else refreshBalance(player)
     }
 
-    private fun reopenTreasury(player: org.bukkit.entity.Player) {
+    private fun reopenTreasury(player: Player) {
         TreasuryUX(clanService).open(player)
     }
 
-    private fun refreshBalance(player: org.bukkit.entity.Player) {
+    private fun refreshBalance(player: Player) {
         val centerSlot = clanService.plugin.configService.menus.treasuryMenu.items["center"]?.slot ?: return
         updateSlot(centerSlot, player)
     }
@@ -347,13 +352,13 @@ class TreasuryUX(clanService: ClanService) : BaseGui(clanService) {
     private fun formatAmount(value: Double): String =
         value.toBigDecimal().stripTrailingZeros().toPlainString()
 
-    private fun sendPersistenceFailure(player: org.bukkit.entity.Player) {
+    private fun sendPersistenceFailure(player: Player) {
         val cfg = clanService.plugin.configService
         cfg.send(player, cfg.messages.treasury.persistenceFailed)
     }
 
     private fun placeholders(
-        player: org.bukkit.entity.Player,
+        player: Player,
         clan: ua.inventorytype.pnclans.api.clan.Clan,
         user: ua.inventorytype.pnclans.api.User
     ): Map<String, String> {
@@ -373,9 +378,9 @@ class TreasuryUX(clanService: ClanService) : BaseGui(clanService) {
     }
 
     private fun renderConfigItem(
-        builder: ua.inventorytype.pnclans.impl.inventory.builder.ItemBuilder,
-        player: org.bukkit.entity.Player,
-        itemCfg: ua.inventorytype.pnclans.impl.config.GuiItemConfig,
+        builder: ItemBuilder,
+        player: Player,
+        itemCfg: GuiItemConfig,
         placeholders: Map<String, String>
     ) {
         builder.name(clanService.plugin.configService.formatMessage(player, itemCfg.name, placeholders))
@@ -387,140 +392,156 @@ class TreasuryUX(clanService: ClanService) : BaseGui(clanService) {
         runCatching { Material.valueOf(name.uppercase()) }.getOrDefault(fallback)
 }
 
-/**
- * Paginated transaction history GUI for the clan treasury.
- * Legacy history rendering remains scheduled for the broader menu config migration.
- */
+/** Paginated transaction history rendered entirely from treasuryHistoryMenu in menus.yml. */
 class HistoryUX(
     clanService: ClanService,
     var page: Int = 0
 ) : BaseGui(clanService) {
 
     init {
-        val currentPage = page
-        title("« История Казны (Стр. ${currentPage + 1}) »")
-        rows(6)
+        val cfg = clanService.plugin.configService
+        val menuCfg = cfg.menus.treasuryHistoryMenu
+        val currentPage = page.coerceAtLeast(0)
+        val entrySlots = menuCfg.entrySlots
+            .distinct()
+            .filter { it in 0 until menuCfg.rows.coerceIn(1, 6) * 9 }
+        val pageSize = entrySlots.size.coerceAtLeast(1)
+
+        title(menuCfg.title.replace("{page}", (currentPage + 1).toString()).replace("{pages}", "?"))
+        rows(menuCfg.rows.coerceIn(1, 6))
         hotWorldDecor(true)
 
-        val logSlots = listOf(
-            10, 11, 12, 13, 14, 15, 16,
-            19, 20, 21, 22, 23, 24, 25,
-            28, 29, 30, 31, 32, 33, 34,
-            37, 38, 39, 40, 41, 42, 43
-        )
-
-        for (i in logSlots.indices) {
-            slot(logSlots[i]) {
+        entrySlots.forEachIndexed { position, slotIndex ->
+            slot(slotIndex) {
                 dynamicItemNullable(Material.PAPER) { player ->
                     val allLogs = this@HistoryUX.clanService.getClanUser(player)?.treasuryLogs
                         ?.sortedByDescending { it.timestamp }
                         ?: emptyList()
-
-                    val index = (currentPage * logSlots.size) + i
-                    if (index >= allLogs.size) return@dynamicItemNullable null
-
-                    val log = allLogs[index]
-                    val (icon, titleColor, operationText, amountColor, amountPrefix) = when (log.type) {
-                        TreasuryTransactionType.DEPOSIT -> listOf(Material.EMERALD, "&#5EFD7D", "Пополнение казны", "&#5EFD7D", "+")
-                        TreasuryTransactionType.WITHDRAW -> listOf(Material.REDSTONE, "&#FC3737", "Снятие из казны", "&#FC3737", "-")
-                        TreasuryTransactionType.UPGRADE -> listOf(Material.NETHER_STAR, "&#FC65DF", "Оплата улучшения", "&#FC65DF", "-")
-                    }
-
-                    this.type = icon as Material
-                    name("${titleColor}$operationText")
-                    lore(
-                        "",
-                        "&#9EFC65 «Детали операции»",
-                        " &7- &fТип: $titleColor$operationText",
-                        " &7- &fИнициатор: &e${log.playerName}",
-                        "",
-                        "&#9EFC65 «Сумма»",
-                        " &7- &fОперация: $amountColor$amountPrefix${log.amount.toBigDecimal().stripTrailingZeros().toPlainString()} ⛁",
-                        "",
-                        "&#5EA9FD «Время операции»",
-                        " &7- &fДата: &b${DATE_FORMAT.format(java.util.Date(log.timestamp))}",
-                        " &7- &fВремя: &b${TIME_FORMAT.format(java.util.Date(log.timestamp))}",
-                        "",
-                        "&#FF8702➥ &fСобытие записано в историю казны"
+                    val index = currentPage * pageSize + position
+                    val log = allLogs.getOrNull(index) ?: return@dynamicItemNullable null
+                    val itemCfg = this@HistoryUX.entryConfig(log.type) ?: return@dynamicItemNullable null
+                    val date = this@HistoryUX.dateFormatter().format(Date(log.timestamp))
+                    val time = this@HistoryUX.timeFormatter().format(Date(log.timestamp))
+                    val amount = log.amount.toBigDecimal().stripTrailingZeros().toPlainString()
+                    val prefix = if (log.type == TreasuryTransactionType.DEPOSIT) "+" else "-"
+                    val placeholders = mapOf(
+                        "operation" to itemCfg.name,
+                        "player" to log.playerName,
+                        "amount" to amount,
+                        "signed_amount" to "$prefix$amount",
+                        "date" to date,
+                        "time" to time
                     )
+                    this@HistoryUX.render(this, player, itemCfg, placeholders)
                     build()
                 }
             }
         }
 
-        slot(48) {
-            dynamicItem(Material.ARROW) { player ->
-                val totalLogs = this@HistoryUX.clanService.getClanUser(player)?.treasuryLogs?.size ?: 0
-                val maxPages = maxOf(1, (totalLogs + 27) / 28)
+        configurePrevious(currentPage, pageSize)
+        configureBack()
+        configureNext(currentPage, pageSize)
+    }
 
-                if (currentPage > 0) {
-                    this.type = Material.ARROW
-                    name("&#5EFD7D← Предыдущая страница")
-                    lore(
-                        "",
-                        "&#9EFC65 «Навигация»",
-                        " &7- &fПерейти на страницу &e${currentPage} &7/ &f$maxPages",
-                        "",
-                        "&#FF8702➥ &fНажмите &eЛКМ &fдля перехода"
-                    )
-                    glow(true)
-                } else {
-                    this.type = Material.BLACK_STAINED_GLASS_PANE
-                    name(" ")
-                }
+    private fun configurePrevious(currentPage: Int, pageSize: Int) {
+        val menuCfg = clanService.plugin.configService.menus.treasuryHistoryMenu
+        val enabledCfg = menuCfg.items["previous"] ?: return
+        val disabledCfg = menuCfg.items["previousDisabled"] ?: enabledCfg
+        slot(enabledCfg.slot) {
+            dynamicItem(this@HistoryUX.parseMaterial(enabledCfg.material, Material.ARROW)) { player ->
+                val pages = this@HistoryUX.maxPages(player, pageSize)
+                val active = currentPage > 0
+                val itemCfg = if (active) enabledCfg else disabledCfg
+                this.type = this@HistoryUX.parseMaterial(itemCfg.material, if (active) Material.ARROW else Material.BLACK_STAINED_GLASS_PANE)
+                this@HistoryUX.render(
+                    this,
+                    player,
+                    itemCfg,
+                    mapOf("page" to (currentPage + 1).toString(), "target_page" to currentPage.toString(), "pages" to pages.toString())
+                )
                 null
             }
             onClick { player, _ ->
                 if (currentPage > 0) HistoryUX(this@HistoryUX.clanService, currentPage - 1).open(player)
             }
         }
+    }
 
-        slot(49) {
-            item(Material.OAK_DOOR) {
-                name("&#FC3737⏎ Вернуться в банк")
-                lore(
-                    "",
-                    "&#FC65DF «Переход»",
-                    " &7- &fОткрывает главное меню банка.",
-                    "",
-                    "&#FF8702➥ &fНажмите &eЛКМ &fчтобы вернуться"
-                )
+    private fun configureBack() {
+        val itemCfg = clanService.plugin.configService.menus.treasuryHistoryMenu.items["back"] ?: return
+        slot(itemCfg.slot) {
+            dynamicItem(this@HistoryUX.parseMaterial(itemCfg.material, Material.OAK_DOOR)) { player ->
+                this@HistoryUX.render(this, player, itemCfg, emptyMap())
+                null
             }
             onClick { player, _ -> TreasuryUX(this@HistoryUX.clanService).open(player) }
         }
+    }
 
-        slot(50) {
-            dynamicItem(Material.ARROW) { player ->
-                val totalLogs = this@HistoryUX.clanService.getClanUser(player)?.treasuryLogs?.size ?: 0
-                val maxPages = maxOf(1, (totalLogs + 27) / 28)
-
-                if (currentPage + 1 < maxPages) {
-                    this.type = Material.ARROW
-                    name("&#5EFD7DСледующая страница →")
-                    lore(
-                        "",
-                        "&#9EFC65 «Навигация»",
-                        " &7- &fПерейти на страницу &e${currentPage + 2} &7/ &f$maxPages",
-                        "",
-                        "&#FF8702➥ &fНажмите &eЛКМ &fдля перехода"
-                    )
-                    glow(true)
-                } else {
-                    this.type = Material.BLACK_STAINED_GLASS_PANE
-                    name(" ")
-                }
+    private fun configureNext(currentPage: Int, pageSize: Int) {
+        val menuCfg = clanService.plugin.configService.menus.treasuryHistoryMenu
+        val enabledCfg = menuCfg.items["next"] ?: return
+        val disabledCfg = menuCfg.items["nextDisabled"] ?: enabledCfg
+        slot(enabledCfg.slot) {
+            dynamicItem(this@HistoryUX.parseMaterial(enabledCfg.material, Material.ARROW)) { player ->
+                val pages = this@HistoryUX.maxPages(player, pageSize)
+                val active = currentPage + 1 < pages
+                val itemCfg = if (active) enabledCfg else disabledCfg
+                this.type = this@HistoryUX.parseMaterial(itemCfg.material, if (active) Material.ARROW else Material.BLACK_STAINED_GLASS_PANE)
+                this@HistoryUX.render(
+                    this,
+                    player,
+                    itemCfg,
+                    mapOf("page" to (currentPage + 1).toString(), "target_page" to (currentPage + 2).toString(), "pages" to pages.toString())
+                )
                 null
             }
             onClick { player, _ ->
-                val totalLogs = this@HistoryUX.clanService.getClanUser(player)?.treasuryLogs?.size ?: 0
-                val maxPages = maxOf(1, (totalLogs + 27) / 28)
-                if (currentPage + 1 < maxPages) HistoryUX(this@HistoryUX.clanService, currentPage + 1).open(player)
+                val pages = this@HistoryUX.maxPages(player, pageSize)
+                if (currentPage + 1 < pages) HistoryUX(this@HistoryUX.clanService, currentPage + 1).open(player)
             }
         }
     }
 
-    private companion object {
-        private val DATE_FORMAT = java.text.SimpleDateFormat("dd.MM.yyyy")
-        private val TIME_FORMAT = java.text.SimpleDateFormat("HH:mm:ss")
+    private fun entryConfig(type: TreasuryTransactionType): GuiItemConfig? {
+        val items = clanService.plugin.configService.menus.treasuryHistoryMenu.items
+        return when (type) {
+            TreasuryTransactionType.DEPOSIT -> items["depositEntry"]
+            TreasuryTransactionType.WITHDRAW -> items["withdrawEntry"]
+            TreasuryTransactionType.UPGRADE -> items["upgradeEntry"]
+        }
     }
+
+    private fun maxPages(player: Player, pageSize: Int): Int {
+        val total = clanService.getClanUser(player)?.treasuryLogs?.size ?: 0
+        return maxOf(1, (total + pageSize - 1) / pageSize)
+    }
+
+    private fun dateFormatter(): SimpleDateFormat = formatter(
+        clanService.plugin.configService.menus.treasuryHistoryMenu.dateFormat,
+        "dd.MM.yyyy"
+    )
+
+    private fun timeFormatter(): SimpleDateFormat = formatter(
+        clanService.plugin.configService.menus.treasuryHistoryMenu.timeFormat,
+        "HH:mm:ss"
+    )
+
+    private fun formatter(pattern: String, fallback: String): SimpleDateFormat =
+        runCatching { SimpleDateFormat(pattern) }.getOrElse { SimpleDateFormat(fallback) }
+
+    private fun render(
+        builder: ItemBuilder,
+        player: Player,
+        itemCfg: GuiItemConfig,
+        placeholders: Map<String, String>
+    ) {
+        val cfg = clanService.plugin.configService
+        builder.name(cfg.formatMessage(player, itemCfg.name, placeholders))
+        builder.lore(itemCfg.lore.map { cfg.formatMessage(player, it, placeholders) })
+        builder.glow(itemCfg.glow)
+    }
+
+    private fun parseMaterial(name: String, fallback: Material): Material =
+        runCatching { Material.valueOf(name.uppercase()) }.getOrDefault(fallback)
 }
