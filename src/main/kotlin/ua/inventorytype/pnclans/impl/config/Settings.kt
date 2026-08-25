@@ -32,7 +32,6 @@ data class ClanActivityPointsConfig(
 data class ClanChatMenuItemConfig(
     @YamlComment("Название предмета в меню настроек клана для этого режима. Поддерживаются HEX- и &-цвета.")
     val name: String,
-
     @YamlComment("Описание (lore) предмета в меню для этого режима. Можно использовать {state}, {action}, {command} и {prefix}.")
     val lore: List<String>
 )
@@ -42,13 +41,10 @@ data class ClanChatMenuItemConfig(
 data class ClanChatConfig(
     @YamlComment("Способ отправки сообщений в клановый чат. Допустимые значения: COMMAND или PREFIX. COMMAND: игрок отправляет сообщение командой /<command> <сообщение>, например /cc Привет. PREFIX: игрок начинает обычное сообщение с символа из параметра prefix, например !Привет.")
     val mode: ClanChatMode = ClanChatMode.PREFIX,
-
     @YamlComment("Название команды для режима COMMAND без символа '/'. Пример: cc, тогда игрок пишет /cc Привет.")
     val command: String = "cc",
-
     @YamlComment("Символ или текст в начале сообщения для режима PREFIX. Примеры: \"!\", \"#\" или \"[клан]\".")
     val prefix: String = "!",
-
     @YamlComment("Тексты предмета кланового чата в меню настроек, когда выбран режим COMMAND.")
     val commandMenuItem: ClanChatMenuItemConfig = ClanChatMenuItemConfig(
         name = "&#5EA9FD✎ Клановый чат",
@@ -65,7 +61,6 @@ data class ClanChatConfig(
             "&#FF8702➥ &fНажмите, &eЛКМ &fчтобы {action}"
         )
     ),
-
     @YamlComment("Тексты предмета кланового чата в меню настроек, когда выбран режим PREFIX.")
     val prefixMenuItem: ClanChatMenuItemConfig = ClanChatMenuItemConfig(
         name = "&#5EA9FD✎ Клановый чат",
@@ -82,48 +77,32 @@ data class ClanChatConfig(
             "&#FF8702➥ &fНажмите, &eЛКМ &fчтобы {action}"
         )
     ),
-
     @YamlComment("Текст статуса, который подставляется в {state}, если клановый чат доступен.")
     val enabledState: String = "&#5EFD7DДоступен",
-
     @YamlComment("Текст статуса, который подставляется в {state}, если клановый чат закрыт лидером клана.")
     val disabledState: String = "&#FC3737Закрыт",
-
     @YamlComment("Текст действия, который подставляется в {action}, если чат сейчас доступен.")
     val disableAction: String = "&#FC3737выключить",
-
     @YamlComment("Текст действия, который подставляется в {action}, если чат сейчас закрыт.")
     val enableAction: String = "&#5EFD7Dвключить"
 )
 
-/**
- * Modular framework settings enabling or disabling specific plugin sub-features.
- */
 @Serializable
 data class ModuleConfig(
     @YamlComment("Включить модуль клановых точек дома (/clan home, меню точек в GUI)")
     val homes: Boolean = true,
-
     @YamlComment("Включить модуль казны и банка клана (пополнение, снятие, история операций)")
     val treasury: Boolean = true,
-
     @YamlComment("Включить модуль общего кланового склада (/clan chest, виртуальный сундук)")
     val chest: Boolean = true,
-
     @YamlComment("Включить модуль эволюции и прокачки уровней клана")
     val upgrades: Boolean = true,
-
     @YamlComment("Включить модуль управления PvP режимом соклановцев")
     val pvp: Boolean = true
 )
 
-/**
- * Global configuration settings for pnClans.
- * Deserialized from `plugins/pnClans/config.yml` via kaml YAML parser.
- */
 @Serializable
 class Settings {
-
     @YamlComment("Настройки кланового чата. Выберите mode: COMMAND для команды /<command> <сообщение> или PREFIX для сообщений, начинающихся с prefix. Тексты предмета меню для каждого режима задаются отдельно в commandMenuItem и prefixMenuItem.")
     val clanChat: ClanChatConfig = ClanChatConfig()
 
@@ -164,11 +143,23 @@ class Settings {
     @YamlComment("Время жизни отправленного приглашения в секундах")
     val inviteLifetimeSeconds: Int = 60
 
-    @YamlComment("Быстрые суммы пополнения казны, выводятся в виде отдельных кнопок.")
+    @YamlComment("Быстрые суммы пополнения казны. Каждая сумма получает кнопку из шаблона depositPresets в menus.yml.")
     val treasuryDepositPresets: List<Int> = listOf(500, 1000)
 
-    @YamlComment("Быстрые суммы снятия казны, выводятся в виде отдельных кнопок.")
+    @YamlComment("Слоты быстрых кнопок пополнения. Сопоставляются с treasuryDepositPresets по индексу.")
+    val treasuryDepositPresetSlots: List<Int> = listOf(28, 29)
+
+    @YamlComment("Быстрые суммы снятия казны. Каждая сумма получает кнопку из шаблона withdrawPresets в menus.yml.")
     val treasuryWithdrawPresets: List<Int> = listOf(500, 1000)
+
+    @YamlComment("Слоты быстрых кнопок снятия. Сопоставляются с treasuryWithdrawPresets по индексу.")
+    val treasuryWithdrawPresetSlots: List<Int> = listOf(33, 34)
+
+    @YamlComment("Время ожидания произвольной суммы казны в чате, в секундах.")
+    val treasuryPromptTimeoutSeconds: Int = 30
+
+    @YamlComment("Слова, которыми игрок отменяет ввод суммы казны. Сравнение без учёта регистра.")
+    val treasuryPromptCancelInputs: List<String> = listOf("cancel", "отмена")
 
     @YamlComment("Требовать ли пустое хранилище предметов (Clan Chest) перед распуском клана")
     val disbandRequireEmptyChest: Boolean = true
@@ -214,14 +205,10 @@ class Settings {
     val animations: AnimationConfig = AnimationConfig()
 }
 
-/**
- * Configurable collection of animation frames used across the plugin.
- */
 @Serializable
 data class AnimationConfig(
     @YamlComment("Интервал между кадрами анимации в миллисекундах")
     val frameIntervalMs: Int = 600,
-
     @YamlComment("Кадры для скрытого баланса казны. Поддерживают HEX/& цвета и плейсхолдеры.")
     val hiddenBalance: List<String> = listOf(
         "&#FC3737∗ &8∗ &5∗ &8∗ &6∗",
@@ -229,7 +216,6 @@ data class AnimationConfig(
         "&#FC3737∗ &8∗ &6∗ &5∗ &8∗",
         "&#FC3737∗ &6∗ &5∗ &8∗ &8∗"
     ),
-
     @YamlComment("Кадры для светящегося маяка эволюции (ожидание ритуала).")
     val upgradeIdle: List<String> = listOf(
         "&#FC7D37✦ Подготовка",
@@ -237,7 +223,6 @@ data class AnimationConfig(
         "&#FC7D37✦ Подготовка..",
         "&#FC7D37✦ Подготовка..."
     ),
-
     @YamlComment("Кадры для маяка эволюции, когда все условия прокачки выполнены.")
     val upgradeReady: List<String> = listOf(
         "&#FFD700✦ Ритуал готов",
@@ -245,7 +230,6 @@ data class AnimationConfig(
         "&#FFD700✦ Ритуал готов..",
         "&#FFD700✦ Ритуал готов..."
     ),
-
     @YamlComment("Кадры для маяка эволюции, когда не хватает ресурсов на прокачку.")
     val upgradeBusy: List<String> = listOf(
         "&#FC3737✦ Нужны ресурсы",
