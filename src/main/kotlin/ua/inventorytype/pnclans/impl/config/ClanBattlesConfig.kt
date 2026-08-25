@@ -2,9 +2,6 @@ package ua.inventorytype.pnclans.impl.config
 
 import com.charleskorn.kaml.YamlComment
 import kotlinx.serialization.Serializable
-import ua.inventorytype.pnclans.api.Action
-import ua.inventorytype.pnclans.api.MessageAction
-import ua.inventorytype.pnclans.api.SoundAction
 
 @Serializable
 data class ClanBattleSpawnConfig(
@@ -25,38 +22,6 @@ data class ClanBattleArenaConfig(
     val defender: ClanBattleSpawnConfig = ClanBattleSpawnConfig(x = 20.0, yaw = 180.0f),
     @YamlComment("Maximum distance from the arena centre. Participants cannot leave this radius when arena boundary enforcement is enabled.")
     val radius: Double = 64.0
-)
-
-/** Player-facing lobby notifications. Every entry supports the same Action system as messages.yml. */
-@Serializable
-data class ClanBattleLobbyMessagesConfig(
-    val opened: List<Action> = listOf(
-        MessageAction("&#5EA9FD⌚ &fВызов принят. Открыт сбор состава: &eЛКМ по «Боевой готовности» — войти/выйти, ПКМ — READY стороны."),
-        SoundAction("UI_BUTTON_CLICK", 0.8f, 1.1f)
-    ),
-    val joinedRoster: List<Action> = listOf(MessageAction("&#5EFD7D✔ &fВы вошли в боевой состав.")),
-    val leftRoster: List<Action> = listOf(MessageAction("&#FFD700⌚ &fВы вышли из боевого состава.")),
-    val sideReady: List<Action> = listOf(MessageAction("&#5EFD7D✔ &fВаша сторона готова к бою.")),
-    val sideNotReady: List<Action> = listOf(MessageAction("&#FFD700⌚ &fГотовность вашей стороны снята.")),
-    val countdownStarted: List<Action> = listOf(
-        MessageAction("&#FC3737⚔ &fОбе стороны готовы. Перемещение на арену через &e{seconds} секунд&f."),
-        SoundAction("BLOCK_NOTE_BLOCK_PLING", 1.0f, 1.2f)
-    ),
-    val rosterChanged: List<Action> = listOf(MessageAction("&#FFD700⌚ &fСтарт отменён: состав одной из сторон изменился. Подтвердите READY заново.")),
-    val selectedPlayerOffline: List<Action> = listOf(MessageAction("&#FFD700⌚ &fСтарт отменён: один из выбранных игроков вышел с сервера. Подтвердите READY заново.")),
-    val clanRemoved: List<Action> = listOf(MessageAction("&#FC3737✖ &fСбор состава отменён: один из кланов был расформирован.")),
-    val stoppedByAdmin: List<Action> = listOf(MessageAction("&#FC3737✖ &fСбор состава остановлен администратором.")),
-    val moduleDisabled: List<Action> = listOf(MessageAction("&#FC3737✖ &fСбор состава отменён: модуль битв отключён.")),
-    val opponentUnavailable: List<Action> = listOf(MessageAction("&#FC3737✖ &fСбор состава отменён: клан-соперник больше недоступен.")),
-    val clanBecameBusy: List<Action> = listOf(MessageAction("&#FC3737✖ &fСбор состава отменён: один из кланов уже участвует в другом бою.")),
-    val arenaUnavailable: List<Action> = listOf(MessageAction("&#FC3737✖ &fАрена стала недоступна. Сообщите администратору.")),
-    val startCancelled: List<Action> = listOf(MessageAction("&#FFD700⌚ &fСтарт боя отменён другим плагином. READY сторон сброшен.")),
-    val arenaBusy: List<Action> = listOf(MessageAction("&#FC3737✖ &fАрена занята другим боем. Сбор состава отменён.")),
-    val teleportFailed: List<Action> = listOf(MessageAction("&#FC3737✖ &fНе удалось безопасно переместить весь состав на арену. Бой отменён.")),
-    val expired: List<Action> = listOf(MessageAction("&#FFD700⌛ &fВремя на сбор состава истекло. Боевой вызов отменён.")),
-    val lobbyNotFound: List<Action> = listOf(MessageAction("&#FC3737✖ &fСбор состава уже завершён или не найден.")),
-    val lobbyFull: List<Action> = listOf(MessageAction("&#FC3737✖ &fБоевой состав вашей стороны уже заполнен.")),
-    val notEnoughSelected: List<Action> = listOf(MessageAction("&#FFD700⌚ &fСначала выберите минимум &e{minimum} &fучастника(ов) в состав."))
 )
 
 @Serializable
@@ -145,6 +110,12 @@ data class ClanBattleDisplayConfig(
     val emptyReasonOutgoing: String = "Сначала дождитесь ответа на отправленный вызов.",
     val emptyReasonNoOpponents: String = "Нет кланов с достаточным онлайном.",
     val noOpponentText: String = "Нет",
+    val drawWinnerText: String = "Ничья",
+    val endReasonScoreLimit: String = "Лимит убийств",
+    val endReasonTimeLimit: String = "Время истекло",
+    val endReasonForfeit: String = "Техническое поражение",
+    val endReasonAdminStop: String = "Остановлено администратором",
+    val endReasonServerShutdown: String = "Остановка сервера",
     val stateBattle: String = "&#FC3737Битва идёт",
     val stateCountdown: String = "&#FC3737Старт через {seconds} сек.",
     val stateLobby: String = "&#5EA9FDСбор состава",
@@ -194,7 +165,7 @@ data class ClanBattleDisplayConfig(
 
 @Serializable
 data class ClanBattlesConfig(
-    // Kept at schema 3 for this branch until the preservation migration is installed.
+    // Kept at schema 3 until the compatibility backfill is installed for existing administrator-owned files.
     val schemaVersion: Int = 3,
     @YamlComment("Keep disabled until every arena world, spawn and radius has been configured and tested.")
     val enabled: Boolean = false,
@@ -233,7 +204,6 @@ data class ClanBattlesConfig(
     @YamlComment("Opponent cards glow when absolute MMR difference is at most this value. Set below 0 to disable the glow rule.")
     val similarMmrGlowThreshold: Int = 150,
     val display: ClanBattleDisplayConfig = ClanBattleDisplayConfig(),
-    val lobbyMessages: ClanBattleLobbyMessagesConfig = ClanBattleLobbyMessagesConfig(),
     @YamlComment("At least one valid arena is required to create a battle lobby.")
     val arenas: Map<String, ClanBattleArenaConfig> = mapOf("default" to ClanBattleArenaConfig())
 )
