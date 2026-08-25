@@ -10,12 +10,7 @@ import java.io.File
 import java.nio.file.Files
 import java.nio.file.StandardCopyOption
 
-/**
- * Makes newly introduced configurable fields visible in existing administrator-owned YAML files.
- * Existing values are loaded first by ConfigService, then re-serialized only when a v1.2.1 marker
- * is missing. This avoids silently running new features from code defaults that an administrator
- * cannot discover in their config files.
- */
+/** Makes newly introduced configurable fields visible in existing administrator-owned YAML files. */
 internal object ConfigurationBackfill {
     private val yaml = Yaml(
         configuration = YamlConfiguration(
@@ -42,6 +37,33 @@ internal object ConfigurationBackfill {
         )
     }
 
+    fun applyV122(plugin: BukkitPlugin, config: ConfigService) {
+        rewriteIfMissing(
+            plugin,
+            "config.yml",
+            listOf(
+                "treasuryDepositPresetSlots:",
+                "treasuryWithdrawPresetSlots:",
+                "treasuryPromptTimeoutSeconds:",
+                "treasuryPromptCancelInputs:"
+            ),
+            Settings.serializer(),
+            config.settings
+        )
+        rewriteIfMissing(
+            plugin,
+            "messages.yml",
+            listOf(
+                "depositPromptStarted:",
+                "withdrawPromptStarted:",
+                "promptInvalidAmount:",
+                "persistenceFailed:"
+            ),
+            MessagesConfig.serializer(),
+            config.messages
+        )
+    }
+
     private fun <T> rewriteIfMissing(
         plugin: BukkitPlugin,
         fileName: String,
@@ -55,7 +77,7 @@ internal object ConfigurationBackfill {
 
         runCatching {
             val content = yaml.encodeToString(serializer, value)
-            val temp = File(plugin.dataFolder, "$fileName.v121.tmp")
+            val temp = File(plugin.dataFolder, "$fileName.backfill.tmp")
             temp.writeText(content)
             try {
                 Files.move(temp.toPath(), file.toPath(), StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE)
