@@ -28,8 +28,11 @@ import ua.inventorytype.pnclans.impl.config.ConfigMigrationSafety
 import ua.inventorytype.pnclans.impl.config.ConfigService
 import ua.inventorytype.pnclans.impl.config.ConfigValidator
 import ua.inventorytype.pnclans.impl.config.ConfigurationBackfill
+import ua.inventorytype.pnclans.impl.config.SupplementalLegacyLoader
 import ua.inventorytype.pnclans.impl.config.SupplementalMenusConfig
 import ua.inventorytype.pnclans.impl.config.SupplementalMenusLoader
+import ua.inventorytype.pnclans.impl.config.SupplementalMessagesConfig
+import ua.inventorytype.pnclans.impl.config.SupplementalSettingsConfig
 import ua.inventorytype.pnclans.impl.economy.EconomyService
 import ua.inventorytype.pnclans.impl.inventory.listener.GuiListener
 import ua.inventorytype.pnclans.impl.listener.ClanListener
@@ -56,6 +59,12 @@ class BukkitPlugin : JavaPlugin() {
         private set
 
     internal var supplementalMenus: SupplementalMenusConfig = SupplementalMenusConfig()
+        private set
+
+    internal var supplementalSettings: SupplementalSettingsConfig = SupplementalSettingsConfig()
+        private set
+
+    internal var supplementalMessages: SupplementalMessagesConfig = SupplementalMessagesConfig()
         private set
 
     lateinit var placeholderRegistry: PlaceholderRegistry
@@ -120,6 +129,8 @@ class BukkitPlugin : JavaPlugin() {
         ConfigurationBackfill.applyV121(this, configService)
         ConfigurationBackfill.applyV122(this, configService)
         supplementalMenus = SupplementalMenusLoader.loadAndBackfill(this)
+        supplementalSettings = SupplementalLegacyLoader.loadSettings(this)
+        supplementalMessages = SupplementalLegacyLoader.loadMessages(this)
         ConfigValidator.validate(this, configService)
     }
 
@@ -220,6 +231,7 @@ class BukkitPlugin : JavaPlugin() {
         val metrics = Metrics(this, BSTATS_PLUGIN_ID)
         metrics.addCustomChart(SimplePie("clan_chat_mode") { configService.settings.clanChat.mode.name })
         metrics.addCustomChart(SimplePie("storage_type") { configService.settings.storageType.uppercase() })
+        metrics.addCustomChart(SimplePie("update_channel") { configService.settings.updateChannel.name })
         metricsInitialized = true
     }
 
