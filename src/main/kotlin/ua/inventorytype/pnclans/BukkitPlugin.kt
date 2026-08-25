@@ -95,7 +95,6 @@ class BukkitPlugin : JavaPlugin() {
         publicApi.subcommands.all().firstOrNull { it.name.equals(name, true) || it.aliases.any { alias -> alias.equals(name, true) } }
 
     fun publicSubcommandNames(): List<String> = publicApi.subcommands.all()
-        .flatMap { listOf(it.name) + it.aliases }
 
     fun publicMainMenuButtons(): Collection<ClanMainMenuButton> = publicApi.menus.mainButtons()
 
@@ -142,6 +141,7 @@ class BukkitPlugin : JavaPlugin() {
         server.pluginManager.registerEvents(ClanListener(this), this)
         server.pluginManager.registerEvents(clanHighlightService, this)
         clanHighlightService.syncAll()
+        clanQuestService.deliverPendingRewardsForOnlinePlayers()
 
         // 6. Register Commands
         val clanCommand = ClanCommand(this, inviteService)
