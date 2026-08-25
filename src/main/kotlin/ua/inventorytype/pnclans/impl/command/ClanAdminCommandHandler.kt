@@ -270,7 +270,7 @@ internal class ClanAdminCommandHandler(private val plugin: BukkitPlugin) {
         }
         val activeStorageType = plugin.configService.settings.storageType
         plugin.guiListener.forceCloseAll()
-        plugin.configService.loadAll()
+        plugin.reloadConfigurations()
         val requestedStorageType = plugin.configService.settings.storageType
         val storageChangePending = !requestedStorageType.equals(activeStorageType, ignoreCase = true)
         if (storageChangePending) plugin.configService.settings.storageType = activeStorageType

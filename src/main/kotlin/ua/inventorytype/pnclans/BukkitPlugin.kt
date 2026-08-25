@@ -24,8 +24,11 @@ import ua.inventorytype.pnclans.impl.clan.ClanBattleService
 import ua.inventorytype.pnclans.impl.shop.ClanShopService
 import ua.inventorytype.pnclans.impl.api.PnClansApiImpl
 import ua.inventorytype.pnclans.impl.command.ClanCommand
+import ua.inventorytype.pnclans.impl.config.ConfigMigrationSafety
 import ua.inventorytype.pnclans.impl.config.ConfigService
+import ua.inventorytype.pnclans.impl.config.ConfigValidator
 import ua.inventorytype.pnclans.impl.config.ConfigurationBackfill
+import ua.inventorytype.pnclans.impl.config.MenuConfigValidator
 import ua.inventorytype.pnclans.impl.economy.EconomyService
 import ua.inventorytype.pnclans.impl.inventory.listener.GuiListener
 import ua.inventorytype.pnclans.impl.listener.ClanListener
@@ -102,24 +105,36 @@ class BukkitPlugin : JavaPlugin() {
 
     fun publicAddonGui(): ClanAddonGuiRegistry = publicApi.gui
 
+    /** Loads configs through compatibility protection, exposes new keys and reports invalid references. */
+    internal fun reloadConfigurations() {
+        val migrationSafety = ConfigMigrationSafety.capture(this)
+        configService.loadAll()
+        if (migrationSafety.reconcile(this, configService)) {
+            configService.loadAll()
+        }
+        ConfigurationBackfill.applyV121(this, configService)
+        ConfigurationBackfill.applyV122(this, configService)
+        // Backfill writes missing keys into administrator-owned YAML after the first deserialize.
+        // Reload once so those freshly materialized menu IDs are available immediately, not only
+        // after the next /reload or server restart.
+        configService.loadAll()
+        ConfigValidator.validate(this, configService)
+        MenuConfigValidator.validate(this, configService)
+    }
+
     override fun onEnable() {
         PacketEvents.getAPI().settings.debug(false).checkForUpdates(false).timeStampMode(TimeStampMode.MILLIS).reEncodeByDefault(true)
         PacketEvents.getAPI().init()
         logger.info("[pnClans] Enabled ${description.version} on ${server.version}; PacketEvents initialized=${PacketEvents.getAPI().isInitialized}")
 
-        // 1. Setup Economy
         economyService = EconomyService()
         val economyConnected = economyService.setup()
 
-        // 2. Load and backfill configurations
         configService = ConfigService(this)
-        configService.loadAll()
-        ConfigurationBackfill.applyV121(this, configService)
+        reloadConfigurations()
 
-        // 3. Initialize Error Analytics Reporter
         ua.inventorytype.pnclans.impl.analytics.ErrorReporter.init(this)
 
-        // 4. Initialize Core Clan Services
         placeholderRegistry = PlaceholderRegistry()
         clanService = ClanService(this)
         clanPointsService = ClanPointsService(clanService)
@@ -138,7 +153,6 @@ class BukkitPlugin : JavaPlugin() {
         timedBossBarService = TimedBossBarService(this)
         initializeMetrics()
 
-        // 5. Register Event Listeners
         guiListener = GuiListener(this)
         server.pluginManager.registerEvents(guiListener, this)
         server.pluginManager.registerEvents(ClanListener(this), this)
@@ -146,24 +160,20 @@ class BukkitPlugin : JavaPlugin() {
         clanHighlightService.syncAll()
         clanQuestService.deliverPendingRewardsForOnlinePlayers()
 
-        // 6. Register Commands
         val clanCommand = ClanCommand(this, inviteService)
         getCommand("clan")?.let { cmd ->
             cmd.setExecutor(clanCommand)
             cmd.tabCompleter = clanCommand
         }
 
-        // 7. Register PlaceholderAPI Expansion
         var papiConnected = false
         if (Bukkit.getPluginManager().isPluginEnabled("PlaceholderAPI")) {
             PnClansExpansion(this).register()
             papiConnected = true
         }
 
-        // 8. Schedule Async Auto-Updater
         ua.inventorytype.pnclans.impl.updater.AutoUpdater(this).checkForUpdatesAsync()
 
-        // 9. Print Rich Startup ASCII Audit Banner
         PluginBanner.printEnableBanner(
             plugin = this,
             economyConnected = economyConnected,
@@ -200,6 +210,7 @@ class BukkitPlugin : JavaPlugin() {
         val metrics = Metrics(this, BSTATS_PLUGIN_ID)
         metrics.addCustomChart(SimplePie("clan_chat_mode") { configService.settings.clanChat.mode.name })
         metrics.addCustomChart(SimplePie("storage_type") { configService.settings.storageType.uppercase() })
+        metrics.addCustomChart(SimplePie("update_channel") { configService.settings.updateChannel.name })
         metricsInitialized = true
     }
 

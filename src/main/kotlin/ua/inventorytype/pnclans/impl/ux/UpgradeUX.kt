@@ -14,15 +14,8 @@ import ua.inventorytype.pnclans.impl.inventory.builder.ItemBuilder
 /**
  * Six-step clan progression screen with animated beacon state.
  *
- * The overview card explains the per-level rewards (members, chest rows, homes) and pulses an
- * animated beacon status. The five stage cards show the level requirements and the unique perk
- * unlocked at that stage. The central beacon performs the ritual and animates its state according
- * to the live requirements of the clan.
- *
  * All visible text and materials come from [ua.inventorytype.pnclans.impl.config.MenusConfig.upgradeMenu]
  * in `menus.yml`; animation frames live in [ua.inventorytype.pnclans.impl.config.Settings.animations].
- *
- * @param clanService The clan service providing live clan state.
  */
 class UpgradeUX(clanService: ClanService) : BaseGui(clanService) {
 
@@ -35,20 +28,25 @@ class UpgradeUX(clanService: ClanService) : BaseGui(clanService) {
         hotWorldDecor(true)
 
         val levelSlots = listOf(20, 22, 24, 29, 31)
-        val levelTemplate = menuCfg.items["level"] ?: GuiItemConfig()
-
-        ClanLevels.LEVELS.entries
-            .sortedBy { it.key }
-            .forEachIndexed { index, (_, levelData) ->
-                val slotIndex = levelSlots.getOrNull(index) ?: return@forEachIndexed
-                slot(slotIndex) {
-                    dynamicItem(this@UpgradeUX.parseMaterial(levelTemplate.material, levelData.icon)) { player ->
-                        val clan = this@UpgradeUX.clanService.getClanUser(player) ?: return@dynamicItem null
-                        this@UpgradeUX.renderConfigItem(this, player, levelTemplate, this@UpgradeUX.levelPlaceholders(levelData, clan))
-                        null
+        menuCfg.items["level"]?.let { levelTemplate ->
+            ClanLevels.LEVELS.entries
+                .sortedBy { it.key }
+                .forEachIndexed { index, (_, levelData) ->
+                    val slotIndex = levelSlots.getOrNull(index) ?: return@forEachIndexed
+                    slot(slotIndex) {
+                        dynamicItem(this@UpgradeUX.parseMaterial(levelTemplate.material, levelData.icon)) { player ->
+                            val clan = this@UpgradeUX.clanService.getClanUser(player) ?: return@dynamicItem null
+                            this@UpgradeUX.renderConfigItem(
+                                this,
+                                player,
+                                levelTemplate,
+                                this@UpgradeUX.levelPlaceholders(levelData, clan)
+                            )
+                            null
+                        }
                     }
                 }
-            }
+        }
 
         menuCfg.items["overview"]?.let { itemCfg ->
             slot(itemCfg.slot) {
@@ -254,18 +252,7 @@ class UpgradeUX(clanService: ClanService) : BaseGui(clanService) {
     }
 }
 
-/**
- * Immutable snapshot of requirements and rewards for a single clan level.
- *
- * @property level The level number (1–5).
- * @property costMoney The clan bank balance deducted when upgrading to this level.
- * @property requiredMmr The minimum clan MMR required to perform the upgrade ritual.
- * @property requiredQuests The number of completed clan quests required.
- * @property maxMembers The maximum clan roster size unlocked at this level.
- * @property chestRows The number of shared chest rows available at this level.
- * @property unlockedPerk A short description of the unique perk unlocked at this level.
- * @property icon The [Material] used as the upgrade display icon in the GUI.
- */
+/** Immutable snapshot of requirements and rewards for a single clan level. */
 data class ClanLevelData(
     val level: Int,
     val costMoney: Double,
@@ -278,17 +265,10 @@ data class ClanLevelData(
     val title: String = unlockedPerk
 )
 
-/**
- * Static registry of all clan level definitions.
- *
- * Provides access to level data by number and convenience methods
- * for resolving the next available upgrade target.
- */
+/** Static registry of all clan level definitions. */
 object ClanLevels {
-    /** The highest achievable clan level. */
     val MAX_LEVEL = 5
 
-    /** Map of level number → [ClanLevelData] for all 5 clan progression stages. */
     val LEVELS = mapOf(
         1 to ClanLevelData(1, 0.0, 0, 0, 10, 1, "Создание клана", Material.COAL, "Создание клана"),
         2 to ClanLevelData(2, 50000.0, 1200, 5, 15, 3, "Доступ к расширению сундука", Material.IRON_INGOT, "Казнохранилище"),
@@ -297,17 +277,7 @@ object ClanLevels {
         5 to ClanLevelData(5, 1500000.0, 4000, 75, 30, 6, "Кастомные титулы и частицы", Material.NETHER_STAR, "Легенда сервера")
     )
 
-    /**
-     * Returns [ClanLevelData] for the given [level], or level 1 data if not found.
-     *
-     * @param level The clan level to query.
-     */
     fun get(level: Int): ClanLevelData = LEVELS[level] ?: LEVELS[1]!!
 
-    /**
-     * Returns [ClanLevelData] for the level directly above [currentLevel], or null if already at max.
-     *
-     * @param currentLevel The clan's current level.
-     */
     fun getNext(currentLevel: Int): ClanLevelData? = LEVELS[currentLevel + 1]
 }

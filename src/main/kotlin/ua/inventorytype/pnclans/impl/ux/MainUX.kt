@@ -4,7 +4,6 @@ import org.bukkit.Bukkit
 import org.bukkit.Material
 import org.bukkit.entity.Player
 import ua.inventorytype.pnclans.api.OpenGuiAction
-import ua.inventorytype.pnclans.api.SoundAction
 import ua.inventorytype.pnclans.api.clan.Clan
 import ua.inventorytype.pnclans.api.clan.ClanRole
 import ua.inventorytype.pnclans.api.clan.ClanSetting
@@ -22,14 +21,7 @@ import ua.inventorytype.pnclans.impl.inventory.builder.ItemBuilder
 import ua.inventorytype.pnclans.impl.util.ChatInputPrompt
 import java.util.Locale
 
-/**
- * Config-driven clan headquarters GUI.
- *
- * `mainMenu` in `menus.yml` owns all visual design, titles, materials, lore, and click effects.
- * This class supplies live clan placeholders and enforces permission-sensitive transitions.
- *
- * @param clanService The clan service providing state, persistence, and navigation dependencies.
- */
+/** Config-driven clan headquarters GUI. */
 class MainUX(clanService: ClanService) : BaseGui(clanService) {
 
     init {
@@ -43,7 +35,6 @@ class MainUX(clanService: ClanService) : BaseGui(clanService) {
         val modules = cfg.settings.modules
 
         addMenuItem(menuCfg, "stats")
-
         addMenuItem(menuCfg, "members") { player, itemCfg ->
             clickEffects(player, itemCfg)
             MembersUX(this@MainUX.clanService).open(player)
@@ -53,7 +44,6 @@ class MainUX(clanService: ClanService) : BaseGui(clanService) {
             addMenuItem(menuCfg, "chest") { player, itemCfg ->
                 val clan = this@MainUX.clanService.getClanUser(player) ?: return@addMenuItem
                 val user = clan.getMember(player.uniqueId) ?: return@addMenuItem
-
                 if (!clan.hasPermission(user, ClanPerms.Action.OPEN_CHEST)) {
                     cfg.send(player, cfg.messages.chest.noPermission)
                     return@addMenuItem
@@ -62,7 +52,6 @@ class MainUX(clanService: ClanService) : BaseGui(clanService) {
                     cfg.send(player, cfg.messages.chest.chestDisabled)
                     return@addMenuItem
                 }
-
                 clickEffects(player, itemCfg, mainPlaceholders(player, clan))
                 this@MainUX.clanService.openClanChest(player, clan)
             }
@@ -82,10 +71,7 @@ class MainUX(clanService: ClanService) : BaseGui(clanService) {
             }
         }
 
-        addMenuItem(menuCfg, "invite") { player, itemCfg ->
-            startInvitePrompt(player, itemCfg)
-        }
-
+        addMenuItem(menuCfg, "invite") { player, itemCfg -> startInvitePrompt(player, itemCfg) }
         addMenuItem(menuCfg, "top") { player, itemCfg ->
             clickEffects(player, itemCfg)
             TopClansUX(this@MainUX.clanService).open(player)
@@ -93,7 +79,8 @@ class MainUX(clanService: ClanService) : BaseGui(clanService) {
 
         if (modules.upgrades) {
             addMenuItem(menuCfg, "upgrade") { player, itemCfg ->
-                clickEffects(player, itemCfg, mainPlaceholders(player, this@MainUX.clanService.getClanUser(player) ?: return@addMenuItem))
+                val clan = this@MainUX.clanService.getClanUser(player) ?: return@addMenuItem
+                clickEffects(player, itemCfg, mainPlaceholders(player, clan))
                 UpgradeUX(this@MainUX.clanService).open(player)
             }
         }
@@ -102,12 +89,11 @@ class MainUX(clanService: ClanService) : BaseGui(clanService) {
             clickEffects(player, itemCfg)
             SettingsUX(this@MainUX.clanService).open(player)
         }
-
         addMenuItem(menuCfg, "help") { player, itemCfg ->
-            clickEffects(player, itemCfg, mainPlaceholders(player, this@MainUX.clanService.getClanUser(player) ?: return@addMenuItem))
+            val clan = this@MainUX.clanService.getClanUser(player) ?: return@addMenuItem
+            clickEffects(player, itemCfg, mainPlaceholders(player, clan))
             HelpUX(this@MainUX.clanService).open(player)
         }
-
         addMenuItem(menuCfg, "leave") { player, itemCfg ->
             clickEffects(player, itemCfg)
             ClanLeaveConfirmUX(this@MainUX.clanService).open(player)
@@ -132,12 +118,10 @@ class MainUX(clanService: ClanService) : BaseGui(clanService) {
             clickEffects(player, itemCfg)
             ClanShopUX(this@MainUX.clanService).open(player)
         }
-
         if (cfg.quests.enabled) addMenuItem(menuCfg, "quests") { player, itemCfg ->
             clickEffects(player, itemCfg)
             ClanQuestsUX(this@MainUX.clanService).open(player)
         }
-
         if (cfg.battles.enabled) addMenuItem(menuCfg, "battles") { player, itemCfg ->
             clickEffects(player, itemCfg)
             ClanBattlesUX(this@MainUX.clanService).open(player)
@@ -175,29 +159,7 @@ class MainUX(clanService: ClanService) : BaseGui(clanService) {
         key: String,
         onClick: ((Player, GuiItemConfig) -> Unit)? = null
     ) {
-        val itemCfg = menuCfg.items[key] ?: if (key == "battles" && menuCfg.items.values.none { it.slot == 35 }) {
-            GuiItemConfig(
-                slot = 35,
-                material = "CROSSBOW",
-                name = "&#FC3737⚔ Клановые битвы",
-                lore = listOf(
-                    "",
-                    "&#9EFC65 «Честный вызов»",
-                    " &7- &fСравните MMR и выберите соперника.",
-                    " &7- &fСражайтесь на отдельной арене.",
-                    "",
-                    "&#FC65DF «Награды»",
-                    " &7- &fПобеды приносят MMR и клановые очки.",
-                    " &7- &fБои продвигают боевые квесты.",
-                    "",
-                    "&#FF8702➥ &fНажмите, &eЛКМ &fчтобы открыть поле боя"
-                ),
-                actions = listOf(SoundAction("ITEM_CROSSBOW_LOADING_START"))
-            )
-        } else {
-            return
-        }
-
+        val itemCfg = menuCfg.items[key] ?: return
         slot(itemCfg.slot) {
             dynamicItem(this@MainUX.parseMaterial(itemCfg.material, Material.STONE)) { player ->
                 val clan = this@MainUX.clanService.getClanUser(player) ?: return@dynamicItem null
@@ -244,16 +206,12 @@ class MainUX(clanService: ClanService) : BaseGui(clanService) {
             timeoutTicks = promptSeconds.toLong() * TICKS_PER_SECOND,
             onInput = { input ->
                 service.plugin.timedBossBarService.remove(player)
-
                 if (promptCfg.cancelInputs.any { it.equals(input, ignoreCase = true) }) {
                     cfg.send(player, cfg.messages.invite.cancelled)
                 } else {
                     val target = Bukkit.getPlayer(input)
-                    if (target == null) {
-                        cfg.send(player, cfg.messages.invite.targetNotFound, mapOf("player" to input))
-                    } else {
-                        service.plugin.inviteService.sendInvite(player, target)
-                    }
+                    if (target == null) cfg.send(player, cfg.messages.invite.targetNotFound, mapOf("player" to input))
+                    else service.plugin.inviteService.sendInvite(player, target)
                 }
                 reopenMain(player)
             },
@@ -266,22 +224,13 @@ class MainUX(clanService: ClanService) : BaseGui(clanService) {
     }
 
     private fun reopenMain(player: Player) {
-        if (clanService.getClanUser(player) != null) {
-            MainUX(clanService).open(player)
-        } else {
-            player.closeInventory()
-        }
+        if (clanService.getClanUser(player) != null) MainUX(clanService).open(player)
+        else player.closeInventory()
     }
 
-    private fun clickEffects(
-        player: Player,
-        itemCfg: GuiItemConfig,
-        placeholders: Map<String, String> = emptyMap()
-    ) {
+    private fun clickEffects(player: Player, itemCfg: GuiItemConfig, placeholders: Map<String, String> = emptyMap()) {
         val effects = itemCfg.actions.filterNot { it is OpenGuiAction }
-        if (effects.isNotEmpty()) {
-            clanService.plugin.configService.send(player, effects, placeholders)
-        }
+        if (effects.isNotEmpty()) clanService.plugin.configService.send(player, effects, placeholders)
     }
 
     private fun mainPlaceholders(player: Player, clan: Clan): Map<String, String> {
@@ -291,14 +240,10 @@ class MainUX(clanService: ClanService) : BaseGui(clanService) {
         val homes = cfg.menus.homesMenu.homes
         val unlockedHomes = homes.filter { clan.level >= it.requiredLevel }
         val isLeader = user != null && clan.getUserRole(user) == ClanRole.LEADER
-        val kda = if (clan.deaths == 0) {
-            ZERO_KDA
-        } else {
-            String.format(Locale.US, KDA_FORMAT, clan.kills.toDouble() / clan.deaths)
-        }
+        val kda = if (clan.deaths == 0) ZERO_KDA else String.format(Locale.US, KDA_FORMAT, clan.kills.toDouble() / clan.deaths)
         val canSeeBalance = user != null && clan.hasUserPermission(user, ClanPerms.Bank.SEE)
-
         val hiddenStars = if (canSeeBalance) "" else cfg.animatedFrame(cfg.animationFrames(AnimationKey.HIDDEN_BALANCE))
+
         return mapOf(
             "clan" to clan.name,
             "clan_level" to clan.level.toString(),
@@ -326,14 +271,9 @@ class MainUX(clanService: ClanService) : BaseGui(clanService) {
         )
     }
 
-    private fun renderConfigItem(
-        builder: ItemBuilder,
-        player: Player,
-        itemCfg: GuiItemConfig,
-        placeholders: Map<String, String>
-    ) {
+    private fun renderConfigItem(builder: ItemBuilder, player: Player, itemCfg: GuiItemConfig, placeholders: Map<String, String>) {
         builder.name(clanService.plugin.configService.formatMessage(player, itemCfg.name, placeholders))
-        builder.lore(itemCfg.lore.map { line -> clanService.plugin.configService.formatMessage(player, line, placeholders) })
+        builder.lore(itemCfg.lore.map { clanService.plugin.configService.formatMessage(player, it, placeholders) })
         builder.glow(itemCfg.glow)
     }
 

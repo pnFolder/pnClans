@@ -5,110 +5,59 @@ import kotlinx.serialization.Serializable
 import ua.inventorytype.pnclans.api.Action
 import ua.inventorytype.pnclans.api.BossBarAction
 import ua.inventorytype.pnclans.api.MessageAction
-import ua.inventorytype.pnclans.api.SoundAction
 import ua.inventorytype.pnclans.api.MiniMessageAction
+import ua.inventorytype.pnclans.api.SoundAction
 
-/**
- * Top-level container for all plugin event responses, loaded from `messages.yml`.
- * Every player-facing response is represented by configurable Action lists.
- */
+/** Every player-facing response is represented by configurable Action lists in messages.yml. */
 @Serializable
 class MessagesConfig {
-
     @YamlComment("Общие сообщения, используемые в разных частях плагина")
     val general: GeneralMessages = GeneralMessages()
-
     @YamlComment("Сообщения о создании, расформировании и выходе из клана")
     val clan: ClanMessages = ClanMessages()
-
-    @YamlComment("Сообщения системы управления клановыми домами (точками телепортации)")
+    @YamlComment("Сообщения системы управления клановыми домами")
     val homes: HomesMessages = HomesMessages()
-
     @YamlComment("Сообщения отложенной телепортации к клановому дому")
     val teleport: TeleportMessages = TeleportMessages()
-
     @YamlComment("Сообщения системы приглашений в клан")
     val invite: InviteMessages = InviteMessages()
-
-    @YamlComment("Сообщения при управлении составом клана (повышение, понижение, кик)")
+    @YamlComment("Сообщения при управлении составом клана")
     val members: MembersMessages = MembersMessages()
-
-    @YamlComment("Сообщения казны (пополнение, снятие средств)")
+    @YamlComment("Сообщения казны")
     val treasury: TreasuryMessages = TreasuryMessages()
-
-    @YamlComment("Сообщения системы повышения уровня клана (Ритуал Возвышения)")
+    @YamlComment("Сообщения системы повышения уровня клана")
     val upgrade: UpgradeMessages = UpgradeMessages()
-
     @YamlComment("Сообщения панели настроек клана")
     val settings: SettingsMessages = SettingsMessages()
-
     @YamlComment("Сообщения виртуального кланового сундука")
     val chest: ChestMessages = ChestMessages()
-
     @YamlComment("Сообщения общей системы клановых квестов")
     val quests: QuestMessages = QuestMessages()
-
     @YamlComment("Сообщения вызовов, lobby и результатов клановых битв")
     val battles: BattleMessages = BattleMessages()
 
     @Serializable
     data class QuestMessages(
-        @YamlComment("Квест завершён и награда выдана. Отправляется всем онлайн-участникам клана.")
-        val completed: List<Action> = listOf(
-            MessageAction("&#5EFD7D✔ &fКлан завершил квест {quest_name}&f: &#5EA9FD{progress} &7/ &f{target}. Награда: &#FFD700{reward_points} клановых очков&f."),
-            SoundAction("ENTITY_PLAYER_LEVELUP", 1.0f, 1.1f)
-        ),
-        @YamlComment("Квест заблокирован prerequisites. Переменная: {prerequisites}")
-        val locked: List<Action> = listOf(
-            MessageAction("&#FC3737✖ &fКвест пока закрыт. Сначала завершите: &e{prerequisites}&f."),
-            SoundAction("ENTITY_VILLAGER_NO", 1.0f, 1.2f)
-        ),
-        @YamlComment("Квест доступен, но прогресс ещё не начат")
-        val available: List<Action> = listOf(
-            MessageAction("&#FF8702➥ &fКвест доступен всему клану. Выполняйте цель вместе."),
-            SoundAction("UI_BUTTON_CLICK", 0.8f, 1.1f)
-        ),
-        @YamlComment("Квест уже имеет общий прогресс")
-        val inProgress: List<Action> = listOf(
-            MessageAction("&#5EA9FD⌚ &fПрогресс квеста: &#5EFD7D{progress}&7/&f{target} &7({percent}%)."),
-            SoundAction("UI_BUTTON_CLICK", 0.8f, 1.0f)
-        ),
-        @YamlComment("Квест завершён в текущем цикле")
-        val alreadyCompleted: List<Action> = listOf(
-            MessageAction("&#5EFD7D✔ &fЭтот квест уже завершён в текущем цикле."),
-            SoundAction("BLOCK_NOTE_BLOCK_PLING", 0.8f, 1.3f)
-        )
+        val completed: List<Action> = listOf(MessageAction("&#5EFD7D✔ &fКлан завершил квест {quest_name}&f: &#5EA9FD{progress} &7/ &f{target}. Награда: &#FFD700{reward_points} клановых очков&f."), SoundAction("ENTITY_PLAYER_LEVELUP", 1.0f, 1.1f)),
+        val locked: List<Action> = listOf(MessageAction("&#FC3737✖ &fКвест пока закрыт. Сначала завершите: &e{prerequisites}&f."), SoundAction("ENTITY_VILLAGER_NO", 1.0f, 1.2f)),
+        val available: List<Action> = listOf(MessageAction("&#FF8702➥ &fКвест доступен всему клану. Выполняйте цель вместе."), SoundAction("UI_BUTTON_CLICK", 0.8f, 1.1f)),
+        val inProgress: List<Action> = listOf(MessageAction("&#5EA9FD⌚ &fПрогресс квеста: &#5EFD7D{progress}&7/&f{target} &7({percent}%)."), SoundAction("UI_BUTTON_CLICK", 0.8f, 1.0f)),
+        val alreadyCompleted: List<Action> = listOf(MessageAction("&#5EFD7D✔ &fЭтот квест уже завершён в текущем цикле."), SoundAction("BLOCK_NOTE_BLOCK_PLING", 0.8f, 1.3f))
     )
 
     @Serializable
     data class BattleMessages(
-        val challengeSent: List<Action> = listOf(
-            MessageAction("&#FC7D37⚔ &fВаш клан вызвал клан &#FC3737{opponent} &fна бой."),
-            SoundAction("ITEM_CROSSBOW_LOADING_START", 1.0f, 1.0f)
-        ),
-        val challengeReceived: List<Action> = listOf(
-            MessageAction("&#FC3737⚔ &fКлан &#FC7D37{challenger} &fвызвал вас на бой."),
-            MessageAction("&#FF8702➥ &fОткройте меню битв или используйте &e/clan battle accept {challenge_id}&f."),
-            SoundAction("ITEM_CROSSBOW_LOADING_END", 1.0f, 1.0f)
-        ),
-        val declined: List<Action> = listOf(
-            MessageAction("&#FC3737✖ &fКлан отклонил ваш боевой вызов."),
-            SoundAction("ENTITY_VILLAGER_NO", 1.0f, 1.1f)
-        ),
+        val challengeSent: List<Action> = listOf(MessageAction("&#FC7D37⚔ &fВаш клан вызвал клан &#FC3737{opponent} &fна бой."), SoundAction("ITEM_CROSSBOW_LOADING_START", 1.0f, 1.0f)),
+        val challengeReceived: List<Action> = listOf(MessageAction("&#FC3737⚔ &fКлан &#FC7D37{challenger} &fвызвал вас на бой."), MessageAction("&#FF8702➥ &fОткройте меню битв или используйте &e/clan battle accept {challenge_id}&f."), SoundAction("ITEM_CROSSBOW_LOADING_END", 1.0f, 1.0f)),
+        val declined: List<Action> = listOf(MessageAction("&#FC3737✖ &fКлан отклонил ваш боевой вызов."), SoundAction("ENTITY_VILLAGER_NO", 1.0f, 1.1f)),
         val declinedByYou: List<Action> = listOf(MessageAction("&#FC3737✖ &fБоевой вызов отклонён.")),
         val challengeExpired: List<Action> = listOf(MessageAction("&#FFD700⌛ &fСрок боевого вызова истёк.")),
-        val lobbyOpened: List<Action> = listOf(
-            MessageAction("&#5EA9FD⌚ &fВызов принят. Открыт сбор состава: &eЛКМ по «Боевой готовности» — войти/выйти, ПКМ — READY стороны."),
-            SoundAction("UI_BUTTON_CLICK", 0.8f, 1.1f)
-        ),
+        val lobbyOpened: List<Action> = listOf(MessageAction("&#5EA9FD⌚ &fВызов принят. Открыт сбор состава: &eЛКМ по «Боевой готовности» — войти/выйти, ПКМ — READY стороны."), SoundAction("UI_BUTTON_CLICK", 0.8f, 1.1f)),
         val lobbyJoinedRoster: List<Action> = listOf(MessageAction("&#5EFD7D✔ &fВы вошли в боевой состав.")),
         val lobbyLeftRoster: List<Action> = listOf(MessageAction("&#FFD700⌚ &fВы вышли из боевого состава.")),
         val lobbySideReady: List<Action> = listOf(MessageAction("&#5EFD7D✔ &fВаша сторона готова к бою.")),
         val lobbySideNotReady: List<Action> = listOf(MessageAction("&#FFD700⌚ &fГотовность вашей стороны снята.")),
-        val lobbyCountdownStarted: List<Action> = listOf(
-            MessageAction("&#FC3737⚔ &fОбе стороны готовы. Перемещение на арену через &e{seconds} секунд&f."),
-            SoundAction("BLOCK_NOTE_BLOCK_PLING", 1.0f, 1.2f)
-        ),
+        val lobbyCountdownStarted: List<Action> = listOf(MessageAction("&#FC3737⚔ &fОбе стороны готовы. Перемещение на арену через &e{seconds} секунд&f."), SoundAction("BLOCK_NOTE_BLOCK_PLING", 1.0f, 1.2f)),
         val lobbyRosterChanged: List<Action> = listOf(MessageAction("&#FFD700⌚ &fСтарт отменён: состав одной из сторон изменился. Подтвердите READY заново.")),
         val lobbySelectedPlayerOffline: List<Action> = listOf(MessageAction("&#FFD700⌚ &fСтарт отменён: один из выбранных игроков вышел с сервера. Подтвердите READY заново.")),
         val lobbyClanRemoved: List<Action> = listOf(MessageAction("&#FC3737✖ &fСбор состава отменён: один из кланов был расформирован.")),
@@ -124,16 +73,8 @@ class MessagesConfig {
         val lobbyNotFound: List<Action> = listOf(MessageAction("&#FC3737✖ &fСбор состава уже завершён или не найден.")),
         val lobbyFull: List<Action> = listOf(MessageAction("&#FC3737✖ &fБоевой состав вашей стороны уже заполнен.")),
         val lobbyNotEnoughSelected: List<Action> = listOf(MessageAction("&#FFD700⌚ &fСначала выберите минимум &e{minimum} &fучастника(ов) в состав.")),
-        val started: List<Action> = listOf(
-            MessageAction("&#FC3737⚔ &fБитва началась: &#FC7D37{challenger} &7против &#5EA9FD{defender}&f."),
-            MessageAction("&7Счёт: &e{challenger_score} &7: &e{defender_score} &8• &7Осталось: &e{seconds} сек."),
-            SoundAction("EVENT_RAID_HORN", 1.0f, 1.0f)
-        ),
-        val finished: List<Action> = listOf(
-            MessageAction("&#FFD700♛ &fБитва завершена: &#FC7D37{challenger} &e{challenger_score} &7: &e{defender_score} &#5EA9FD{defender}&f."),
-            MessageAction("&#FFD700✦ &fИтог: &e{winner}&f. &7Причина: &f{reason}"),
-            SoundAction("UI_TOAST_CHALLENGE_COMPLETE", 1.0f, 1.0f)
-        ),
+        val started: List<Action> = listOf(MessageAction("&#FC3737⚔ &fБитва началась: &#FC7D37{challenger} &7против &#5EA9FD{defender}&f."), MessageAction("&7Счёт: &e{challenger_score} &7: &e{defender_score} &8• &7Осталось: &e{seconds} сек."), SoundAction("EVENT_RAID_HORN", 1.0f, 1.0f)),
+        val finished: List<Action> = listOf(MessageAction("&#FFD700♛ &fБитва завершена: &#FC7D37{challenger} &e{challenger_score} &7: &e{defender_score} &#5EA9FD{defender}&f."), MessageAction("&#FFD700✦ &fИтог: &e{winner}&f. &7Причина: &f{reason}"), SoundAction("UI_TOAST_CHALLENGE_COMPLETE", 1.0f, 1.0f)),
         val disabled: List<Action> = listOf(MessageAction("&#FC3737✖ &fМодуль клановых битв отключён.")),
         val noPermission: List<Action> = listOf(MessageAction("&#FC3737✖ &fУ вас нет права организовывать клановые битвы.")),
         val clanBusy: List<Action> = listOf(MessageAction("&#FC3737✖ &fУ вашего клана или соперника уже есть активный бой либо вызов.")),
@@ -147,28 +88,22 @@ class MessagesConfig {
 
     @Serializable
     data class GeneralMessages(
-        @YamlComment("Действия при отсутствии прав на операцию")
-        val noPermission: List<Action> = listOf(
-            MessageAction("&cУ вас недостаточно прав для выполнения этого действия."),
-            SoundAction("ENTITY_VILLAGER_NO", 1.0f, 1.2f)
-        ),
+        val noPermission: List<Action> = listOf(MessageAction("&cУ вас недостаточно прав для выполнения этого действия."), SoundAction("ENTITY_VILLAGER_NO", 1.0f, 1.2f)),
         val playerOnly: List<Action> = listOf(MessageAction("&#FC3737✖ &fЭта игровая команда доступна только игроку.")),
         val internalError: List<Action> = listOf(MessageAction("&#FC3737✖ &fПроизошла внутренняя ошибка. Подробности записаны в журнал сервера.")),
         val statsPlayerNotInClan: List<Action> = listOf(MessageAction("&#FC3737✖ &fИгрок &e{player} &fне состоит в вашем клане.")),
         val statsUsage: List<Action> = listOf(MessageAction("&#FFD700Использование: &f/clan stats [player] [day|week|month|all]")),
-        @YamlComment("Действия при некорректном вводе числа")
-        val invalidInput: List<Action> = listOf(
-            MessageAction("&cНекорректный ввод. Укажите корректное число."),
-            SoundAction("ENTITY_VILLAGER_NO", 1.0f, 1.2f)
-        ),
-        @YamlComment("Действия при отмене активного запроса ввода")
+        val invalidInput: List<Action> = listOf(MessageAction("&cНекорректный ввод. Укажите корректное число."), SoundAction("ENTITY_VILLAGER_NO", 1.0f, 1.2f)),
         val operationCancelled: List<Action> = listOf(MessageAction("&cОперация отменена."))
     )
 
     @Serializable
     data class ClanMessages(
-        @YamlComment("Клан успешно создан. Переменная: {clan}")
         val created: List<Action> = listOf(MessageAction("&aВы успешно создали клан &e{clan}&a!"), SoundAction("ENTITY_PLAYER_LEVELUP", 1.0f, 1.0f)),
+        @YamlComment("Начало ввода названия нового клана. Переменные: {cancel}, {seconds}.")
+        val creationPromptStarted: List<Action> = listOf(MessageAction("&#5EA9FD✎ &fВведите название нового клана в чат. Для отмены: &c{cancel}&f. Время: &e{seconds} сек."), SoundAction("BLOCK_NOTE_BLOCK_PLING", 1.0f, 1.2f)),
+        val creationPromptCancelled: List<Action> = listOf(MessageAction("&#FC3737✖ &fСоздание клана отменено.")),
+        val creationPromptTimedOut: List<Action> = listOf(MessageAction("&#FC3737⌛ &fВремя на ввод названия клана истекло."), SoundAction("ENTITY_VILLAGER_NO", 1.0f, 1.2f)),
         val alreadyInClan: List<Action> = listOf(MessageAction("&cВы уже состоите в клане."), SoundAction("ENTITY_VILLAGER_NO", 1.0f, 1.2f)),
         val nameTooShort: List<Action> = listOf(MessageAction("&cНазвание клана должно быть от 2 до 16 символов.")),
         val nameTooLong: List<Action> = listOf(MessageAction("&cНазвание клана не должно превышать 16 символов.")),
@@ -215,9 +150,7 @@ class MessagesConfig {
         val clanFull: List<Action> = listOf(MessageAction("&#FC3737✖ &fВ клане &#5EA9FD{clan} &fдостигнут лимит: &e{limit} &fучастников."), SoundAction("ENTITY_VILLAGER_NO", 1.0f, 1.2f)),
         val inviteSent: List<Action> = listOf(MessageAction("&#5EFD7D✔ &fПриглашение отправлено игроку &e{player}&f."), SoundAction("ENTITY_EXPERIENCE_ORB_PICKUP", 1.0f, 1.0f)),
         val inviteReceived: List<Action> = listOf(MessageAction("&#FC7D37✦ &fИгрок &e{sender} &fприглашает вас в клан &#5EA9FD{clan}&f."), SoundAction("ENTITY_EXPERIENCE_ORB_PICKUP", 1.0f, 1.2f)),
-        val inviteInstructions: List<Action> = listOf(
-            MiniMessageAction("<newline><gray> » </gray><click:run_command:'/clan accept {clan}'><hover:show_text:'<green>Нажмите, чтобы вступить в клан <b>{clan}</b></green>'><gradient:#5EFD7D:#2ECC71><bold>[ ✔ ПРИНЯТЬ ]</bold></gradient></hover></click>  <gray>или</gray>  <click:run_command:'/clan deny {clan}'><hover:show_text:'<red>Нажмите, чтобы отказаться от приглашения в <b>{clan}</b></red>'><gradient:#FC3737:#C0392B><bold>[ ✖ ОТКЛОНИТЬ ]</bold></gradient></hover></click><newline><gray>    У вас есть <yellow>{seconds} сек.</yellow> на раздумья.</gray><newline>")
-        ),
+        val inviteInstructions: List<Action> = listOf(MiniMessageAction("<newline><gray> » </gray><click:run_command:'/clan accept {clan}'><hover:show_text:'<green>Нажмите, чтобы вступить в клан <b>{clan}</b></green>'><gradient:#5EFD7D:#2ECC71><bold>[ ✔ ПРИНЯТЬ ]</bold></gradient></hover></click>  <gray>или</gray>  <click:run_command:'/clan deny {clan}'><hover:show_text:'<red>Нажмите, чтобы отказаться от приглашения в <b>{clan}</b></red>'><gradient:#FC3737:#C0392B><bold>[ ✖ ОТКЛОНИТЬ ]</bold></gradient></hover></click><newline><gray>    У вас есть <yellow>{seconds} сек.</yellow> на раздумья.</gray><newline>")),
         val noActiveInvite: List<Action> = listOf(MessageAction("&#FC3737✖ &fУ вас нет активного приглашения в клан."), SoundAction("ENTITY_VILLAGER_NO", 1.0f, 1.2f)),
         val inviteExpired: List<Action> = listOf(MessageAction("&#FC3737✖ &fСрок действия приглашения истёк."), SoundAction("ENTITY_VILLAGER_NO", 1.0f, 1.2f)),
         val inviteInvalid: List<Action> = listOf(MessageAction("&#FC3737✖ &fПриглашение больше недействительно."), SoundAction("ENTITY_VILLAGER_NO", 1.0f, 1.2f)),
@@ -231,11 +164,7 @@ class MessagesConfig {
     @Serializable
     data class InvitePromptConfig(
         val cancelInputs: List<String> = listOf("отмена", "cancel"),
-        val started: List<Action> = listOf(
-            MessageAction("&#FC7D37✦ &fНапишите никнейм игрока в чат или &cотмена&f."),
-            SoundAction("BLOCK_NOTE_BLOCK_PLING", 1.0f, 1.2f),
-            BossBarAction("&#FC7D37✦ &fВведите никнейм игрока &7• &e{seconds} сек.", "YELLOW", "SOLID")
-        ),
+        val started: List<Action> = listOf(MessageAction("&#FC7D37✦ &fНапишите никнейм игрока в чат или &cотмена&f."), SoundAction("BLOCK_NOTE_BLOCK_PLING", 1.0f, 1.2f), BossBarAction("&#FC7D37✦ &fВведите никнейм игрока &7• &e{seconds} сек.", "YELLOW", "SOLID")),
         val timedOut: List<Action> = listOf(MessageAction("&#FC3737✖ &fВремя на ввод никнейма истекло."), SoundAction("ENTITY_VILLAGER_NO", 1.0f, 1.2f))
     )
 
@@ -256,6 +185,13 @@ class MessagesConfig {
         val moduleDisabled: List<Action> = listOf(MessageAction("&#FC3737✖ &fМодуль клановой казны отключён.")),
         val noPermissionDeposit: List<Action> = listOf(MessageAction("&#FC3737✖ &fУ роли &e{role} &fнет права пополнять казну."), SoundAction("ENTITY_VILLAGER_NO", 1.0f, 1.2f)),
         val noPermissionWithdraw: List<Action> = listOf(MessageAction("&#FC3737✖ &fУ роли &e{role} &fнет права снимать средства из казны."), SoundAction("ENTITY_VILLAGER_NO", 1.0f, 1.2f)),
+        val depositPromptStarted: List<Action> = listOf(MessageAction("&#5EFD7D⛁ &fВведите сумму пополнения в чат. Для отмены: &e{cancel}&f. Время: &e{seconds} сек.")),
+        val withdrawPromptStarted: List<Action> = listOf(MessageAction("&#FC65DF⛁ &fВведите сумму снятия в чат. Для отмены: &e{cancel}&f. Время: &e{seconds} сек.")),
+        val promptCancelled: List<Action> = listOf(MessageAction("&#FFD700⌁ &fВвод суммы казны отменён.")),
+        val promptInvalidAmount: List<Action> = listOf(MessageAction("&#FC3737✖ &fНекорректная сумма: &e{input}&f. Укажите положительное число."), SoundAction("ENTITY_VILLAGER_NO", 1.0f, 1.2f)),
+        val promptTimedOut: List<Action> = listOf(MessageAction("&#FC3737⌛ &fВремя на ввод суммы казны истекло."), SoundAction("ENTITY_VILLAGER_NO", 1.0f, 1.2f)),
+        val persistenceFailed: List<Action> = listOf(MessageAction("&#FC3737✖ &fОперация отменена: сохранить данные клана не удалось. Проверьте журнал сервера."), SoundAction("ENTITY_VILLAGER_NO", 1.0f, 1.2f)),
+        val cancelledByPlugin: List<Action> = listOf(MessageAction("&#FFD700⌁ &fОперация с казной отменена другим плагином.")),
         val deposited: List<Action> = listOf(MessageAction("&#5EFD7D✔ &fВы пополнили казну на &e{amount} ⛁&f. Баланс: &a{balance}⛁"), SoundAction("ENTITY_EXPERIENCE_ORB_PICKUP", 1.0f, 1.2f)),
         val withdrawn: List<Action> = listOf(MessageAction("&#5EFD7D✔ &fВы сняли с казны &e{amount} ⛁&f. Баланс: &a{balance}⛁"), SoundAction("ENTITY_EXPERIENCE_ORB_PICKUP", 1.0f, 0.8f)),
         val insufficientPersonalFunds: List<Action> = listOf(MessageAction("&#FC3737✖ &fНедостаточно личных средств для пополнения на &e{amount} ⛁&f."), SoundAction("ENTITY_VILLAGER_NO", 1.0f, 1.2f)),
@@ -275,7 +211,13 @@ class MessagesConfig {
     @Serializable
     data class SettingsMessages(
         val noPermission: List<Action> = listOf(MessageAction("&cУ вас нет разрешения на изменение этой настройки."), SoundAction("ENTITY_VILLAGER_NO", 1.0f, 1.2f)),
-        val noPermissionRoles: List<Action> = listOf(MessageAction("&cТолько лидер клана может редактировать роли."), SoundAction("ENTITY_VILLAGER_NO", 1.0f, 1.2f))
+        val noPermissionRoles: List<Action> = listOf(MessageAction("&cТолько лидер клана может редактировать роли."), SoundAction("ENTITY_VILLAGER_NO", 1.0f, 1.2f)),
+        val highlightColorChanged: List<Action> = listOf(MessageAction("&#5EFD7D✔ &fЦвет метки изменён на &e{color}&f."), SoundAction("UI_BUTTON_CLICK", 0.8f, 1.2f)),
+        val highlightTypeChanged: List<Action> = listOf(MessageAction("&#5EFD7D✔ &fТип метки изменён на &e{type}&f."), SoundAction("UI_BUTTON_CLICK", 0.8f, 1.2f)),
+        val highlightEnabled: List<Action> = listOf(MessageAction("&#5EFD7D✔ &fМетка соклановцев включена.")),
+        val highlightDisabled: List<Action> = listOf(MessageAction("&#FC3737✖ &fМетка соклановцев выключена.")),
+        val highlightReset: List<Action> = listOf(MessageAction("&#FFD700↺ &fНастройки метки сброшены к стандартным."), SoundAction("UI_BUTTON_CLICK", 0.8f, 1.0f)),
+        val highlightSaveFailed: List<Action> = listOf(MessageAction("&#FC3737✖ &fНе удалось сохранить настройки метки. Проверьте журнал сервера."), SoundAction("ENTITY_VILLAGER_NO", 1.0f, 1.2f))
     )
 
     @Serializable

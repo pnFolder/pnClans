@@ -6,7 +6,9 @@ import ua.inventorytype.pnclans.BukkitPlugin
 import ua.inventorytype.pnclans.api.clan.Clan
 import ua.inventorytype.pnclans.api.clan.ClanPointsSource
 import ua.inventorytype.pnclans.api.shop.ClanShopCurrency
+import java.lang.reflect.Method
 import java.util.UUID
+import java.util.logging.Level
 
 /** Adapter layer for every currency available to the clan shop. */
 internal class ClanShopCurrencyService(private val plugin: BukkitPlugin) {
@@ -53,10 +55,50 @@ internal class ClanShopCurrencyService(private val plugin: BukkitPlugin) {
 
     private fun invokePlayerPoints(methodName: String, vararg arguments: Any): Any? {
         val api = playerPointsApi() ?: return null
-        val method = api.javaClass.methods.firstOrNull { method ->
-            method.name == methodName && method.parameterCount == arguments.size
-        } ?: return null
-        return runCatching { method.invoke(api, *arguments) }.getOrNull()
+        val method = api.javaClass.methods
+            .asSequence()
+            .filter { it.name == methodName && it.parameterCount == arguments.size }
+            .filter { method -> methodAccepts(method, arguments) }
+            .sortedByDescending { method -> exactMatchCount(method, arguments) }
+            .firstOrNull()
+            ?: run {
+                plugin.logger.warning(
+                    "[pnClans] PlayerPoints API method '$methodName' with compatible argument types was not found."
+                )
+                return null
+            }
+
+        return runCatching { method.invoke(api, *arguments) }
+            .onFailure { error ->
+                plugin.logger.log(
+                    Level.WARNING,
+                    "[pnClans] PlayerPoints API call '$methodName' failed using ${method.toGenericString()}.",
+                    error
+                )
+            }
+            .getOrNull()
+    }
+
+    private fun methodAccepts(method: Method, arguments: Array<out Any>): Boolean =
+        method.parameterTypes.zip(arguments).all { (parameterType, argument) ->
+            boxed(parameterType).isAssignableFrom(argument.javaClass)
+        }
+
+    private fun exactMatchCount(method: Method, arguments: Array<out Any>): Int =
+        method.parameterTypes.zip(arguments).count { (parameterType, argument) ->
+            boxed(parameterType) == argument.javaClass
+        }
+
+    private fun boxed(type: Class<*>): Class<*> = when (type) {
+        java.lang.Boolean.TYPE -> java.lang.Boolean::class.java
+        java.lang.Byte.TYPE -> java.lang.Byte::class.java
+        java.lang.Short.TYPE -> java.lang.Short::class.java
+        java.lang.Integer.TYPE -> java.lang.Integer::class.java
+        java.lang.Long.TYPE -> java.lang.Long::class.java
+        java.lang.Float.TYPE -> java.lang.Float::class.java
+        java.lang.Double.TYPE -> java.lang.Double::class.java
+        java.lang.Character.TYPE -> java.lang.Character::class.java
+        else -> type
     }
 
     private fun playerPointsApi(): Any? {
@@ -65,6 +107,8 @@ internal class ClanShopCurrencyService(private val plugin: BukkitPlugin) {
         return runCatching {
             playerPoints.javaClass.methods.firstOrNull { it.name == "getAPI" && it.parameterCount == 0 }
                 ?.invoke(playerPoints)
+        }.onFailure { error ->
+            plugin.logger.log(Level.WARNING, "[pnClans] Failed to resolve the PlayerPoints API.", error)
         }.getOrNull()
     }
 }

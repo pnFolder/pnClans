@@ -1,7 +1,14 @@
 package ua.inventorytype.pnclans.impl.updater
 
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.booleanOrNull
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import org.bukkit.Bukkit
 import ua.inventorytype.pnclans.BukkitPlugin
+import ua.inventorytype.pnclans.impl.config.UpdateChannel
 import java.io.File
 import java.io.FileOutputStream
 import java.net.HttpURLConnection
@@ -13,129 +20,168 @@ import java.util.jar.JarFile
 import java.util.logging.Level
 
 /**
- * Asynchronous background updater and cleanup engine for pnClans.
+ * Asynchronous GitHub Releases updater for pnClans.
  *
- * - Checks GitHub Releases API (`https://api.github.com/repos/pnFolder/pnClans/releases/latest`)
- *   for newer plugin versions upon server startup.
- * - Downloads the updated Fat JAR into the Bukkit update folder (`/plugins/update/pnClans.jar`),
- *   allowing Paper/Spigot to automatically swap it on the next server restart.
- * - Automatically scans and deletes leftover older JAR files (e.g. `pnClans-1.0.0-all.jar`) from `/plugins/`
- *   once the new version is active.
+ * Release classification:
+ * - final GitHub release + `vX.Y.Z` tag -> STABLE
+ * - GitHub prerelease + `vX.Y.Z-beta.N` -> BETA
+ * - GitHub prerelease + `vX.Y.Z-alpha.N` -> ALPHA
+ * - drafts and malformed/unknown prerelease tags are ignored
  *
- * @param plugin The main Bukkit plugin instance.
+ * The configured channel always selects the newest compatible semantic version. Automatic download
+ * is enabled by default; administrators may explicitly add `autoUpdate: false` to config.yml to
+ * disable downloading while keeping update checks active.
  */
 class AutoUpdater(private val plugin: BukkitPlugin) {
 
     private val currentVersion: String = plugin.description.version
     private val repo: String = "pnFolder/pnClans"
+    private val json = Json { ignoreUnknownKeys = true }
 
-    /**
-     * Schedules asynchronous update check and old JAR cleanup on server startup.
-     */
+    /** Schedules an asynchronous update check and old-JAR cleanup on server startup. */
     fun checkForUpdatesAsync() {
-        val settings = plugin.configService.settings
-
-        // Always attempt old JAR cleanup first
         cleanupOldJarsAsync()
-
-        if (!settings.checkUpdates && !settings.autoUpdate) return
 
         plugin.server.scheduler.runTaskAsynchronously(plugin, Runnable {
             try {
                 performCheck()
             } catch (e: Exception) {
-                plugin.logger.log(Level.WARNING, "[pnClans] Не удалось проверить обновления на GitHub: ${e.message}")
+                plugin.logger.log(Level.WARNING, "[pnClans] Не удалось проверить обновления на GitHub: ${e.message}", e)
             }
         })
     }
 
-    /**
-     * Scans the `/plugins/` folder for any obsolete versioned `pnClans-*.jar` files and deletes them.
-     */
+    /** Scans `/plugins/` for obsolete versioned pnClans JARs and removes them. */
     fun cleanupOldJarsAsync() {
         plugin.server.scheduler.runTaskAsynchronously(plugin, Runnable {
             try {
                 val pluginsFolder = plugin.dataFolder.parentFile ?: return@Runnable
-                val cleanCurrent = currentVersion.removePrefix("v").removePrefix("V").trim()
+                val current = SemanticVersion.parse(currentVersion) ?: return@Runnable
 
                 val jarFiles = pluginsFolder.listFiles { file ->
                     file.isFile && file.name.endsWith(".jar") && file.name.contains("pnClans", ignoreCase = true)
                 } ?: return@Runnable
 
                 for (jar in jarFiles) {
-                    val name = jar.name
-                    if (name.equals("pnClans.jar", ignoreCase = true)) continue
-
-                    val verMatch = JAR_VERSION_REGEX.find(name)
-                    if (verMatch != null) {
-                        val verInFile = verMatch.groupValues[1]
-                        if (isNewerVersion(cleanCurrent, verInFile)) {
-                            if (jar.delete()) {
-                                plugin.logger.info("[pnClans] 🧹 Автоматически удален устаревший файл плагина: ${jar.name}")
-                            } else {
-                                jar.deleteOnExit()
-                            }
+                    if (jar.name.equals("pnClans.jar", ignoreCase = true)) continue
+                    val versionText = JAR_VERSION_REGEX.find(jar.name)?.groupValues?.getOrNull(1) ?: continue
+                    val fileVersion = SemanticVersion.parse(versionText) ?: continue
+                    if (current > fileVersion) {
+                        if (jar.delete()) {
+                            plugin.logger.info("[pnClans] Автоматически удалён устаревший файл плагина: ${jar.name}")
+                        } else {
+                            jar.deleteOnExit()
                         }
                     }
                 }
             } catch (_: Exception) {
-                // Ignore cleanup errors
+                // Cleanup is best-effort and must never block plugin startup.
             }
         })
     }
 
     private fun performCheck() {
-        val settings = plugin.configService.settings
-        val apiUrl = "https://api.github.com/repos/$repo/releases/latest"
+        val channel = plugin.configService.settings.updateChannel
+        val releases = fetchReleases()
+        val candidate = releases
+            .mapNotNull(::parseRelease)
+            .filter { it.channel.acceptedBy(channel) }
+            .maxByOrNull { it.version }
 
-        val connection = URL(apiUrl).openConnection() as HttpURLConnection
-        connection.requestMethod = "GET"
-        connection.setRequestProperty("User-Agent", "pnClans-AutoUpdater")
-        connection.setRequestProperty("Accept", "application/json")
-        connection.connectTimeout = 10000
-        connection.readTimeout = 10000
-
-        if (connection.responseCode != 200) {
-            plugin.logger.warning("[pnClans] GitHub API вернул статус ${connection.responseCode} при проверке обновлений.")
+        val current = SemanticVersion.parse(currentVersion)
+        if (current == null) {
+            plugin.logger.warning("[pnClans] Текущая версия '$currentVersion' не соответствует SemVer; автообновление пропущено.")
             return
         }
 
-        val responseText = connection.inputStream.use { it.bufferedReader().readText() }
-        connection.disconnect()
-        val latestTag = extractJsonField(responseText, "tag_name") ?: return
-        val downloadUrl = extractJarDownloadUrl(responseText, targetArtifactSuffix())
-
-        val cleanLatest = latestTag.removePrefix("v").removePrefix("V").trim()
-        val cleanCurrent = currentVersion.removePrefix("v").removePrefix("V").trim()
-
-        if (isNewerVersion(cleanLatest, cleanCurrent)) {
-            plugin.logger.info("=======================================================")
-            plugin.logger.info("[pnClans] 🚀 ОБНАРУЖЕНО НОВОЕ ОБНОВЛЕНИЕ ПЛАГИНА!")
-            plugin.logger.info("[pnClans] Текущая версия: v$cleanCurrent ➜ Новая версия: v$cleanLatest")
-            plugin.logger.info("[pnClans] Ссылка на релиз: https://github.com/$repo/releases/tag/$latestTag")
-
-            if (settings.autoUpdate && downloadUrl != null) {
-                plugin.logger.info("[pnClans] 📥 Начинаем автоматическую загрузку обновления...")
-                downloadUpdate(downloadUrl, cleanLatest)
-            } else {
-                plugin.logger.info("[pnClans] Авто-скачивание отключено в config.yml (autoUpdate: false).")
-            }
-            plugin.logger.info("=======================================================")
-        } else {
-            plugin.logger.info("[pnClans] Вы используете актуальную версию плагина (v$cleanCurrent).")
+        if (candidate == null) {
+            plugin.logger.info("[pnClans] Для канала $channel подходящих GitHub Releases не найдено.")
+            return
         }
+
+        plugin.logger.info("[pnClans] Канал обновлений: $channel • текущая ${current.display} • доступная ${candidate.version.display}")
+        if (candidate.version <= current) {
+            plugin.logger.info("[pnClans] Вы используете актуальную версию плагина (${current.display}).")
+            return
+        }
+
+        plugin.logger.info("=======================================================")
+        plugin.logger.info("[pnClans] ОБНАРУЖЕНО НОВОЕ ОБНОВЛЕНИЕ ПЛАГИНА")
+        plugin.logger.info("[pnClans] ${current.display} -> ${candidate.version.display} • канал ${candidate.channel}")
+        plugin.logger.info("[pnClans] Релиз: https://github.com/$repo/releases/tag/${candidate.tag}")
+
+        if (!autoUpdateEnabled()) {
+            plugin.logger.info("[pnClans] Автоскачивание отключено вручную через скрытый параметр autoUpdate: false.")
+        } else if (candidate.downloadUrl == null) {
+            plugin.logger.warning("[pnClans] В релизе ${candidate.tag} нет подходящего ${targetArtifactSuffix()} JAR.")
+        } else {
+            plugin.logger.info("[pnClans] Начинаем автоматическую загрузку ${candidate.version.display}...")
+            downloadUpdate(candidate.downloadUrl, candidate.version.rawWithoutPrefix)
+        }
+        plugin.logger.info("=======================================================")
+    }
+
+    private fun fetchReleases(): List<kotlinx.serialization.json.JsonObject> {
+        val apiUrl = "https://api.github.com/repos/$repo/releases?per_page=$RELEASE_PAGE_SIZE"
+        val connection = URL(apiUrl).openConnection() as HttpURLConnection
+        connection.requestMethod = "GET"
+        connection.setRequestProperty("User-Agent", "pnClans-AutoUpdater")
+        connection.setRequestProperty("Accept", "application/vnd.github+json")
+        connection.connectTimeout = 10000
+        connection.readTimeout = 10000
+
+        try {
+            if (connection.responseCode != 200) {
+                throw IllegalStateException("GitHub API returned HTTP ${connection.responseCode}")
+            }
+            val body = connection.inputStream.use { it.bufferedReader().readText() }
+            return json.parseToJsonElement(body).jsonArray.map { it.jsonObject }
+        } finally {
+            connection.disconnect()
+        }
+    }
+
+    private fun parseRelease(release: kotlinx.serialization.json.JsonObject): ReleaseCandidate? {
+        if (release["draft"]?.jsonPrimitive?.booleanOrNull == true) return null
+
+        val tag = release["tag_name"]?.jsonPrimitive?.contentOrNull ?: return null
+        val version = SemanticVersion.parse(tag) ?: return null
+        val prerelease = release["prerelease"]?.jsonPrimitive?.booleanOrNull ?: false
+
+        val releaseChannel = when (version.stage) {
+            ReleaseStage.STABLE -> if (!prerelease) UpdateChannel.STABLE else return null
+            ReleaseStage.BETA -> if (prerelease) UpdateChannel.BETA else return null
+            ReleaseStage.ALPHA -> if (prerelease) UpdateChannel.ALPHA else return null
+        }
+
+        val assetSuffix = targetArtifactSuffix()
+        val downloadUrl = release["assets"]?.jsonArray
+            ?.asSequence()
+            ?.map { it.jsonObject }
+            ?.mapNotNull { asset -> asset["browser_download_url"]?.jsonPrimitive?.contentOrNull }
+            ?.firstOrNull { url ->
+                url.startsWith("https://github.com/$repo/releases/download/") && url.endsWith("$assetSuffix.jar")
+            }
+
+        return ReleaseCandidate(tag, version, releaseChannel, downloadUrl)
+    }
+
+    /**
+     * Hidden opt-out. The key is intentionally not part of generated Settings YAML. Missing means true.
+     */
+    private fun autoUpdateEnabled(): Boolean {
+        val file = File(plugin.dataFolder, "config.yml")
+        val content = runCatching(file::readText).getOrDefault("")
+        return AUTO_UPDATE_REGEX.find(content)?.groupValues?.getOrNull(1)?.toBooleanStrictOrNull() ?: true
     }
 
     private fun downloadUpdate(downloadUrl: String, version: String) {
         try {
             val updateFolder = Bukkit.getUpdateFolderFile()
-            if (!updateFolder.exists()) {
-                updateFolder.mkdirs()
-            }
+            if (!updateFolder.exists()) updateFolder.mkdirs()
 
             val targetFile = File(updateFolder, "pnClans.jar")
             val tempFile = File(updateFolder, "pnClans.jar.tmp")
-
             if (tempFile.exists()) tempFile.delete()
 
             val urlConnection = followRedirects(downloadUrl)
@@ -174,14 +220,14 @@ class AutoUpdater(private val plugin: BukkitPlugin) {
                 } catch (_: java.nio.file.AtomicMoveNotSupportedException) {
                     Files.move(tempFile.toPath(), targetFile.toPath(), StandardCopyOption.REPLACE_EXISTING)
                 }
-                plugin.logger.info("[pnClans] ✔ Обновление v$version успешно скачано в папку ${updateFolder.name}/pnClans.jar!")
-                plugin.logger.info("[pnClans] 🔄 Новая версия автоматически заменит текущий JAR при перезапуске сервера!")
+                plugin.logger.info("[pnClans] Обновление v$version скачано в ${updateFolder.name}/pnClans.jar.")
+                plugin.logger.info("[pnClans] Новая версия заменит текущий JAR при следующем перезапуске сервера.")
             } else {
                 tempFile.delete()
-                plugin.logger.warning("[pnClans] ✖ Скачанный файл авто-обновления v$version оказался пустым или повреждённым.")
+                plugin.logger.warning("[pnClans] Скачанный JAR v$version пуст, повреждён или не соответствует pnClans.")
             }
         } catch (e: Exception) {
-            plugin.logger.log(Level.SEVERE, "[pnClans] Ошибка при скачивании авто-обновления: ${e.message}", e)
+            plugin.logger.log(Level.SEVERE, "[pnClans] Ошибка при скачивании автообновления: ${e.message}", e)
         }
     }
 
@@ -201,9 +247,10 @@ class AutoUpdater(private val plugin: BukkitPlugin) {
 
             val code = conn.responseCode
             if (code == HttpURLConnection.HTTP_MOVED_PERM || code == HttpURLConnection.HTTP_MOVED_TEMP || code == 307 || code == 308) {
-                val loc = conn.getHeaderField("Location")
-                if (loc != null) {
-                    currentUrl = uri.resolve(loc).toString()
+                val location = conn.getHeaderField("Location")
+                if (location != null) {
+                    currentUrl = uri.resolve(location).toString()
+                    conn.disconnect()
                     redirects++
                     continue
                 }
@@ -211,56 +258,6 @@ class AutoUpdater(private val plugin: BukkitPlugin) {
             return conn
         }
         throw IllegalStateException("Too many HTTP redirects following $initialUrl")
-    }
-
-    private fun isNewerVersion(latest: String, current: String): Boolean {
-        val latestParts = latest.split('.').mapNotNull { it.toIntOrNull() }
-        val currentParts = current.split('.').mapNotNull { it.toIntOrNull() }
-
-        val maxLen = maxOf(latestParts.size, currentParts.size)
-        for (i in 0 until maxLen) {
-            val l = latestParts.getOrElse(i) { 0 }
-            val c = currentParts.getOrElse(i) { 0 }
-            if (l > c) return true
-            if (l < c) return false
-        }
-        return false
-    }
-
-    private fun extractJsonField(json: String, fieldName: String): String? {
-        val key = "\"$fieldName\":"
-        val index = json.indexOf(key)
-        if (index == -1) return null
-
-        val startQuote = json.indexOf('"', index + key.length)
-        if (startQuote == -1) return null
-
-        val endQuote = json.indexOf('"', startQuote + 1)
-        if (endQuote == -1) return null
-
-        return json.substring(startQuote + 1, endQuote)
-    }
-
-    private fun extractJarDownloadUrl(json: String, artifactSuffix: String): String? {
-        val key = "\"browser_download_url\":"
-        var searchIndex = 0
-        while (searchIndex < json.length) {
-            val index = json.indexOf(key, searchIndex)
-            if (index == -1) break
-
-            val startQuote = json.indexOf('"', index + key.length)
-            if (startQuote != -1) {
-                val endQuote = json.indexOf('"', startQuote + 1)
-                if (endQuote != -1) {
-                    val url = json.substring(startQuote + 1, endQuote)
-                    if (url.startsWith("https://github.com/$repo/releases/download/") && url.endsWith("$artifactSuffix.jar")) {
-                        return url
-                    }
-                }
-            }
-            searchIndex = index + key.length
-        }
-        return null
     }
 
     private fun targetArtifactSuffix(): String =
@@ -275,13 +272,76 @@ class AutoUpdater(private val plugin: BukkitPlugin) {
         }
     }.getOrDefault(false)
 
+    private data class ReleaseCandidate(
+        val tag: String,
+        val version: SemanticVersion,
+        val channel: UpdateChannel,
+        val downloadUrl: String?
+    )
+
+    private enum class ReleaseStage(val precedence: Int) {
+        ALPHA(0),
+        BETA(1),
+        STABLE(2)
+    }
+
+    private data class SemanticVersion(
+        val major: Int,
+        val minor: Int,
+        val patch: Int,
+        val stage: ReleaseStage,
+        val stageNumber: Int,
+        val rawWithoutPrefix: String
+    ) : Comparable<SemanticVersion> {
+        val display: String get() = "v$rawWithoutPrefix"
+
+        override fun compareTo(other: SemanticVersion): Int {
+            compareValues(major, other.major).takeIf { it != 0 }?.let { return it }
+            compareValues(minor, other.minor).takeIf { it != 0 }?.let { return it }
+            compareValues(patch, other.patch).takeIf { it != 0 }?.let { return it }
+            compareValues(stage.precedence, other.stage.precedence).takeIf { it != 0 }?.let { return it }
+            return compareValues(stageNumber, other.stageNumber)
+        }
+
+        companion object {
+            fun parse(input: String): SemanticVersion? {
+                val clean = input.trim().removePrefix("v").removePrefix("V")
+                val match = VERSION_REGEX.matchEntire(clean) ?: return null
+                val stageName = match.groupValues[4]
+                val stage = when (stageName.lowercase()) {
+                    "" -> ReleaseStage.STABLE
+                    "beta" -> ReleaseStage.BETA
+                    "alpha" -> ReleaseStage.ALPHA
+                    else -> return null
+                }
+                return SemanticVersion(
+                    major = match.groupValues[1].toInt(),
+                    minor = match.groupValues[2].toInt(),
+                    patch = match.groupValues[3].toInt(),
+                    stage = stage,
+                    stageNumber = match.groupValues[5].toIntOrNull() ?: 0,
+                    rawWithoutPrefix = clean
+                )
+            }
+        }
+    }
+
+    private fun UpdateChannel.acceptedBy(selected: UpdateChannel): Boolean = when (selected) {
+        UpdateChannel.STABLE -> this == UpdateChannel.STABLE
+        UpdateChannel.BETA -> this == UpdateChannel.STABLE || this == UpdateChannel.BETA
+        UpdateChannel.ALPHA -> true
+    }
+
     private companion object {
         const val MAX_UPDATE_BYTES = 50L * 1024L * 1024L
+        const val RELEASE_PAGE_SIZE = 50
         val ALLOWED_DOWNLOAD_HOSTS = setOf(
             "github.com",
             "objects.githubusercontent.com",
             "release-assets.githubusercontent.com"
         )
-        val JAR_VERSION_REGEX = Regex("""pnClans[^\d]*(\d+\.\d+\.\d+).*""", RegexOption.IGNORE_CASE)
+        val AUTO_UPDATE_REGEX = Regex("(?m)^\\s*autoUpdate\\s*:\\s*(true|false)\\s*(?:#.*)?$", RegexOption.IGNORE_CASE)
+        val VERSION_REGEX = Regex("^(\\d+)\\.(\\d+)\\.(\\d+)(?:-(alpha|beta)\\.(\\d+))?$", RegexOption.IGNORE_CASE)
+        val JAR_VERSION_REGEX = Regex("""pnClans[^\d]*(\d+\.\d+\.\d+(?:-(?:alpha|beta)\.\d+)?).*""", RegexOption.IGNORE_CASE)
     }
 }
