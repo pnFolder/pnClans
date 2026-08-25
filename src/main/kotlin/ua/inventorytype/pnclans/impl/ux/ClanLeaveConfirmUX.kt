@@ -8,14 +8,7 @@ import ua.inventorytype.pnclans.impl.config.GuiItemConfig
 import ua.inventorytype.pnclans.impl.inventory.BaseGui
 import ua.inventorytype.pnclans.impl.inventory.builder.ItemBuilder
 
-/**
- * Explicit confirmation screen for leaving or disbanding a clan.
- *
- * The current role is rechecked when the confirmation button is clicked, preventing an outdated
- * screen from performing the wrong destructive action after a rank change.
- *
- * @param clanService The clan service used to verify and persist the action.
- */
+/** Explicit confirmation screen for leaving or disbanding a clan. */
 class ClanLeaveConfirmUX(clanService: ClanService) : BaseGui(clanService) {
 
     init {
@@ -74,12 +67,7 @@ class ClanLeaveConfirmUX(clanService: ClanService) : BaseGui(clanService) {
             slot(itemCfg.slot) {
                 dynamicItem(this@ClanLeaveConfirmUX.parseMaterial(itemCfg.material, Material.ENCHANTED_BOOK)) { player ->
                     val clan = this@ClanLeaveConfirmUX.clanService.getClanUser(player) ?: return@dynamicItem null
-                    this@ClanLeaveConfirmUX.renderConfigItem(
-                        this,
-                        player,
-                        itemCfg,
-                        mapOf("clan" to clan.name)
-                    )
+                    this@ClanLeaveConfirmUX.renderConfigItem(this, player, itemCfg, mapOf("clan" to clan.name))
                     null
                 }
             }
@@ -114,29 +102,12 @@ class ClanLeaveConfirmUX(clanService: ClanService) : BaseGui(clanService) {
         builder.glow(itemCfg.glow)
     }
 
-    private fun battleWarning(clan: ua.inventorytype.pnclans.api.clan.Clan, isLeader: Boolean): List<String> =
-        if (clanService.plugin.clanBattleService.hasActiveBattle(clan)) {
-            if (isLeader) {
-                listOf(
-                    "",
-                    "&#FC3737 «Активная битва»",
-                    " &7- &fРоспуск немедленно завершит бой.",
-                    " &7- &fКлану засчитают техническое поражение",
-                    " &7- &fи снимут MMR.",
-                    ""
-                )
-            } else {
-                listOf(
-                    "",
-                    "&#FC3737 «Активная битва»",
-                    " &7- &fПосле выхода вы больше не сможете",
-                    " &7- &fучаствовать в текущей битве.",
-                    ""
-                )
-            }
-        } else {
-            emptyList()
-        }
+    private fun battleWarning(clan: ua.inventorytype.pnclans.api.clan.Clan, isLeader: Boolean): List<String> {
+        if (!clanService.plugin.clanBattleService.hasActiveBattle(clan)) return emptyList()
+        val items = clanService.plugin.configService.menus.leaveConfirmMenu.items
+        val key = if (isLeader) "battleWarningLeader" else "battleWarningMember"
+        return items[key]?.lore.orEmpty()
+    }
 
     private fun parseMaterial(name: String, fallback: Material): Material =
         runCatching { Material.valueOf(name.uppercase()) }.getOrDefault(fallback)
