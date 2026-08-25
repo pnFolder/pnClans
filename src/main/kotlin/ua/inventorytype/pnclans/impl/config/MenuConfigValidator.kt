@@ -48,7 +48,14 @@ internal object MenuConfigValidator {
             issue = ::issue
         )
         validateMenu("helpMenu", menus.helpMenu.title, menus.helpMenu.rows, menus.helpMenu.items, setOf("evolution", "rewards", "earning", "back"), issue = ::issue)
-        validateMenu("leaveConfirmMenu", menus.leaveConfirmMenu.title, menus.leaveConfirmMenu.rows, menus.leaveConfirmMenu.items, setOf("confirmDisband", "confirmLeave", "info", "cancel"), issue = ::issue)
+        validateMenu(
+            "leaveConfirmMenu",
+            menus.leaveConfirmMenu.title,
+            menus.leaveConfirmMenu.rows,
+            menus.leaveConfirmMenu.items,
+            setOf("confirmDisband", "confirmLeave", "info", "cancel", "battleWarningLeader", "battleWarningMember"),
+            issue = ::issue
+        )
         validateMenu("membersMenu", menus.membersMenu.title, menus.membersMenu.rows, menus.membersMenu.items, setOf("member", "member_self", "member_no_permission", "previous", "back", "next"), issue = ::issue)
         validateMenu("settingsMenu", menus.settingsMenu.title, menus.settingsMenu.rows, menus.settingsMenu.items, setOf("overview", "pvp", "chat", "chest", "join", "color", "roles", "hint", "back"), issue = ::issue)
         validateMenu("editorRolesMenu", menus.editorRolesMenu.title, menus.editorRolesMenu.rows, menus.editorRolesMenu.items, setOf("overview", "role", "permission", "back"), issue = ::issue)
