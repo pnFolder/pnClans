@@ -61,33 +61,34 @@ class TopClansUX(
                 }
             }
         } else {
-            val entryTemplate = menuCfg.items["entry"] ?: GuiItemConfig()
-            val cachedClans = rankedClans()
-            menuCfg.entrySlots.forEachIndexed { slotIndex, entrySlot ->
-                slot(entrySlot) {
-                    dynamicItemNullable(this@TopClansUX.parseMaterial(entryTemplate.material, Material.AMETHYST_SHARD)) { player ->
-                        val index = currentPage * menuCfg.entrySlots.size + slotIndex
-                        val clan = cachedClans.getOrNull(index) ?: return@dynamicItemNullable null
-                        val rank = index + 1
-                        val (material, color) = this@TopClansUX.rankVisual(menuCfg, rank)
-                        val leader = clan.users.find { clan.getUserRole(it) == ClanRole.LEADER }
-                        val placeholders = pagePlaceholders + mapOf(
-                            "rank" to rank.toString(),
-                            "rank_color" to color,
-                            "clan" to clan.name,
-                            "leader" to leader?.playerName.orEmpty(),
-                            "level" to clan.level.toString(),
-                            "mmr" to clan.mmr.toString(),
-                            "kills" to clan.kills.toString(),
-                            "deaths" to clan.deaths.toString(),
-                            "kda" to this@TopClansUX.kda(clan),
-                            "members" to clan.users.size.toString(),
-                            "balance" to clan.bankBalance.toString()
-                        )
+            menuCfg.items["entry"]?.let { entryTemplate ->
+                val cachedClans = rankedClans()
+                menuCfg.entrySlots.forEachIndexed { slotIndex, entrySlot ->
+                    slot(entrySlot) {
+                        dynamicItemNullable(this@TopClansUX.parseMaterial(entryTemplate.material, Material.AMETHYST_SHARD)) { player ->
+                            val index = currentPage * menuCfg.entrySlots.size + slotIndex
+                            val clan = cachedClans.getOrNull(index) ?: return@dynamicItemNullable null
+                            val rank = index + 1
+                            val (material, color) = this@TopClansUX.rankVisual(menuCfg, rank)
+                            val leader = clan.users.find { clan.getUserRole(it) == ClanRole.LEADER }
+                            val placeholders = pagePlaceholders + mapOf(
+                                "rank" to rank.toString(),
+                                "rank_color" to color,
+                                "clan" to clan.name,
+                                "leader" to leader?.playerName.orEmpty(),
+                                "level" to clan.level.toString(),
+                                "mmr" to clan.mmr.toString(),
+                                "kills" to clan.kills.toString(),
+                                "deaths" to clan.deaths.toString(),
+                                "kda" to this@TopClansUX.kda(clan),
+                                "members" to clan.users.size.toString(),
+                                "balance" to clan.bankBalance.toString()
+                            )
 
-                        type(material)
-                        this@TopClansUX.renderConfigItem(this, player, entryTemplate, placeholders)
-                        build()
+                            type(material)
+                            this@TopClansUX.renderConfigItem(this, player, entryTemplate, placeholders)
+                            build()
+                        }
                     }
                 }
             }
