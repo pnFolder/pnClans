@@ -26,6 +26,7 @@ import ua.inventorytype.pnclans.impl.api.PnClansApiImpl
 import ua.inventorytype.pnclans.impl.command.ClanCommand
 import ua.inventorytype.pnclans.impl.config.ConfigMigrationSafety
 import ua.inventorytype.pnclans.impl.config.ConfigService
+import ua.inventorytype.pnclans.impl.config.ConfigValidator
 import ua.inventorytype.pnclans.impl.config.ConfigurationBackfill
 import ua.inventorytype.pnclans.impl.economy.EconomyService
 import ua.inventorytype.pnclans.impl.inventory.listener.GuiListener
@@ -103,7 +104,7 @@ class BukkitPlugin : JavaPlugin() {
 
     fun publicAddonGui(): ClanAddonGuiRegistry = publicApi.gui
 
-    /** Loads configs through compatibility protection and then exposes all new keys to existing files. */
+    /** Loads configs through compatibility protection, exposes new keys and reports invalid references. */
     internal fun reloadConfigurations() {
         val migrationSafety = ConfigMigrationSafety.capture(this)
         configService.loadAll()
@@ -113,6 +114,7 @@ class BukkitPlugin : JavaPlugin() {
         }
         ConfigurationBackfill.applyV121(this, configService)
         ConfigurationBackfill.applyV122(this, configService)
+        ConfigValidator.validate(this, configService)
     }
 
     override fun onEnable() {
@@ -124,7 +126,7 @@ class BukkitPlugin : JavaPlugin() {
         economyService = EconomyService()
         val economyConnected = economyService.setup()
 
-        // 2. Load, migrate and backfill configurations without replacing administrator-owned values.
+        // 2. Load, migrate, backfill and validate configurations without replacing administrator-owned values.
         configService = ConfigService(this)
         reloadConfigurations()
 
