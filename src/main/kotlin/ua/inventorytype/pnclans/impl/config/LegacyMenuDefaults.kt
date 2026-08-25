@@ -2,62 +2,26 @@ package ua.inventorytype.pnclans.impl.config
 
 import kotlinx.serialization.Serializable
 
-/**
- * Defaults for legacy GUIs migrated into the normal MenusConfig model.
- * These are configuration constructors only; ConfigService remains the single YAML loader.
- */
+/** Defaults for legacy GUIs migrated into the normal MenusConfig model. */
 internal fun defaultNoClanMenu(): GuiMenuConfig = GuiMenuConfig(
     title = "&#FC7D37« Кланы »",
     rows = 5,
     items = mapOf(
-        "info" to GuiItemConfig(
-            slot = 22,
-            material = "BEACON",
-            name = "&#FC7D37✦ Путь к величию",
-            lore = listOf("", "&#9EFC65 «Добро пожаловать»", " &7- &fСейчас вы не состоите в клане.", " &7- &fОснуйте свой или примите приглашение от другого лидера.", "", "&#5EA9FD «Ваше будущее»", " &7- &fРазвивайте клан, выполняйте задания", " &7- &fи поднимайтесь в рейтинге.", "", "&#FF8702➥ &fВыберите свой путь ниже"),
-            glow = true
-        ),
-        "create" to GuiItemConfig(
-            slot = 31,
-            material = "EMERALD",
-            name = "&#5EFD7D✚ Основать свой клан",
-            lore = listOf("", "&#9EFC65 «Условия создания»", " &7- &fСтоимость: &e{cost} ⛁", " &7- &fВаша роль: &#5EFD7DЛидер клана", "", "&#FC65DF «После основания»", " &7- &fПриглашайте игроков и распределяйте роли.", " &7- &fРазвивайте клан и покоряйте рейтинг!", "", "&#FF8702➥ &fНажмите, &eЛКМ &fчтобы ввести название"),
-            glow = true
-        ),
-        "top" to GuiItemConfig(
-            slot = 29,
-            material = "GOLDEN_HELMET",
-            name = "&#FC65DF♛ Топ кланов",
-            lore = listOf("", "&#9EFC65 «Рейтинг сервера»", " &7- &fУзнайте, кто удерживает вершину", " &7- &fи доминирует среди кланов.", "", "&#5EA9FD «Показатели»", " &7- &fПозиция, уровень, очки и MMR.", "", "&#FF8702➥ &fНажмите, &eЛКМ &fчтобы открыть рейтинг")
-        ),
-        "help" to GuiItemConfig(
-            slot = 33,
-            material = "BOOK",
-            name = "&#5EA9FD❖ Путеводитель по кланам",
-            lore = listOf("", "&#9EFC65 «Справочник»", " &7- &fВсё о развитии и эволюции клана.", " &7- &fПодсказки для быстрого старта.", "", "&#FC65DF «Что внутри?»", " &7- &fУровни, привилегии, очки, цели и награды.", "", "&#FF8702➥ &fНажмите, &eЛКМ &fчтобы открыть справочник")
-        )
+        "info" to GuiItemConfig(slot = 22, material = "BEACON", name = "&#FC7D37✦ Путь к величию", lore = listOf("", "&#9EFC65 «Добро пожаловать»", " &7- &fСейчас вы не состоите в клане.", " &7- &fОснуйте свой или примите приглашение от другого лидера.", "", "&#5EA9FD «Ваше будущее»", " &7- &fРазвивайте клан, выполняйте задания", " &7- &fи поднимайтесь в рейтинге.", "", "&#FF8702➥ &fВыберите свой путь ниже"), glow = true),
+        "create" to GuiItemConfig(slot = 31, material = "EMERALD", name = "&#5EFD7D✚ Основать свой клан", lore = listOf("", "&#9EFC65 «Условия создания»", " &7- &fСтоимость: &e{cost} ⛁", " &7- &fВаша роль: &#5EFD7DЛидер клана", "", "&#FC65DF «После основания»", " &7- &fПриглашайте игроков и распределяйте роли.", " &7- &fРазвивайте клан и покоряйте рейтинг!", "", "&#FF8702➥ &fНажмите, &eЛКМ &fчтобы ввести название"), glow = true),
+        "top" to GuiItemConfig(slot = 29, material = "GOLDEN_HELMET", name = "&#FC65DF♛ Топ кланов", lore = listOf("", "&#9EFC65 «Рейтинг сервера»", " &7- &fУзнайте, кто удерживает вершину", " &7- &fи доминирует среди кланов.", "", "&#5EA9FD «Показатели»", " &7- &fПозиция, уровень, очки и MMR.", "", "&#FF8702➥ &fНажмите, &eЛКМ &fчтобы открыть рейтинг")),
+        "help" to GuiItemConfig(slot = 33, material = "BOOK", name = "&#5EA9FD❖ Путеводитель по кланам", lore = listOf("", "&#9EFC65 «Справочник»", " &7- &fВсё о развитии и эволюции клана.", " &7- &fПодсказки для быстрого старта.", "", "&#FC65DF «Что внутри?»", " &7- &fУровни, привилегии, очки, цели и награды.", "", "&#FF8702➥ &fНажмите, &eЛКМ &fчтобы открыть справочник"))
     )
 )
 
-@Serializable
-data class ClanColorMenuConfig(
-    val title: String = "&#FC7D37« Метка Соклановцев »",
-    val rows: Int = 6,
-    val items: Map<String, GuiItemConfig> = defaultClanColorItems(),
-    val selectedYes: String = "&#5EFD7DДа",
-    val selectedNo: String = "&#FC3737Нет",
-    val enabledText: String = "&#5EFD7DВключена",
-    val disabledText: String = "&#FC3737Выключена"
+internal fun defaultClanColorMenu(): GuiMenuConfig = GuiMenuConfig(
+    title = "&#FC7D37« Метка Соклановцев »",
+    rows = 6,
+    items = defaultClanColorItems()
 )
 
 private fun defaultClanColorItems(): Map<String, GuiItemConfig> = mapOf(
-    "overview" to GuiItemConfig(
-        slot = 4,
-        material = "BEACON",
-        name = "&#FC7D37✦ Метка соклановцев",
-        lore = listOf("", "&#9EFC65 «Сводка»", " &7- &fТип: &e{type}", " &7- &fСтатус: {status}", " &7- &fЦвет: &e{color}", "", "&#FC65DF «Назначение»", " &7- &fВизуальная метка для соклановцев.", " &7- &fНастоящий инвентарь игрока не меняется.", "", "&#FF8702➥ &fВыберите тип, статус и цвет ниже"),
-        glow = true
-    ),
+    "overview" to GuiItemConfig(slot = 4, material = "BEACON", name = "&#FC7D37✦ Метка соклановцев", lore = listOf("", "&#9EFC65 «Сводка»", " &7- &fТип: &e{type}", " &7- &fСтатус: {status}", " &7- &fЦвет: &e{color}", "", "&#FC65DF «Назначение»", " &7- &fВизуальная метка для соклановцев.", " &7- &fНастоящий инвентарь игрока не меняется.", "", "&#FF8702➥ &fВыберите тип, статус и цвет ниже"), glow = true),
     "typeInfo" to GuiItemConfig(slot = 9, material = "NAME_TAG", name = "&#FFD700✦ Тип метки", lore = listOf("", "&#9EFC65 «Как показывать»", " &7- &fБроня — виртуальная цветная броня.", " &7- &fПодсветка — светящийся контур.", "", "&#FF8702➥ &fВыберите вариант ниже")),
     "armor" to GuiItemConfig(slot = 12, material = "LEATHER_CHESTPLATE", name = "&#5EA9FD✦ Броня", lore = listOf("", "&#9EFC65 «Состояние»", " &7- &fВыбран: {selected}", "", "&#FC65DF «Описание»", " &7- &fВиртуальная кожаная броня", " &7- &fв выбранном цвете клана.", "", "&#FF8702➥ &fНажмите, &eЛКМ &fчтобы применить")),
     "glow" to GuiItemConfig(slot = 14, material = "GLOWSTONE_DUST", name = "&#5EA9FD✦ Подсветка", lore = listOf("", "&#9EFC65 «Состояние»", " &7- &fВыбран: {selected}", "", "&#FC65DF «Описание»", " &7- &fСветящийся контур вокруг игрока.", " &7- &fЦвет контура = цвет клана.", "", "&#FF8702➥ &fНажмите, &eЛКМ &fчтобы применить")),
