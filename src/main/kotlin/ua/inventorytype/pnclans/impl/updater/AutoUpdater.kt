@@ -22,11 +22,14 @@ import java.util.logging.Level
 /**
  * Asynchronous GitHub Releases updater for pnClans.
  *
- * Release classification:
- * - final GitHub release + `vX.Y.Z` tag -> STABLE
- * - GitHub prerelease + `vX.Y.Z-beta.N` -> BETA
- * - GitHub prerelease + `vX.Y.Z-alpha.N` -> ALPHA
- * - drafts and malformed/unknown prerelease tags are ignored
+ * Release classification is based only on the semantic version in `tag_name`:
+ * - `vX.Y.Z` -> STABLE
+ * - `vX.Y.Z-beta.N` -> BETA
+ * - `vX.Y.Z-alpha.N` -> ALPHA
+ * - drafts and malformed/unknown tags are ignored
+ *
+ * GitHub's `prerelease` flag is intentionally ignored. It may be enabled or disabled for display
+ * purposes without changing which pnClans update channel receives the release.
  *
  * The configured channel always selects the newest compatible semantic version. Automatic download
  * is enabled by default; administrators may explicitly add `autoUpdate: false` to config.yml to
@@ -146,12 +149,11 @@ class AutoUpdater(private val plugin: BukkitPlugin) {
 
         val tag = release["tag_name"]?.jsonPrimitive?.contentOrNull ?: return null
         val version = SemanticVersion.parse(tag) ?: return null
-        val prerelease = release["prerelease"]?.jsonPrimitive?.booleanOrNull ?: false
 
         val releaseChannel = when (version.stage) {
-            ReleaseStage.STABLE -> if (!prerelease) UpdateChannel.STABLE else return null
-            ReleaseStage.BETA -> if (prerelease) UpdateChannel.BETA else return null
-            ReleaseStage.ALPHA -> if (prerelease) UpdateChannel.ALPHA else return null
+            ReleaseStage.STABLE -> UpdateChannel.STABLE
+            ReleaseStage.BETA -> UpdateChannel.BETA
+            ReleaseStage.ALPHA -> UpdateChannel.ALPHA
         }
 
         val assetSuffix = targetArtifactSuffix()
