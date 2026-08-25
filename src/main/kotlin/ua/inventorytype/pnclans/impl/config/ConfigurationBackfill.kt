@@ -34,9 +34,14 @@ internal object ConfigurationBackfill {
         migrateLegacyUpdaterSettings(plugin)
         mergeMissingRootFields(plugin, "config.yml", Settings.serializer(), config.settings)
         mergeMissingNestedFields(plugin, "config.yml", Settings.serializer(), config.settings)
-        mergeMissingRootFields(plugin, "menus.yml", MenusConfig.serializer(), config.menus)
-        mergeMissingNestedFields(plugin, "menus.yml", MenusConfig.serializer(), config.menus)
-        mergeMissingMenuItemKeys(plugin, config.menus)
+
+        // A loaded Map keeps only keys physically present in YAML. Therefore menu backfill must compare
+        // the administrator file against pristine defaults, not against config.menus loaded from that file.
+        val menuDefaults = MenusConfig()
+        mergeMissingRootFields(plugin, "menus.yml", MenusConfig.serializer(), menuDefaults)
+        mergeMissingNestedFields(plugin, "menus.yml", MenusConfig.serializer(), menuDefaults)
+        mergeMissingMenuItemKeys(plugin, menuDefaults)
+
         mergeMissingNestedFields(plugin, "messages.yml", MessagesConfig.serializer(), config.messages)
     }
 
