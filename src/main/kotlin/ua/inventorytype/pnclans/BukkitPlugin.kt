@@ -28,6 +28,7 @@ import ua.inventorytype.pnclans.impl.config.ConfigMigrationSafety
 import ua.inventorytype.pnclans.impl.config.ConfigService
 import ua.inventorytype.pnclans.impl.config.ConfigValidator
 import ua.inventorytype.pnclans.impl.config.ConfigurationBackfill
+import ua.inventorytype.pnclans.impl.config.MenuConfigValidator
 import ua.inventorytype.pnclans.impl.economy.EconomyService
 import ua.inventorytype.pnclans.impl.inventory.listener.GuiListener
 import ua.inventorytype.pnclans.impl.listener.ClanListener
@@ -118,6 +119,7 @@ class BukkitPlugin : JavaPlugin() {
         // after the next /reload or server restart.
         configService.loadAll()
         ConfigValidator.validate(this, configService)
+        MenuConfigValidator.validate(this, configService)
     }
 
     override fun onEnable() {
