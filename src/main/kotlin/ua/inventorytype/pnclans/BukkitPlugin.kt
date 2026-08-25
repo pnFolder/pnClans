@@ -113,6 +113,10 @@ class BukkitPlugin : JavaPlugin() {
         }
         ConfigurationBackfill.applyV121(this, configService)
         ConfigurationBackfill.applyV122(this, configService)
+        // Backfill writes missing keys into administrator-owned YAML after the first deserialize.
+        // Reload once so those freshly materialized menu IDs are available immediately, not only
+        // after the next /reload or server restart.
+        configService.loadAll()
         ConfigValidator.validate(this, configService)
     }
 
