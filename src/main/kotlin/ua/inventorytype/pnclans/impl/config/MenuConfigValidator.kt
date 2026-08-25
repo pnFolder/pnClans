@@ -56,14 +56,23 @@ internal object MenuConfigValidator {
         validateMenu("treasuryMenu", menus.treasuryMenu.title, menus.treasuryMenu.rows, menus.treasuryMenu.items, setOf("center", "deposit", "withdraw", "depositPresets", "withdrawPresets", "history", "back"), issue = ::issue)
         validateMenu("upgradeMenu", menus.upgradeMenu.title, menus.upgradeMenu.rows, menus.upgradeMenu.items, setOf("overview", "level", "upgrade", "back"), issue = ::issue)
         validateMenu("topMenu", menus.topMenu.title, menus.topMenu.rows, menus.topMenu.items, setOf("overview", "entry", "empty", "previous", "previousLocked", "back", "next", "nextLocked"), issue = ::issue)
-        validateMenu("chestMenu", menus.chestMenu.title, menus.chestMenu.rows, menus.chestMenu.items, setOf("lockedSlot", "stats", "back", "core", "upgrade", "close"), issue = ::issue)
+        validateMenu(
+            "chestMenu",
+            menus.chestMenu.title,
+            menus.chestMenu.rows,
+            menus.chestMenu.items,
+            setOf("lockedSlot", "stats", "back", "core", "upgrade", "close", "decor_46", "decor_47", "decor_51", "decor_52"),
+            allowBlankText = setOf("decor_46", "decor_47", "decor_51", "decor_52"),
+            issue = ::issue
+        )
 
         validateMenu(
             "treasuryHistoryMenu",
             menus.treasuryHistoryMenu.title,
             menus.treasuryHistoryMenu.rows,
             menus.treasuryHistoryMenu.items,
-            setOf("depositEntry", "withdrawEntry", "upgradeEntry", "previous", "back", "next"),
+            setOf("depositEntry", "withdrawEntry", "upgradeEntry", "previous", "previousDisabled", "back", "next", "nextDisabled"),
+            allowBlankText = setOf("previousDisabled", "nextDisabled"),
             issue = ::issue
         )
 
@@ -86,6 +95,7 @@ internal object MenuConfigValidator {
         rows: Int,
         items: Map<String, GuiItemConfig>,
         requiredKeys: Set<String>,
+        allowBlankText: Set<String> = emptySet(),
         issue: (String, String) -> Unit
     ) {
         val path = "menus.yml.$menuName"
@@ -99,8 +109,10 @@ internal object MenuConfigValidator {
                 issue("$path.items.$key", "required GUI item ID is missing")
                 return@forEach
             }
-            if (item.name.isBlank()) issue("$path.items.$key.name", "cannot be blank")
-            if (item.lore.isEmpty()) issue("$path.items.$key.lore", "must contain a description")
+            if (key !in allowBlankText) {
+                if (item.name.isBlank()) issue("$path.items.$key.name", "cannot be blank")
+                if (item.lore.isEmpty()) issue("$path.items.$key.lore", "must contain a description")
+            }
         }
 
         items.forEach { (key, item) ->
