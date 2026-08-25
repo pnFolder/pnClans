@@ -34,8 +34,8 @@ class NoClanUX(clanService: ClanService) : BaseGui(clanService) {
     ) {
         val itemCfg = clanService.plugin.configService.menus.noClanMenu.items[key] ?: return
         slot(itemCfg.slot) {
-            dynamicItem(parseMaterial(itemCfg.material, Material.STONE)) { player ->
-                render(this, player, itemCfg, placeholders)
+            dynamicItem(this@NoClanUX.parseMaterial(itemCfg.material, Material.STONE)) { player ->
+                this@NoClanUX.render(this, player, itemCfg, placeholders)
                 null
             }
             if (click != null) onClick { player, _ -> click(player) }
