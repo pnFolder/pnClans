@@ -8,7 +8,6 @@ import ua.inventorytype.pnclans.api.permission.Permission
 import ua.inventorytype.pnclans.impl.clan.ClanService
 import ua.inventorytype.pnclans.impl.config.GuiItemConfig
 import ua.inventorytype.pnclans.impl.inventory.BaseGui
-import java.util.EnumMap
 
 /**
  * Premium role selector GUI for choosing which clan role to configure.
@@ -23,7 +22,6 @@ class EditorRolesUX(clanService: ClanService) : BaseGui(clanService) {
     init {
         val cfg = clanService.plugin.configService
         val menuCfg = cfg.menus.editorRolesMenu
-        val roleTemplate = menuCfg.items["role"] ?: GuiItemConfig()
 
         title(menuCfg.title)
         rows(menuCfg.rows)
@@ -49,24 +47,25 @@ class EditorRolesUX(clanService: ClanService) : BaseGui(clanService) {
             .sortedBy { it.weight }
         val roleSlots = listOf(20, 22, 24)
 
-        roles.forEachIndexed { index, role ->
-            val slotIndex = roleSlots.getOrNull(index) ?: return@forEachIndexed
-            slot(slotIndex) {
-                dynamicItem(role.icon) { player ->
-                    val roleDisplayName = this@EditorRolesUX.clanService.plugin.configService.getRoleDisplayName(role)
-                    val placeholders = mapOf(
-                        "role" to roleDisplayName,
-                        "weight" to role.weight.toString(),
-                        "permissions" to role.defaultPermissions.size.toString()
-                    )
+        menuCfg.items["role"]?.let { roleTemplate ->
+            roles.forEachIndexed { index, role ->
+                val slotIndex = roleSlots.getOrNull(index) ?: return@forEachIndexed
+                slot(slotIndex) {
+                    dynamicItem(this@EditorRolesUX.parseMaterial(roleTemplate.material, role.icon)) { player ->
+                        val roleDisplayName = this@EditorRolesUX.clanService.plugin.configService.getRoleDisplayName(role)
+                        val placeholders = mapOf(
+                            "role" to roleDisplayName,
+                            "weight" to role.weight.toString(),
+                            "permissions" to role.defaultPermissions.size.toString()
+                        )
 
-                    this@EditorRolesUX.renderConfigItem(this, player, roleTemplate.copy(material = role.icon.name), placeholders)
-                    glow(false)
-                    null
-                }
+                        this@EditorRolesUX.renderConfigItem(this, player, roleTemplate, placeholders)
+                        null
+                    }
 
-                onClick { player, _ ->
-                    RolePermissionsUX(this@EditorRolesUX.clanService, role, this@EditorRolesUX).open(player)
+                    onClick { player, _ ->
+                        RolePermissionsUX(this@EditorRolesUX.clanService, role, this@EditorRolesUX).open(player)
+                    }
                 }
             }
         }
@@ -125,7 +124,6 @@ class RolePermissionsUX(
         val cfg = clanService.plugin.configService
         val menuCfg = cfg.menus.editorRolesMenu
         val roleName = cfg.getRoleDisplayName(targetRole)
-        val permissionTemplate = menuCfg.items["permission"] ?: GuiItemConfig()
         val permissionSlots = listOf(
             10, 11, 12, 13, 14, 15, 16,
             19, 20, 21, 22, 23, 24, 25,
@@ -137,39 +135,42 @@ class RolePermissionsUX(
         rows(6)
         hotWorldDecor(true)
 
-        ClanPerms.ALL_PERMISSIONS.take(permissionSlots.size).forEachIndexed { index, perm ->
-            val slotIndex = permissionSlots[index]
+        menuCfg.items["permission"]?.let { permissionTemplate ->
+            ClanPerms.ALL_PERMISSIONS.take(permissionSlots.size).forEachIndexed { index, perm ->
+                val slotIndex = permissionSlots[index]
 
-            slot(slotIndex) {
-                dynamicItem(perm.icon) { player ->
-                    val clan = this@RolePermissionsUX.clanService.getClanUser(player) ?: return@dynamicItem null
-                    val isEnabled = clan.hasRolePermission(this@RolePermissionsUX.targetRole, perm)
-                    val placeholders = this@RolePermissionsUX.permissionPlaceholders(roleName, perm, isEnabled)
+                slot(slotIndex) {
+                    dynamicItem(this@RolePermissionsUX.parseMaterial(permissionTemplate.material, perm.icon)) { player ->
+                        val clan = this@RolePermissionsUX.clanService.getClanUser(player) ?: return@dynamicItem null
+                        val isEnabled = clan.hasRolePermission(this@RolePermissionsUX.targetRole, perm)
+                        val placeholders = this@RolePermissionsUX.permissionPlaceholders(roleName, perm, isEnabled)
 
-                    name(this@RolePermissionsUX.format(player, permissionTemplate.name, placeholders))
-                    lore(this@RolePermissionsUX.format(player, permissionTemplate.lore, placeholders))
-                    glow(isEnabled)
-                    null
-                }
-
-                onClick { player, event ->
-                    val clan = this@RolePermissionsUX.clanService.getClanUser(player) ?: return@onClick
-                    val user = clan.getMember(player.uniqueId) ?: return@onClick
-
-                    if (clan.getUserRole(user) != ClanRole.LEADER) {
-                        cfg.send(player, cfg.messages.settings.noPermissionRoles)
-                        return@onClick
+                        name(this@RolePermissionsUX.format(player, permissionTemplate.name, placeholders))
+                        lore(this@RolePermissionsUX.format(player, permissionTemplate.lore, placeholders))
+                        glow(permissionTemplate.glow || isEnabled)
+                        null
                     }
 
-                    val isEnabled = clan.hasRolePermission(this@RolePermissionsUX.targetRole, perm)
+                    onClick { player, event ->
+                        val clan = this@RolePermissionsUX.clanService.getClanUser(player) ?: return@onClick
+                        val user = clan.getMember(player.uniqueId) ?: return@onClick
 
-                    if (isEnabled) {
-                        clan.revokeRolePermission(this@RolePermissionsUX.targetRole, perm)
-                    } else {
-                        clan.grantRolePermission(this@RolePermissionsUX.targetRole, Pair(perm, true))
+                        if (clan.getUserRole(user) != ClanRole.LEADER) {
+                            cfg.send(player, cfg.messages.settings.noPermissionRoles)
+                            return@onClick
+                        }
+
+                        val isEnabled = clan.hasRolePermission(this@RolePermissionsUX.targetRole, perm)
+
+                        if (isEnabled) {
+                            clan.revokeRolePermission(this@RolePermissionsUX.targetRole, perm)
+                        } else {
+                            clan.grantRolePermission(this@RolePermissionsUX.targetRole, Pair(perm, true))
+                        }
+                        if (this@RolePermissionsUX.clanService.saveClan(clan)) {
+                            this@RolePermissionsUX.updateSlot(event.slot, player)
+                        }
                     }
-                    this@RolePermissionsUX.clanService.saveClan(clan)
-                    this@RolePermissionsUX.updateSlot(event.slot, player)
                 }
             }
         }
@@ -180,7 +181,7 @@ class RolePermissionsUX(
                     val placeholders = mapOf("role" to roleName)
                     name(this@RolePermissionsUX.format(player, itemCfg.name, placeholders))
                     lore(this@RolePermissionsUX.format(player, itemCfg.lore, placeholders))
-                    glow(false)
+                    glow(itemCfg.glow)
                     null
                 }
                 onClick { player, _ -> this@RolePermissionsUX.editorRolesUX.open(player) }
