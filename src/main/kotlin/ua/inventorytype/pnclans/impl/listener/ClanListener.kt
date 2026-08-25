@@ -177,6 +177,7 @@ class ClanListener(private val plugin: BukkitPlugin) : Listener {
 
         clanService.playtimeTracker.markOnline(player.uniqueId, clan.id)
         plugin.clanHighlightService.syncPlayer(player)
+        plugin.clanQuestService.deliverPendingRewards(player)
 
         if (clan.isSettingEnabled(ClanSetting.JOIN)) {
             val msg = configService.formatMessage(player, cfg.msgJoinNotice, mapOf("player" to player.name))
