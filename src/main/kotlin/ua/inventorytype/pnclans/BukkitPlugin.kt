@@ -95,6 +95,7 @@ class BukkitPlugin : JavaPlugin() {
         publicApi.subcommands.all().firstOrNull { it.name.equals(name, true) || it.aliases.any { alias -> alias.equals(name, true) } }
 
     fun publicSubcommandNames(): List<String> = publicApi.subcommands.all()
+        .flatMap { command -> listOf(command.name) + command.aliases }
 
     fun publicMainMenuButtons(): Collection<ClanMainMenuButton> = publicApi.menus.mainButtons()
 
