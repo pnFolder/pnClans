@@ -32,8 +32,15 @@ internal object ConfigurationBackfill {
 
     fun applyV122(plugin: BukkitPlugin, config: ConfigService) {
         migrateLegacyUpdaterSettings(plugin)
+
         mergeMissingRootFields(plugin, "config.yml", Settings.serializer(), config.settings)
         mergeMissingNestedFields(plugin, "config.yml", Settings.serializer(), config.settings)
+
+        // New and migrated GUI definitions must be physically visible in an existing menus.yml as well.
+        // ConfigService still remains the only loader; this only fills missing serialized fields/IDs.
+        mergeMissingRootFields(plugin, "menus.yml", MenusConfig.serializer(), config.menus)
+        mergeMissingNestedFields(plugin, "menus.yml", MenusConfig.serializer(), config.menus)
+
         mergeMissingNestedFields(plugin, "messages.yml", MessagesConfig.serializer(), config.messages)
     }
 
