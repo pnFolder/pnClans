@@ -183,6 +183,14 @@ class ClanCommand(
                                 if (result is ClanBattleOperation.Success) ClanBattlesUX(clanService).open(sender)
                             }
                         }
+                        "roster" -> {
+                            sendBattleResult(sender, plugin.clanBattleService.toggleLobbyParticipation(sender))
+                            ClanBattlesUX(clanService).open(sender)
+                        }
+                        "ready" -> {
+                            sendBattleResult(sender, plugin.clanBattleService.toggleLobbyReady(sender))
+                            ClanBattlesUX(clanService).open(sender)
+                        }
                         null -> ClanBattlesUX(clanService).open(sender)
                         else -> {
                             val target = clanService.getClanByName(args.drop(1).joinToString(" "))
@@ -232,7 +240,6 @@ class ClanCommand(
                     adminHandler.execute(sender, listOf("reload"))
                 }
 
-
                 else -> {
                     val extension = plugin.publicSubcommand(args[0])
                     if (extension != null) {
@@ -258,7 +265,6 @@ class ClanCommand(
 
         return true
     }
-
 
     private fun configuredHome(key: String) =
         configService.menus.homesMenu.homes.firstOrNull { it.key.equals(key, ignoreCase = true) }
@@ -288,7 +294,7 @@ class ClanCommand(
             when (args[0].lowercase()) {
                 "home", "sethome", "delhome" -> {
                     val p = sender as? Player ?: return emptyList()
-                    val clan = clanService.getClanUser(p) ?: return emptyList()
+                    if (clanService.getClanUser(p) == null) return emptyList()
                     return configService.menus.homesMenu.homes
                         .map { it.key }
                         .filter { it.startsWith(args[1], ignoreCase = true) }
@@ -297,7 +303,7 @@ class ClanCommand(
         }
 
         if (args.size == 2 && args[0].equals("battle", true) && configService.battles.enabled) {
-            return listOf("accept", "decline").filter { it.startsWith(args[1], ignoreCase = true) }
+            return listOf("accept", "decline", "roster", "ready").filter { it.startsWith(args[1], ignoreCase = true) }
         }
 
         if (args.size == 2 && args[0].equals("stats", true)) {
@@ -361,17 +367,43 @@ class ClanCommand(
 
     private fun sendBattleResult(player: Player, result: ClanBattleOperation) {
         val rejected = result as? ClanBattleOperation.Rejected ?: return
+        when (rejected.reason) {
+            ClanBattleRejection.LOBBY_NOT_FOUND -> {
+                player.sendMessage(configService.formatMessage(player, "&#FC3737✖ &fСбор состава уже завершён или не найден."))
+                return
+            }
+            ClanBattleRejection.LOBBY_FULL -> {
+                player.sendMessage(configService.formatMessage(player, "&#FC3737✖ &fБоевой состав вашей стороны уже заполнен."))
+                return
+            }
+            ClanBattleRejection.NOT_ENOUGH_SELECTED -> {
+                player.sendMessage(
+                    configService.formatMessage(
+                        player,
+                        "&#FFD700⌚ &fСначала выберите минимум &e${configService.battles.minimumOnlineMembers.coerceAtLeast(1)} &fучастника(ов) в состав."
+                    )
+                )
+                return
+            }
+            else -> Unit
+        }
+
         val actions = when (rejected.reason) {
             ClanBattleRejection.DISABLED -> configService.messages.battles.disabled
             ClanBattleRejection.NO_PERMISSION -> configService.messages.battles.noPermission
             ClanBattleRejection.CLAN_BUSY -> configService.messages.battles.clanBusy
             ClanBattleRejection.CHALLENGE_EXISTS -> configService.messages.battles.challengeExists
-            ClanBattleRejection.CHALLENGE_NOT_FOUND, ClanBattleRejection.CHALLENGE_EXPIRED -> configService.messages.battles.challengeNotFound
+            ClanBattleRejection.CHALLENGE_NOT_FOUND,
+            ClanBattleRejection.CHALLENGE_EXPIRED -> configService.messages.battles.challengeNotFound
             ClanBattleRejection.NOT_TARGET_CLAN -> configService.messages.battles.notTarget
             ClanBattleRejection.NOT_ENOUGH_ONLINE -> configService.messages.battles.notEnoughOnline
             ClanBattleRejection.ARENA_UNAVAILABLE -> configService.messages.battles.arenaUnavailable
             ClanBattleRejection.CANCELLED_BY_EVENT -> configService.messages.battles.cancelled
-            ClanBattleRejection.NO_CLAN, ClanBattleRejection.SAME_CLAN -> configService.messages.general.noPermission
+            ClanBattleRejection.NO_CLAN,
+            ClanBattleRejection.SAME_CLAN -> configService.messages.general.noPermission
+            ClanBattleRejection.LOBBY_NOT_FOUND,
+            ClanBattleRejection.LOBBY_FULL,
+            ClanBattleRejection.NOT_ENOUGH_SELECTED -> return
         }
         configService.send(player, actions)
     }
