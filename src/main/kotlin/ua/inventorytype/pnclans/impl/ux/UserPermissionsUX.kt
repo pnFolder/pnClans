@@ -19,7 +19,6 @@ class UserPermissionsUX(
     init {
         val cfg = clanService.plugin.configService
         val menuCfg = cfg.menus.userPermissionsMenu
-        val permissionTemplate = menuCfg.items["permission"] ?: cfg.menus.editorRolesMenu.items["permission"]
         val targetMember = targetUser
         val parent = parentGui
 
@@ -27,7 +26,7 @@ class UserPermissionsUX(
         rows(menuCfg.rows.coerceIn(1, 6))
         hotWorldDecor(true)
 
-        if (permissionTemplate != null) {
+        menuCfg.items["permission"]?.let { permissionTemplate ->
             permissionSlots(menuCfg.rows).zip(ClanPerms.ALL_PERMISSIONS).forEach { (slotIndex, perm) ->
                 slot(slotIndex) {
                     dynamicItem(this@UserPermissionsUX.parseMaterial(permissionTemplate.material, perm.icon)) { player ->
