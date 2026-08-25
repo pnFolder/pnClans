@@ -28,11 +28,6 @@ import ua.inventorytype.pnclans.impl.config.ConfigMigrationSafety
 import ua.inventorytype.pnclans.impl.config.ConfigService
 import ua.inventorytype.pnclans.impl.config.ConfigValidator
 import ua.inventorytype.pnclans.impl.config.ConfigurationBackfill
-import ua.inventorytype.pnclans.impl.config.SupplementalLegacyLoader
-import ua.inventorytype.pnclans.impl.config.SupplementalMenusConfig
-import ua.inventorytype.pnclans.impl.config.SupplementalMenusLoader
-import ua.inventorytype.pnclans.impl.config.SupplementalMessagesConfig
-import ua.inventorytype.pnclans.impl.config.SupplementalSettingsConfig
 import ua.inventorytype.pnclans.impl.economy.EconomyService
 import ua.inventorytype.pnclans.impl.inventory.listener.GuiListener
 import ua.inventorytype.pnclans.impl.listener.ClanListener
@@ -56,15 +51,6 @@ class BukkitPlugin : JavaPlugin() {
         private set
 
     lateinit var configService: ConfigService
-        private set
-
-    internal var supplementalMenus: SupplementalMenusConfig = SupplementalMenusConfig()
-        private set
-
-    internal var supplementalSettings: SupplementalSettingsConfig = SupplementalSettingsConfig()
-        private set
-
-    internal var supplementalMessages: SupplementalMessagesConfig = SupplementalMessagesConfig()
         private set
 
     lateinit var placeholderRegistry: PlaceholderRegistry
@@ -123,14 +109,10 @@ class BukkitPlugin : JavaPlugin() {
         val migrationSafety = ConfigMigrationSafety.capture(this)
         configService.loadAll()
         if (migrationSafety.reconcile(this, configService)) {
-            // Re-read the now-current schema so runtime values are the administrator-preserving result.
             configService.loadAll()
         }
         ConfigurationBackfill.applyV121(this, configService)
         ConfigurationBackfill.applyV122(this, configService)
-        supplementalMenus = SupplementalMenusLoader.loadAndBackfill(this)
-        supplementalSettings = SupplementalLegacyLoader.loadSettings(this)
-        supplementalMessages = SupplementalLegacyLoader.loadMessages(this)
         ConfigValidator.validate(this, configService)
     }
 
@@ -139,18 +121,14 @@ class BukkitPlugin : JavaPlugin() {
         PacketEvents.getAPI().init()
         logger.info("[pnClans] Enabled ${description.version} on ${server.version}; PacketEvents initialized=${PacketEvents.getAPI().isInitialized}")
 
-        // 1. Setup Economy
         economyService = EconomyService()
         val economyConnected = economyService.setup()
 
-        // 2. Load, migrate, backfill and validate configurations without replacing administrator-owned values.
         configService = ConfigService(this)
         reloadConfigurations()
 
-        // 3. Initialize Error Analytics Reporter
         ua.inventorytype.pnclans.impl.analytics.ErrorReporter.init(this)
 
-        // 4. Initialize Core Clan Services
         placeholderRegistry = PlaceholderRegistry()
         clanService = ClanService(this)
         clanPointsService = ClanPointsService(clanService)
@@ -169,7 +147,6 @@ class BukkitPlugin : JavaPlugin() {
         timedBossBarService = TimedBossBarService(this)
         initializeMetrics()
 
-        // 5. Register Event Listeners
         guiListener = GuiListener(this)
         server.pluginManager.registerEvents(guiListener, this)
         server.pluginManager.registerEvents(ClanListener(this), this)
@@ -177,24 +154,20 @@ class BukkitPlugin : JavaPlugin() {
         clanHighlightService.syncAll()
         clanQuestService.deliverPendingRewardsForOnlinePlayers()
 
-        // 6. Register Commands
         val clanCommand = ClanCommand(this, inviteService)
         getCommand("clan")?.let { cmd ->
             cmd.setExecutor(clanCommand)
             cmd.tabCompleter = clanCommand
         }
 
-        // 7. Register PlaceholderAPI Expansion
         var papiConnected = false
         if (Bukkit.getPluginManager().isPluginEnabled("PlaceholderAPI")) {
             PnClansExpansion(this).register()
             papiConnected = true
         }
 
-        // 8. Schedule Async Auto-Updater
         ua.inventorytype.pnclans.impl.updater.AutoUpdater(this).checkForUpdatesAsync()
 
-        // 9. Print Rich Startup ASCII Audit Banner
         PluginBanner.printEnableBanner(
             plugin = this,
             economyConnected = economyConnected,
