@@ -100,6 +100,8 @@ internal class ConfigMigrationSafety private constructor(
                 ?: 0
             if (version >= currentVersion) return null
 
+            createBackup(plugin, file, version)
+
             return runCatching { yaml.decodeFromString(serializer, content) }
                 .onFailure { error ->
                     plugin.logger.log(
@@ -109,6 +111,18 @@ internal class ConfigMigrationSafety private constructor(
                     )
                 }
                 .getOrNull()
+        }
+
+        private fun createBackup(plugin: BukkitPlugin, source: File, version: Int) {
+            val backup = File(source.parentFile, "${source.name}.pre-schema-$version.bak")
+            if (backup.exists()) return
+            runCatching {
+                Files.copy(source.toPath(), backup.toPath())
+            }.onSuccess {
+                plugin.logger.info("[pnClans] Backed up legacy ${source.name} to ${backup.name} before schema migration.")
+            }.onFailure { error ->
+                plugin.logger.log(Level.WARNING, "[pnClans] Could not create migration backup ${backup.name}.", error)
+            }
         }
 
         private fun <T> writeAtomic(
