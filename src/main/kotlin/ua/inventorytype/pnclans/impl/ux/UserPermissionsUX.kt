@@ -23,7 +23,7 @@ class UserPermissionsUX(
         val targetMember = targetUser
         val parent = parentGui
 
-        title(cfg.formatMessage(null, menuCfg.title, mapOf("player" to targetMember.playerName)))
+        title(menuCfg.title.replace("{player}", targetMember.playerName))
         rows(menuCfg.rows.coerceIn(1, 6))
         hotWorldDecor(true)
 
