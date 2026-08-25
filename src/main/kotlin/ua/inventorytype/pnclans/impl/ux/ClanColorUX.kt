@@ -22,7 +22,7 @@ class ClanColorUX(clanService: ClanService) : BaseGui(clanService) {
         rows(menuCfg.rows.coerceIn(1, 6))
         hotWorldDecor(true)
 
-        addItem("overview") { clan -> commonPlaceholders(clan) }
+        addItem("overview", placeholders = { clan -> commonPlaceholders(clan) })
         addItem("typeInfo")
         addItem(
             "armor",
@@ -46,7 +46,7 @@ class ClanColorUX(clanService: ClanService) : BaseGui(clanService) {
                 val id = "color_${color.name.lowercase()}"
                 addItem(
                     id,
-                    placeholders = { clan -> commonPlaceholders(clan) + mapOf("color_code" to color.chatColor, "color_name" to color.displayName) },
+                    placeholders = { clan -> commonPlaceholders(clan) + mapOf("color_code" to color.chatColor.toString(), "color_name" to color.displayName) },
                     glow = { clan -> clan.highlightColor == color }
                 ) { player -> applyColor(player, color) }
             }
@@ -69,9 +69,9 @@ class ClanColorUX(clanService: ClanService) : BaseGui(clanService) {
         }
 
         slot(itemCfg.slot) {
-            dynamicItem(parseMaterial(itemCfg.material, Material.PAPER)) { player ->
+            dynamicItem(this@ClanColorUX.parseMaterial(itemCfg.material, Material.PAPER)) { player ->
                 val clan = this@ClanColorUX.clanService.getClanUser(player) ?: return@dynamicItem null
-                render(this, player, itemCfg, placeholders(clan), itemCfg.glow || glow(clan))
+                this@ClanColorUX.render(this, player, itemCfg, placeholders(clan), itemCfg.glow || glow(clan))
                 null
             }
             if (click != null) onClick { player, _ -> click(player) }
