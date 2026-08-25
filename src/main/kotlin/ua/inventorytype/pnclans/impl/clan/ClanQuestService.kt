@@ -3,21 +3,17 @@ package ua.inventorytype.pnclans.impl.clan
 import org.bukkit.Bukkit
 import org.bukkit.entity.Player
 import ua.inventorytype.pnclans.BukkitPlugin
-import ua.inventorytype.pnclans.api.ActionContext
 import ua.inventorytype.pnclans.api.clan.Clan
-import ua.inventorytype.pnclans.api.clan.ClanPointsSource
 import ua.inventorytype.pnclans.api.clan.ClanQuestProgress
 import ua.inventorytype.pnclans.api.event.ClanQuestCompleteEvent
 import ua.inventorytype.pnclans.api.event.ClanQuestProgressEvent
 import ua.inventorytype.pnclans.impl.config.ClanQuestConfig
 import ua.inventorytype.pnclans.impl.config.ClanQuestObjective
 import ua.inventorytype.pnclans.impl.config.ClanQuestReset
-import ua.inventorytype.pnclans.impl.config.ClanQuestRewardRecipient
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.ZoneOffset
 import java.time.temporal.TemporalAdjusters
-import java.util.logging.Level
 
 internal enum class ClanQuestStatus(val label: String, val icon: String) {
     AVAILABLE("&#FF8702Доступен", "&#FF8702➥"),
@@ -28,6 +24,8 @@ internal enum class ClanQuestStatus(val label: String, val icon: String) {
 
 /** Owns clan-wide quest progress, completion, rewards, and reset cycles. */
 internal class ClanQuestService(private val plugin: BukkitPlugin) {
+    private val rewardQueue = ClanQuestRewardQueue(plugin)
+
     fun state(clan: Clan, questId: String): ClanQuestProgress {
         val quest = plugin.configService.quests.quests[questId]
         val current = clan.questProgress[questId] ?: ClanQuestProgress()
@@ -49,9 +47,10 @@ internal class ClanQuestService(private val plugin: BukkitPlugin) {
         maxOf(it.completionCount, if (it.completed) 1 else 0)
     }
 
+    /** Shop requirements use the current quest cycle; campaign prerequisites intentionally use completion history. */
     fun requiredQuestsMet(clan: Clan, questIds: Set<String>): Boolean =
         !plugin.configService.quests.enabled || questIds.all { questId ->
-            plugin.configService.quests.quests.containsKey(questId) && hasCompletedAtLeastOnce(clan, questId)
+            plugin.configService.quests.quests.containsKey(questId) && isCompleted(clan, questId)
         }
 
     fun status(clan: Clan, questId: String): ClanQuestStatus {
@@ -108,6 +107,14 @@ internal class ClanQuestService(private val plugin: BukkitPlugin) {
         advance(clan, ClanQuestObjective.BATTLE_DAMAGE, actor, amount)
     }
 
+    fun deliverPendingRewards(player: Player) {
+        rewardQueue.processForPlayer(player)
+    }
+
+    fun deliverPendingRewardsForOnlinePlayers() {
+        rewardQueue.processOnlinePlayers()
+    }
+
     private fun advance(
         clan: Clan,
         objective: ClanQuestObjective,
@@ -140,68 +147,66 @@ internal class ClanQuestService(private val plugin: BukkitPlugin) {
 
             val acceptedProgress = progressEvent.progress.coerceIn(current.progress, target)
             if (acceptedProgress >= target) {
-                val completeEvent = ClanQuestCompleteEvent(clan, questId, actor)
-                Bukkit.getPluginManager().callEvent(completeEvent)
-                if (completeEvent.isCancelled) return@forEach
-                val next = current.copy(
-                    progress = target,
-                    completed = true,
-                    completedAt = System.currentTimeMillis(),
-                    completionCount = current.completionCount + 1,
-                    cycleKey = currentCycle(quest)
-                )
-                clan.setQuestProgress(questId, next)
-                if (!plugin.clanService.saveClan(clan)) {
-                    clan.setQuestProgress(questId, current)
-                    return@forEach
-                }
-                grantRewards(clan, questId, quest, actor, target)
+                if (!completeQuest(clan, questId, quest, current, actor, target)) return@forEach
                 changed = true
                 return@forEach
             }
+
             val next = current.copy(progress = acceptedProgress, cycleKey = currentCycle(quest))
             clan.setQuestProgress(questId, next)
+            if (!plugin.clanService.saveClan(clan)) {
+                clan.setQuestProgress(questId, current)
+                return@forEach
+            }
             changed = true
         }
 
         if (changed) {
-            plugin.clanService.saveClan(clan)
             clan.users.forEach { plugin.clanService.notifyClanUpdated(it.uuid) }
         }
     }
 
-    private fun grantRewards(clan: Clan, questId: String, quest: ClanQuestConfig, actor: Player?, target: Long) {
-        if (quest.rewardPoints > 0L) {
-            plugin.clanPointsService.award(clan, quest.rewardPoints, ClanPointsSource.QUEST)
-        }
+    private fun completeQuest(
+        clan: Clan,
+        questId: String,
+        quest: ClanQuestConfig,
+        current: ClanQuestProgress,
+        actor: Player?,
+        target: Long
+    ): Boolean {
+        val completeEvent = ClanQuestCompleteEvent(clan, questId, actor)
+        Bukkit.getPluginManager().callEvent(completeEvent)
+        if (completeEvent.isCancelled) return false
 
-        val recipients = when (quest.rewardRecipient) {
-            ClanQuestRewardRecipient.ACTOR -> listOfNotNull(actor)
-            ClanQuestRewardRecipient.LEADER -> listOfNotNull(clan.getLeader()?.let { Bukkit.getPlayer(it.uuid) })
-            ClanQuestRewardRecipient.ONLINE_MEMBERS -> clan.users.mapNotNull { Bukkit.getPlayer(it.uuid) }
-        }.distinctBy(Player::getUniqueId)
-
-        recipients.forEach { recipient ->
-            val placeholders = mapOf(
-                "quest" to questId,
-                "quest_name" to quest.name,
-                "player" to recipient.name,
-                "player_name" to recipient.name,
-                "clan" to clan.name,
-                "progress" to target.toString(),
-                "target" to target.toString(),
-                "reward_points" to quest.rewardPoints.toString()
+        val completionCount = current.completionCount + 1
+        if (!rewardQueue.enqueue(clan, questId, completionCount, quest, actor)) {
+            plugin.logger.severe(
+                "[pnClans] Quest '$questId' reached its target for clan ${clan.id}, but reward bookkeeping could not be persisted. Completion was not committed."
             )
-            val context = ActionContext(recipient, plugin.placeholderRegistry, placeholders, plugin)
-            quest.rewards.forEach { action ->
-                runCatching { action.execute(context) }
-                    .onFailure { error ->
-                        plugin.logger.log(Level.WARNING, "[pnClans] Ошибка награды квеста $questId для ${recipient.name}", error)
-                    }
-            }
+            return false
         }
 
-        val completionPlaceholders = mapOf(
+        val next = current.copy(
+            progress = target,
+            completed = true,
+            completedAt = System.currentTimeMillis(),
+            completionCount = completionCount,
+            cycleKey = currentCycle(quest)
+        )
+        clan.setQuestProgress(questId, next)
+        if (!plugin.clanService.saveClan(clan)) {
+            clan.setQuestProgress(questId, current)
+            rewardQueue.cancel(clan.id, questId, completionCount)
+            return false
+        }
+
+        rewardQueue.processForClan(clan)
+        sendCompletionMessage(clan, questId, quest, target)
+        return true
+    }
+
+    private fun sendCompletionMessage(clan: Clan, questId: String, quest: ClanQuestConfig, target: Long) {
+        val placeholders = mapOf(
             "quest" to questId,
             "quest_name" to quest.name,
             "clan" to clan.name,
@@ -211,7 +216,7 @@ internal class ClanQuestService(private val plugin: BukkitPlugin) {
         )
         clan.users.mapNotNull { Bukkit.getPlayer(it.uuid) }
             .forEach { recipient ->
-                plugin.configService.send(recipient, plugin.configService.messages.quests.completed, completionPlaceholders)
+                plugin.configService.send(recipient, plugin.configService.messages.quests.completed, placeholders)
             }
     }
 

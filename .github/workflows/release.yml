@@ -1,0 +1,112 @@
+name: Release
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'RELEASE_*.md'
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build Java ${{ matrix.java }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        java: [21, 25]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java ${{ matrix.java }}
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ matrix.java }}
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Make Gradle wrapper executable
+        run: chmod +x gradlew
+
+      - name: Build release JAR
+        run: ./gradlew clean shadowJar -PjavaTarget=${{ matrix.java }} --no-daemon
+
+      - name: Upload release JAR
+        uses: actions/upload-artifact@v4
+        with:
+          name: pnClans-release-java${{ matrix.java }}
+          path: build/libs/*-java${{ matrix.java }}-all.jar
+          if-no-files-found: error
+          retention-days: 1
+
+  release:
+    name: Publish GitHub Release
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download release JARs
+        uses: actions/download-artifact@v4
+        with:
+          pattern: pnClans-release-java*
+          path: release-artifacts
+          merge-multiple: true
+
+      - name: Resolve release metadata
+        id: metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION="$(sed -n 's/^version = "\([^"]*\)"/\1/p' build.gradle.kts | head -n 1)"
+          if [ -z "$VERSION" ]; then
+            echo "Unable to resolve project version from build.gradle.kts" >&2
+            exit 1
+          fi
+          NOTES="RELEASE_${VERSION}.md"
+          if [ ! -f "$NOTES" ]; then
+            echo "Missing release notes file: $NOTES" >&2
+            exit 1
+          fi
+          TITLE="$(sed -n '1s/^# //p' "$NOTES")"
+          if [ -z "$TITLE" ]; then
+            TITLE="pnClans v${VERSION}"
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "notes=$NOTES" >> "$GITHUB_OUTPUT"
+          echo "title=$TITLE" >> "$GITHUB_OUTPUT"
+
+      - name: Verify release assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f "release-artifacts/pnClans-${{ steps.metadata.outputs.version }}-java21-all.jar"
+          test -f "release-artifacts/pnClans-${{ steps.metadata.outputs.version }}-java25-all.jar"
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG="v${{ steps.metadata.outputs.version }}"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Release $TAG already exists; nothing to publish."
+            exit 0
+          fi
+          gh release create "$TAG" \
+            "release-artifacts/pnClans-${{ steps.metadata.outputs.version }}-java21-all.jar" \
+            "release-artifacts/pnClans-${{ steps.metadata.outputs.version }}-java25-all.jar" \
+            --target "$GITHUB_SHA" \
+            --title "${{ steps.metadata.outputs.title }}" \
+            --notes-file "${{ steps.metadata.outputs.notes }}"

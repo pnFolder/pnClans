@@ -25,6 +25,7 @@ import ua.inventorytype.pnclans.impl.shop.ClanShopService
 import ua.inventorytype.pnclans.impl.api.PnClansApiImpl
 import ua.inventorytype.pnclans.impl.command.ClanCommand
 import ua.inventorytype.pnclans.impl.config.ConfigService
+import ua.inventorytype.pnclans.impl.config.ConfigurationBackfill
 import ua.inventorytype.pnclans.impl.economy.EconomyService
 import ua.inventorytype.pnclans.impl.inventory.listener.GuiListener
 import ua.inventorytype.pnclans.impl.listener.ClanListener
@@ -95,7 +96,7 @@ class BukkitPlugin : JavaPlugin() {
         publicApi.subcommands.all().firstOrNull { it.name.equals(name, true) || it.aliases.any { alias -> alias.equals(name, true) } }
 
     fun publicSubcommandNames(): List<String> = publicApi.subcommands.all()
-        .flatMap { listOf(it.name) + it.aliases }
+        .flatMap { command -> listOf(command.name) + command.aliases }
 
     fun publicMainMenuButtons(): Collection<ClanMainMenuButton> = publicApi.menus.mainButtons()
 
@@ -110,9 +111,10 @@ class BukkitPlugin : JavaPlugin() {
         economyService = EconomyService()
         val economyConnected = economyService.setup()
 
-        // 2. Load Configurations
+        // 2. Load and backfill configurations
         configService = ConfigService(this)
         configService.loadAll()
+        ConfigurationBackfill.applyV121(this, configService)
 
         // 3. Initialize Error Analytics Reporter
         ua.inventorytype.pnclans.impl.analytics.ErrorReporter.init(this)
@@ -142,6 +144,7 @@ class BukkitPlugin : JavaPlugin() {
         server.pluginManager.registerEvents(ClanListener(this), this)
         server.pluginManager.registerEvents(clanHighlightService, this)
         clanHighlightService.syncAll()
+        clanQuestService.deliverPendingRewardsForOnlinePlayers()
 
         // 6. Register Commands
         val clanCommand = ClanCommand(this, inviteService)
@@ -177,41 +180,23 @@ class BukkitPlugin : JavaPlugin() {
             server.servicesManager.unregister(PnClansApi::class.java, publicApi)
         }
         ChatInputPrompt.shutdown()
-        if (::timedBossBarService.isInitialized) {
-            timedBossBarService.clearAll()
-        }
-        if (::clanActivityPointsService.isInitialized) {
-            clanActivityPointsService.shutdown()
-        }
-        if (::clanBattleService.isInitialized) {
-            clanBattleService.shutdown()
-        }
-        if (::inviteService.isInitialized) {
-            inviteService.clear()
-        }
-        if (::guiListener.isInitialized) {
-            guiListener.forceCloseAll()
-        }
-        if (::clanHighlightService.isInitialized) {
-            clanHighlightService.shutdown()
-        }
+        if (::timedBossBarService.isInitialized) timedBossBarService.clearAll()
+        if (::clanActivityPointsService.isInitialized) clanActivityPointsService.shutdown()
+        if (::clanBattleService.isInitialized) clanBattleService.shutdown()
+        if (::inviteService.isInitialized) inviteService.clear()
+        if (::guiListener.isInitialized) guiListener.forceCloseAll()
+        if (::clanHighlightService.isInitialized) clanHighlightService.shutdown()
         if (::clanService.isInitialized) {
             clanService.saveAll(finalizeSessions = true)
             clanService.storage.close()
         }
-        if (PacketEvents.getAPI() != null && PacketEvents.getAPI().isInitialized) {
-            PacketEvents.getAPI().terminate()
-        }
+        if (PacketEvents.getAPI() != null && PacketEvents.getAPI().isInitialized) PacketEvents.getAPI().terminate()
         ua.inventorytype.pnclans.impl.analytics.ErrorReporter.shutdown()
-
-        // Print Rich Shutdown Banner
         PluginBanner.printDisableBanner(this, savedClansCount)
     }
 
-    /** Starts bStats once and registers configuration-level usage metrics. */
     private fun initializeMetrics() {
         if (metricsInitialized) return
-
         val metrics = Metrics(this, BSTATS_PLUGIN_ID)
         metrics.addCustomChart(SimplePie("clan_chat_mode") { configService.settings.clanChat.mode.name })
         metrics.addCustomChart(SimplePie("storage_type") { configService.settings.storageType.uppercase() })
