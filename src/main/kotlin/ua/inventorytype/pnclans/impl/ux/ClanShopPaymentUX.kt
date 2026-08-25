@@ -110,15 +110,21 @@ class ClanShopPaymentUX(
             }
             is ClanShopPurchaseResult.Rejected -> {
                 val message = when (result.reason) {
+                    ClanShopPurchaseRejection.SHOP_DISABLED -> "&#FC3737✘ &fКлановый магазин сейчас отключён."
+                    ClanShopPurchaseRejection.PRODUCT_NOT_FOUND,
+                    ClanShopPurchaseRejection.PAYMENT_NOT_CONFIGURED,
+                    ClanShopPurchaseRejection.SHOP_CHANGED -> config.messages.shopChanged
                     ClanShopPurchaseRejection.CURRENCY_UNAVAILABLE -> config.messages.currencyUnavailable
                     ClanShopPurchaseRejection.NO_PERMISSION -> config.messages.noPermission
-                    ClanShopPurchaseRejection.SHOP_CHANGED -> config.messages.shopChanged
                     ClanShopPurchaseRejection.INSUFFICIENT_FUNDS -> config.messages.insufficientFunds
                     ClanShopPurchaseRejection.REQUIREMENTS_NOT_MET -> config.messages.requirementsNotMet
                     ClanShopPurchaseRejection.CLAN_LIMIT_REACHED -> config.messages.clanLimitReached
                     ClanShopPurchaseRejection.GLOBAL_LIMIT_REACHED -> config.messages.globalLimitReached
                     ClanShopPurchaseRejection.CANCELLED_BY_EVENT -> config.messages.cancelled
-                    else -> config.messages.requirementsNotMet
+                    ClanShopPurchaseRejection.LEDGER_FAILED -> "&#FC3737✘ &fПокупка временно недоступна: не удалось безопасно сохранить операцию."
+                    ClanShopPurchaseRejection.REFUND_FAILED -> "&#FC3737✘ &fНе удалось автоматически вернуть оплату. Обратитесь к администратору."
+                    ClanShopPurchaseRejection.REWARD_FAILED -> "&#FC3737✘ &fНаграда товара настроена некорректно. Покупка отменена."
+                    ClanShopPurchaseRejection.REWARD_PARTIAL -> "&#FFD700! &fВыдача награды завершилась с ошибкой после начала операции. Покупка зафиксирована; обратитесь к администратору."
                 }
                 val requiredPrice = result.requiredPrice ?: displayedPayment.amount
                 player.sendMessage(format(player, message, placeholders + ("price" to requiredPrice.toString())))
