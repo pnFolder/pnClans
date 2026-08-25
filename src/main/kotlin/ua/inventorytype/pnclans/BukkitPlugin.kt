@@ -115,6 +115,7 @@ class BukkitPlugin : JavaPlugin() {
         configService = ConfigService(this)
         configService.loadAll()
         ConfigurationBackfill.applyV121(this, configService)
+        ConfigurationBackfill.applyV122(this, configService)
 
         // 3. Initialize Error Analytics Reporter
         ua.inventorytype.pnclans.impl.analytics.ErrorReporter.init(this)
