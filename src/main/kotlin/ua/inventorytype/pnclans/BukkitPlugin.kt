@@ -24,6 +24,7 @@ import ua.inventorytype.pnclans.impl.clan.ClanBattleService
 import ua.inventorytype.pnclans.impl.shop.ClanShopService
 import ua.inventorytype.pnclans.impl.api.PnClansApiImpl
 import ua.inventorytype.pnclans.impl.command.ClanCommand
+import ua.inventorytype.pnclans.impl.config.ConfigMigrationSafety
 import ua.inventorytype.pnclans.impl.config.ConfigService
 import ua.inventorytype.pnclans.impl.config.ConfigurationBackfill
 import ua.inventorytype.pnclans.impl.economy.EconomyService
@@ -102,6 +103,18 @@ class BukkitPlugin : JavaPlugin() {
 
     fun publicAddonGui(): ClanAddonGuiRegistry = publicApi.gui
 
+    /** Loads configs through compatibility protection and then exposes all new keys to existing files. */
+    internal fun reloadConfigurations() {
+        val migrationSafety = ConfigMigrationSafety.capture(this)
+        configService.loadAll()
+        if (migrationSafety.reconcile(this, configService)) {
+            // Re-read the now-current schema so runtime values are the administrator-preserving result.
+            configService.loadAll()
+        }
+        ConfigurationBackfill.applyV121(this, configService)
+        ConfigurationBackfill.applyV122(this, configService)
+    }
+
     override fun onEnable() {
         PacketEvents.getAPI().settings.debug(false).checkForUpdates(false).timeStampMode(TimeStampMode.MILLIS).reEncodeByDefault(true)
         PacketEvents.getAPI().init()
@@ -111,11 +124,9 @@ class BukkitPlugin : JavaPlugin() {
         economyService = EconomyService()
         val economyConnected = economyService.setup()
 
-        // 2. Load and backfill configurations
+        // 2. Load, migrate and backfill configurations without replacing administrator-owned values.
         configService = ConfigService(this)
-        configService.loadAll()
-        ConfigurationBackfill.applyV121(this, configService)
-        ConfigurationBackfill.applyV122(this, configService)
+        reloadConfigurations()
 
         // 3. Initialize Error Analytics Reporter
         ua.inventorytype.pnclans.impl.analytics.ErrorReporter.init(this)
