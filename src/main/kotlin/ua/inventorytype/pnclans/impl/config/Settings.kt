@@ -167,8 +167,20 @@ class Settings {
     @YamlComment("Быстрые суммы пополнения казны, выводятся в виде отдельных кнопок.")
     val treasuryDepositPresets: List<Int> = listOf(500, 1000)
 
+    @YamlComment("Слоты быстрых кнопок пополнения. Сопоставляются с treasuryDepositPresets по индексу.")
+    val treasuryDepositPresetSlots: List<Int> = listOf(28, 29)
+
     @YamlComment("Быстрые суммы снятия казны, выводятся в виде отдельных кнопок.")
     val treasuryWithdrawPresets: List<Int> = listOf(500, 1000)
+
+    @YamlComment("Слоты быстрых кнопок снятия. Сопоставляются с treasuryWithdrawPresets по индексу.")
+    val treasuryWithdrawPresetSlots: List<Int> = listOf(33, 34)
+
+    @YamlComment("Время ожидания произвольной суммы казны в чате, в секундах.")
+    val treasuryPromptTimeoutSeconds: Int = 30
+
+    @YamlComment("Слова для отмены ввода суммы казны. Сравнение выполняется без учёта регистра.")
+    val treasuryPromptCancelInputs: List<String> = listOf("cancel", "отмена")
 
     @YamlComment("Требовать ли пустое хранилище предметов (Clan Chest) перед распуском клана")
     val disbandRequireEmptyChest: Boolean = true
