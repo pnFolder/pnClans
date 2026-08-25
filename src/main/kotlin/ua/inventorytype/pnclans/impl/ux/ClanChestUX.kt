@@ -18,15 +18,8 @@ import ua.inventorytype.pnclans.impl.inventory.builder.ItemBuilder
  * Virtual clan chest GUI providing shared item storage across all clan members.
  *
  * Slot availability scales with clan level (9 slots per level, up to 45 unlocked slots).
- * Locked slots display a styled red glass pane with unlock level requirements.
  * Items are persisted to the storage backend automatically on inventory close and on
  * manual navigation via the back/close buttons.
- *
- * The navigation bar (slots 45–53) contains analytics, a return button, the storage core,
- * a shortcut to [UpgradeUX], and a close button.
- *
- * @param clanService The clan service providing chest persistence and plugin access.
- * @param clan The owning clan whose chest contents are displayed and managed.
  */
 class ClanChestUX(
     clanService: ClanService,
@@ -42,7 +35,17 @@ class ClanChestUX(
         else -> 45
     }
 
-    private val controlSlots = setOf(45, 46, 47, 48, 49, 50, 51, 52, 53)
+    private val controlSlots: Set<Int>
+        get() {
+            val items = clanService.plugin.configService.menus.chestMenu.items
+            val fixedKeys = setOf("stats", "back", "core", "upgrade", "close")
+            return items
+                .filter { (key, _) -> key in fixedKeys || key.startsWith("decor_") }
+                .values
+                .map(GuiItemConfig::slot)
+                .filter { it in 0 until inventory.size }
+                .toSet()
+        }
 
     init {
         val cfg = clanService.plugin.configService
@@ -51,7 +54,6 @@ class ClanChestUX(
         title(menuCfg.title)
         rows(menuCfg.rows)
 
-        // Load persisted storage items before rendering control slots.
         val savedItems = clanService.getChestItems(clan.id)
         for (slotIndex in 0 until unlockedSlotsCount) {
             val item = savedItems.getOrNull(slotIndex)
@@ -60,120 +62,129 @@ class ClanChestUX(
             }
         }
 
-        // Render locked storage slots that are unlocked by future clan levels.
-        for (slotIndex in unlockedSlotsCount until 45) {
-            val requiredLevel = when {
-                slotIndex < 18 -> 2
-                slotIndex < 27 -> 3
-                slotIndex < 36 -> 4
-                else -> 5
+        menuCfg.items["lockedSlot"]?.let { lockedCfg ->
+            for (slotIndex in unlockedSlotsCount until MAX_STORAGE_SLOTS) {
+                val requiredLevel = requiredLevelForSlot(slotIndex)
+                slot(slotIndex) {
+                    dynamicItem(this@ClanChestUX.parseMaterial(lockedCfg.material, Material.RED_STAINED_GLASS_PANE)) {
+                        this@ClanChestUX.renderConfigItem(
+                            this,
+                            lockedCfg,
+                            mapOf("level" to requiredLevel.toString(), "slot" to slotIndex.toString())
+                        )
+                        null
+                    }
+                    onClick { player, event ->
+                        event.isCancelled = true
+                        cfg.send(player, cfg.messages.chest.slotLocked, mapOf("level" to requiredLevel.toString()))
+                    }
+                }
+            }
+        }
+
+        menuCfg.items
+            .filterKeys { it.startsWith("decor_") }
+            .values
+            .forEach { itemCfg ->
+                if (itemCfg.slot !in 0 until inventory.size) return@forEach
+                slot(itemCfg.slot) {
+                    dynamicItem(this@ClanChestUX.parseMaterial(itemCfg.material, Material.BLACK_STAINED_GLASS_PANE)) {
+                        this@ClanChestUX.renderConfigItem(this, itemCfg, emptyMap())
+                        null
+                    }
+                    onClick { _, event -> event.isCancelled = true }
+                }
             }
 
-            slot(slotIndex) {
-                item(Material.RED_STAINED_GLASS_PANE) {
-                    name("&#FF3B3B🔒 СЛОТ ЗАБЛОКИРОВАН")
-                    lore(
-                        "",
-                        "&#9EFC65 «Информация»",
-                        " &7- &fСтатус: &#FC3737Закрыт для хранения",
-                        " &7- &fТребуется уровень клана: &e$requiredLevel лвл.",
-                        "",
-                        "&#FC65DF «Как разблокировать?»",
-                        " &7- &fКаждый уровень клана открывает",
-                        " &7- &fдополнительно &e9 новых слотов&f!",
-                        "",
-                        "&#FF8702➥ &fНажмите &eЭволюция Клана &fдля прокачки!"
+        menuCfg.items["stats"]?.let { itemCfg ->
+            slot(itemCfg.slot) {
+                dynamicItem(this@ClanChestUX.parseMaterial(itemCfg.material, Material.KNOWLEDGE_BOOK)) { _ ->
+                    val maxSlots = this@ClanChestUX.unlockedSlotsCount
+                    val itemsStored = (0 until maxSlots).count { slotIdx ->
+                        val item = this@ClanChestUX.inventory.getItem(slotIdx)
+                        item != null && item.type != Material.AIR
+                    }
+                    val percent = if (maxSlots > 0) (itemsStored * 100) / maxSlots else 0
+                    val placeholders = mapOf(
+                        "stored" to itemsStored.toString(),
+                        "slots" to maxSlots.toString(),
+                        "percent" to percent.toString(),
+                        "progress" to this@ClanChestUX.buildProgressBar(percent),
+                        "balance" to this@ClanChestUX.clan.bankBalance.toString(),
+                        "level" to this@ClanChestUX.clan.level.toString(),
+                        "rows" to (maxSlots / 9).toString()
                     )
+                    this@ClanChestUX.renderConfigItem(this, itemCfg, placeholders)
+                    null
                 }
-                onClick { player, event ->
-                    event.isCancelled = true
-                    val cfg = this@ClanChestUX.clanService.plugin.configService
-                    cfg.send(player, cfg.messages.chest.slotLocked, mapOf("level" to requiredLevel.toString()))
+                onClick { _, event -> event.isCancelled = true }
+            }
+        }
+
+        menuCfg.items["back"]?.let { itemCfg ->
+            slot(itemCfg.slot) {
+                dynamicItem(this@ClanChestUX.parseMaterial(itemCfg.material, Material.RED_CANDLE)) {
+                    this@ClanChestUX.renderConfigItem(this, itemCfg, emptyMap())
+                    null
+                }
+                onClick { player, _ ->
+                    this@ClanChestUX.saveChestContents()
+                    MainUX(this@ClanChestUX.clanService).open(player)
                 }
             }
         }
 
-        val controlDecor = listOf(46, 47, 51, 52)
-        for (i in controlDecor) {
-            slot(i) { item(Material.BLACK_STAINED_GLASS_PANE) { name(" ") } }
+        menuCfg.items["core"]?.let { itemCfg ->
+            slot(itemCfg.slot) {
+                dynamicItem(this@ClanChestUX.parseMaterial(itemCfg.material, Material.BEACON)) { _ ->
+                    val count = this@ClanChestUX.unlockedSlotsCount
+                    this@ClanChestUX.renderConfigItem(
+                        this,
+                        itemCfg,
+                        mapOf(
+                            "level" to this@ClanChestUX.clan.level.toString(),
+                            "rows" to (count / 9).toString(),
+                            "slots" to count.toString()
+                        )
+                    )
+                    null
+                }
+                onClick { _, event -> event.isCancelled = true }
+            }
         }
 
-        menuCfg.items["stats"]?.let { itemCfg -> slot(itemCfg.slot) {
-            dynamicItem(Material.KNOWLEDGE_BOOK) { _ ->
-                val maxSlots = this@ClanChestUX.unlockedSlotsCount
-                val itemsStored = (0 until maxSlots).count { slotIdx ->
-                    val item = this@ClanChestUX.inventory.getItem(slotIdx)
-                    item != null && item.type != Material.AIR
+        menuCfg.items["upgrade"]?.let { itemCfg ->
+            slot(itemCfg.slot) {
+                dynamicItem(this@ClanChestUX.parseMaterial(itemCfg.material, Material.NETHER_STAR)) {
+                    this@ClanChestUX.renderConfigItem(
+                        this,
+                        itemCfg,
+                        mapOf(
+                            "level" to this@ClanChestUX.clan.level.toString(),
+                            "slots" to this@ClanChestUX.unlockedSlotsCount.toString()
+                        )
+                    )
+                    null
                 }
-                val percent = if (maxSlots > 0) (itemsStored * 100) / maxSlots else 0
-                val progressBar = this@ClanChestUX.buildProgressBar(percent)
-                val bankBal = this@ClanChestUX.clan.bankBalance
-                val placeholders = mapOf(
-                    "stored" to itemsStored.toString(),
-                    "slots" to maxSlots.toString(),
-                    "percent" to percent.toString(),
-                    "progress" to progressBar,
-                    "balance" to bankBal.toString(),
-                    "level" to this@ClanChestUX.clan.level.toString(),
-                    "rows" to (maxSlots / 9).toString()
-                )
+                onClick { player, _ ->
+                    this@ClanChestUX.saveChestContents()
+                    UpgradeUX(this@ClanChestUX.clanService).open(player)
+                }
+            }
+        }
 
-                this@ClanChestUX.renderConfigItem(this, itemCfg, placeholders)
-                null
+        menuCfg.items["close"]?.let { itemCfg ->
+            slot(itemCfg.slot) {
+                dynamicItem(this@ClanChestUX.parseMaterial(itemCfg.material, Material.RED_DYE)) {
+                    this@ClanChestUX.renderConfigItem(this, itemCfg, emptyMap())
+                    null
+                }
+                onClick { player, _ ->
+                    this@ClanChestUX.saveChestContents()
+                    player.closeInventory()
+                }
             }
-            onClick { _, event -> event.isCancelled = true }
-        } }
-
-        menuCfg.items["back"]?.let { itemCfg -> slot(itemCfg.slot) {
-            dynamicItem(this@ClanChestUX.parseMaterial(itemCfg.material, Material.RED_CANDLE)) {
-                this@ClanChestUX.renderConfigItem(this, itemCfg, emptyMap())
-                null
-            }
-            onClick { player, _ ->
-                this@ClanChestUX.saveChestContents()
-                MainUX(this@ClanChestUX.clanService).open(player)
-            }
-        } }
-
-        menuCfg.items["core"]?.let { itemCfg -> slot(itemCfg.slot) {
-            dynamicItem(Material.BEACON) { _ ->
-                val lvl = this@ClanChestUX.clan.level
-                val count = this@ClanChestUX.unlockedSlotsCount
-                this@ClanChestUX.renderConfigItem(
-                    this,
-                    itemCfg,
-                    mapOf("level" to lvl.toString(), "rows" to (count / 9).toString(), "slots" to count.toString())
-                )
-                null
-            }
-            onClick { _, event -> event.isCancelled = true }
-        } }
-
-        menuCfg.items["upgrade"]?.let { itemCfg -> slot(itemCfg.slot) {
-            dynamicItem(this@ClanChestUX.parseMaterial(itemCfg.material, Material.NETHER_STAR)) {
-                this@ClanChestUX.renderConfigItem(
-                    this,
-                    itemCfg,
-                    mapOf("level" to this@ClanChestUX.clan.level.toString(), "slots" to this@ClanChestUX.unlockedSlotsCount.toString())
-                )
-                null
-            }
-            onClick { player, _ ->
-                this@ClanChestUX.saveChestContents()
-                UpgradeUX(this@ClanChestUX.clanService).open(player)
-            }
-        } }
-
-        menuCfg.items["close"]?.let { itemCfg -> slot(itemCfg.slot) {
-            dynamicItem(this@ClanChestUX.parseMaterial(itemCfg.material, Material.RED_DYE)) {
-                this@ClanChestUX.renderConfigItem(this, itemCfg, emptyMap())
-                null
-            }
-            onClick { player, _ ->
-                this@ClanChestUX.saveChestContents()
-                player.closeInventory()
-            }
-        } }
+        }
     }
 
     override fun open(player: Player) {
@@ -182,10 +193,8 @@ class ClanChestUX(
     }
 
     private fun updateControlSlots(player: Player) {
-        controlSlots.forEach { index ->
-            updateSlot(index, player)
-        }
-        for (slotIndex in unlockedSlotsCount until 45) {
+        controlSlots.forEach { index -> updateSlot(index, player) }
+        for (slotIndex in unlockedSlotsCount until MAX_STORAGE_SLOTS) {
             updateSlot(slotIndex, player)
         }
     }
@@ -193,7 +202,7 @@ class ClanChestUX(
     override fun handleClick(e: InventoryClickEvent) {
         if (e.isCancelled) return
         val rawSlot = e.rawSlot
-        val topSize = inventory.size // 54
+        val topSize = inventory.size
         val player = e.whoClicked as? Player
         if (player == null || !canAccess(player)) {
             e.isCancelled = true
@@ -201,40 +210,35 @@ class ClanChestUX(
         }
 
         if (rawSlot in 0 until topSize) {
-            // Click is inside top inventory (Clan Chest)
-            if (rawSlot in controlSlots || rawSlot >= unlockedSlotsCount) {
+            if (rawSlot in controlSlots || rawSlot in unlockedSlotsCount until MAX_STORAGE_SLOTS) {
                 e.isCancelled = true
                 super.handleClick(e)
             } else {
-                // Unlocked storage slot -> allow placing, taking, moving items freely
                 scheduleStatsUpdate(player)
             }
         } else {
-            // Click is in player inventory (bottom inventory)
             if (e.isShiftClick) {
                 val clickedItem = e.currentItem
                 if (clickedItem != null && clickedItem.type != Material.AIR) {
                     val hasUnlockedSpace = (0 until unlockedSlotsCount).any { idx ->
                         val existing = inventory.getItem(idx)
-                        existing == null || existing.type == Material.AIR || (existing.isSimilar(clickedItem) && existing.amount < existing.maxStackSize)
+                        existing == null || existing.type == Material.AIR ||
+                            (existing.isSimilar(clickedItem) && existing.amount < existing.maxStackSize)
                     }
                     if (!hasUnlockedSpace) {
                         e.isCancelled = true
                         return
                     }
                 }
-                scheduleStatsUpdate(player)
-            } else {
-                scheduleStatsUpdate(player)
             }
-            // Allow player to move items in their hand / player inventory freely
+            scheduleStatsUpdate(player)
         }
     }
 
     private fun scheduleStatsUpdate(player: Player?) {
         if (player == null) return
         clanService.plugin.server.scheduler.runTaskLater(clanService.plugin, Runnable {
-            val statsSlot = clanService.plugin.configService.menus.chestMenu.items["stats"]?.slot ?: 45
+            val statsSlot = clanService.plugin.configService.menus.chestMenu.items["stats"]?.slot ?: return@Runnable
             inventory.viewers.filterIsInstance<Player>().forEach { viewer ->
                 if (viewer.isOnline && viewer.openInventory.topInventory.holder == this) {
                     updateSlot(statsSlot, viewer)
@@ -254,8 +258,9 @@ class ClanChestUX(
 
     fun saveChestContents() {
         if (invalidated) return
-        val items = arrayOfNulls<ItemStack>(54)
+        val items = arrayOfNulls<ItemStack>(inventory.size)
         for (i in 0 until unlockedSlotsCount) {
+            if (i in controlSlots) continue
             val item = inventory.getItem(i)
             if (item != null && item.type != Material.AIR) {
                 items[i] = item.clone()
@@ -276,15 +281,21 @@ class ClanChestUX(
             e.isCancelled = true
             return
         }
-        if (e.rawSlots.any { it in controlSlots || it >= unlockedSlotsCount && it < 45 }) {
+        if (e.rawSlots.any { it in controlSlots || it in unlockedSlotsCount until MAX_STORAGE_SLOTS }) {
             e.isCancelled = true
         }
     }
 
     private fun canAccess(player: Player): Boolean {
         val member = clan.getMember(player.uniqueId) ?: return false
-        return clan.isSettingEnabled(ClanSetting.CHEST) &&
-            clan.hasPermission(member, ClanPerms.Action.OPEN_CHEST)
+        return clan.isSettingEnabled(ClanSetting.CHEST) && clan.hasPermission(member, ClanPerms.Action.OPEN_CHEST)
+    }
+
+    private fun requiredLevelForSlot(slot: Int): Int = when {
+        slot < 18 -> 2
+        slot < 27 -> 3
+        slot < 36 -> 4
+        else -> 5
     }
 
     private fun buildProgressBar(percent: Int): String {
@@ -308,4 +319,8 @@ class ClanChestUX(
 
     private fun parseMaterial(name: String, fallback: Material): Material =
         runCatching { Material.valueOf(name.uppercase()) }.getOrDefault(fallback)
+
+    private companion object {
+        const val MAX_STORAGE_SLOTS = 45
+    }
 }
