@@ -2,6 +2,7 @@ package ua.inventorytype.pnclans.impl.listener
 
 import org.bukkit.Bukkit
 import org.bukkit.entity.Player
+import org.bukkit.entity.Projectile
 import org.bukkit.event.EventHandler
 import org.bukkit.event.EventPriority
 import org.bukkit.event.Listener
@@ -27,7 +28,11 @@ class ClanListener(private val plugin: BukkitPlugin) : Listener {
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     fun onEntityDamage(event: EntityDamageByEntityEvent) {
-        val attacker = event.damager as? Player ?: return
+        val attacker = when (val damager = event.damager) {
+            is Player -> damager
+            is Projectile -> damager.shooter as? Player
+            else -> null
+        } ?: return
         val victim = event.entity as? Player ?: return
 
         if (attacker.uniqueId == victim.uniqueId) return
@@ -55,7 +60,6 @@ class ClanListener(private val plugin: BukkitPlugin) : Listener {
         val victimClan = clanService.getClanUser(victim)
         if (victimClan != null) {
             victimClan.deaths += 1
-            if (!organizedBattleKill && victimClan.mmr > 0) victimClan.mmr -= 5
             val victimUser = victimClan.getMember(victim.uniqueId) as? ua.inventorytype.pnclans.impl.clan.ClanUser
             victimUser?.recordDeath()
             victimUser?.points = (victimUser.points - 1).coerceAtLeast(0)
@@ -66,7 +70,6 @@ class ClanListener(private val plugin: BukkitPlugin) : Listener {
             val killerClan = clanService.getClanUser(killer)
             if (killerClan != null) {
                 killerClan.kills += 1
-                if (!organizedBattleKill) killerClan.mmr += 10
                 val killerUser = killerClan.getMember(killer.uniqueId) as? ua.inventorytype.pnclans.impl.clan.ClanUser
                 killerUser?.recordKill()
                 killerUser?.points = (killerUser.points + 3).coerceAtLeast(0)
