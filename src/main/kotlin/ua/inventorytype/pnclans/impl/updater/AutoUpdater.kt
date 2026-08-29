@@ -24,6 +24,7 @@ import java.util.logging.Level
  *
  * Release classification is based only on the semantic version in `tag_name`:
  * - `vX.Y.Z` -> STABLE
+ * - `vX.Y.Z-rc.N` -> release candidate, accepted by BETA/ALPHA channels
  * - `vX.Y.Z-beta.N` -> BETA
  * - `vX.Y.Z-alpha.N` -> ALPHA
  * - drafts and malformed/unknown tags are ignored
@@ -152,7 +153,7 @@ class AutoUpdater(private val plugin: BukkitPlugin) {
 
         val releaseChannel = when (version.stage) {
             ReleaseStage.STABLE -> UpdateChannel.STABLE
-            ReleaseStage.BETA -> UpdateChannel.BETA
+            ReleaseStage.RC, ReleaseStage.BETA -> UpdateChannel.BETA
             ReleaseStage.ALPHA -> UpdateChannel.ALPHA
         }
 
@@ -162,7 +163,7 @@ class AutoUpdater(private val plugin: BukkitPlugin) {
             ?.map { it.jsonObject }
             ?.mapNotNull { asset -> asset["browser_download_url"]?.jsonPrimitive?.contentOrNull }
             ?.firstOrNull { url ->
-                url.startsWith("https://github.com/$repo/releases/download/") && url.endsWith("$assetSuffix.jar")
+                url.startsWith("https://github.com/$repo/releases/download/") && url.endsWith("-$assetSuffix.jar")
             }
 
         return ReleaseCandidate(tag, version, releaseChannel, downloadUrl)
@@ -263,7 +264,7 @@ class AutoUpdater(private val plugin: BukkitPlugin) {
     }
 
     private fun targetArtifactSuffix(): String =
-        if (Runtime.version().feature() >= 25) "java25-all" else "java21-all"
+        if (Runtime.version().feature() >= 25) "paper-java25" else "paper-java21"
 
     private fun isExpectedPluginJar(file: File, version: String): Boolean = runCatching {
         JarFile(file).use { jar ->
@@ -284,7 +285,8 @@ class AutoUpdater(private val plugin: BukkitPlugin) {
     private enum class ReleaseStage(val precedence: Int) {
         ALPHA(0),
         BETA(1),
-        STABLE(2)
+        RC(2),
+        STABLE(3)
     }
 
     private data class SemanticVersion(
@@ -312,6 +314,7 @@ class AutoUpdater(private val plugin: BukkitPlugin) {
                 val stageName = match.groupValues[4]
                 val stage = when (stageName.lowercase()) {
                     "" -> ReleaseStage.STABLE
+                    "rc" -> ReleaseStage.RC
                     "beta" -> ReleaseStage.BETA
                     "alpha" -> ReleaseStage.ALPHA
                     else -> return null
@@ -343,7 +346,7 @@ class AutoUpdater(private val plugin: BukkitPlugin) {
             "release-assets.githubusercontent.com"
         )
         val AUTO_UPDATE_REGEX = Regex("(?m)^\\s*autoUpdate\\s*:\\s*(true|false)\\s*(?:#.*)?$", RegexOption.IGNORE_CASE)
-        val VERSION_REGEX = Regex("^(\\d+)\\.(\\d+)\\.(\\d+)(?:-(alpha|beta)\\.(\\d+))?$", RegexOption.IGNORE_CASE)
-        val JAR_VERSION_REGEX = Regex("""pnClans[^\d]*(\d+\.\d+\.\d+(?:-(?:alpha|beta)\.\d+)?).*""", RegexOption.IGNORE_CASE)
+        val VERSION_REGEX = Regex("^(\\d+)\\.(\\d+)\\.(\\d+)(?:-(alpha|beta|rc)\\.(\\d+))?$", RegexOption.IGNORE_CASE)
+        val JAR_VERSION_REGEX = Regex("""pnClans[^\d]*(\d+\.\d+\.\d+(?:-(?:alpha|beta|rc)\.\d+)?).*""", RegexOption.IGNORE_CASE)
     }
 }
