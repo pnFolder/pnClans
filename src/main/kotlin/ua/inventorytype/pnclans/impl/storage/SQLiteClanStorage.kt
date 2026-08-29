@@ -19,9 +19,7 @@ import java.sql.DriverManager
 import java.util.UUID
 import ua.inventorytype.pnclans.api.clan.TreasuryTransaction
 import ua.inventorytype.pnclans.api.clan.TreasuryTransactionType
-import ua.inventorytype.pnclans.api.clan.ClanPointsTransaction
-import ua.inventorytype.pnclans.api.clan.ClanPointsTransactionType
-import ua.inventorytype.pnclans.api.clan.ClanPointsSource
+import ua.inventorytype.pnclans.api.event.ClanPointsAntiFarmReason
 
 /**
  * SQLite database storage implementation utilizing JDBC connection pooling and JSON payload fallback.
@@ -135,6 +133,7 @@ class SQLiteClanStorage(private val plugin: BukkitPlugin) : IClanStorage {
                     x = loc.x, y = loc.y, z = loc.z, yaw = loc.yaw, pitch = loc.pitch
                 )
             }
+            val impl = clan as? ClanImpl
 
             val dataModel = ClanDataModel(
                 id = clan.id,
@@ -154,13 +153,26 @@ class SQLiteClanStorage(private val plugin: BukkitPlugin) : IClanStorage {
                 highlightType = clan.highlightType.name,
                 members = memberModels,
                 settings = settingModels,
-                homes = homeModels
-                ,treasuryLogs = clan.treasuryLogs.map { TreasuryLogModel(it.type.name, it.playerName, it.amount, it.timestamp) },
-                pointsLogs = clan.pointsLogs.map { ClanPointsLogModel(it.type.name, it.source.name, it.amount, it.balanceAfter, it.timestamp) },
-                rolePermissions = (clan as? ClanImpl)?.rolePermissions.orEmpty()
+                homes = homeModels,
+                treasuryLogs = clan.treasuryLogs.map { TreasuryLogModel(it.type.name, it.playerName, it.amount, it.timestamp) },
+                pointsLogs = clan.pointsLogs.map {
+                    ClanPointsLogModel(it.type.name, it.source.name, it.amount, it.balanceAfter, it.timestamp, it.id, it.actor, it.target, it.reason, it.relatedTransactionId)
+                },
+                pointKillRecords = impl?.pointKillRecords.orEmpty().map {
+                    ClanPointKillRecordModel(
+                        killerUuid = it.killerUuid.toString(),
+                        victimUuid = it.victimUuid.toString(),
+                        sameIp = it.sameIp,
+                        baseAmount = it.baseAmount,
+                        grantedAmount = it.grantedAmount,
+                        reasons = it.reasons.map(ClanPointsAntiFarmReason::name).toSet(),
+                        timestamp = it.timestamp
+                    )
+                },
+                rolePermissions = impl?.rolePermissions.orEmpty()
                     .mapKeys { it.key.name }
                     .mapValues { (_, values) -> values.associate { it.first.node to it.second } },
-                userPermissions = (clan as? ClanImpl)?.userPermissions.orEmpty()
+                userPermissions = impl?.userPermissions.orEmpty()
                     .mapKeys { it.key.toString() }
                     .mapValues { (_, values) -> values.associate { it.first.node to it.second } },
                 questProgress = clan.questProgress.mapValues { (_, value) ->
@@ -181,11 +193,11 @@ class SQLiteClanStorage(private val plugin: BukkitPlugin) : IClanStorage {
                 pstmt.setInt(4, clan.mmr)
                 pstmt.setInt(5, clan.kills)
                 pstmt.setInt(6, clan.deaths)
-                    pstmt.setDouble(7, clan.bankBalance)
-                    pstmt.setLong(8, clan.points)
-                    pstmt.setString(9, clan.highlightColor.name)
-                    pstmt.setString(10, if (clan.highlightEnabled) "ON" else "OFF")
-                    pstmt.setString(11, jsonStr)
+                pstmt.setDouble(7, clan.bankBalance)
+                pstmt.setLong(8, clan.points)
+                pstmt.setString(9, clan.highlightColor.name)
+                pstmt.setString(10, if (clan.highlightEnabled) "ON" else "OFF")
+                pstmt.setString(11, jsonStr)
                 pstmt.executeUpdate()
             }
             true
@@ -228,25 +240,24 @@ class SQLiteClanStorage(private val plugin: BukkitPlugin) : IClanStorage {
                         mmr = model.mmr
                         kills = model.kills
                         deaths = model.deaths
-                            battleWins = model.battleWins
-                            battleLosses = model.battleLosses
-                            bankBalance = model.bankBalance
-                            points = model.points
-                            activityPointsDate = model.activityPointsDate
-                            activityPointsAwardedToday = model.activityPointsAwardedToday
-                            highlightColor = ClanHighlightColor.fromKey(model.highlightColor) ?: ClanHighlightColor.AQUA
-                            highlightEnabled = model.highlightEnabled ?: (model.highlightMode != null && !model.highlightMode.equals("OFF", true))
-                            highlightType = ClanHighlightType.fromKey(model.highlightType) ?: ClanHighlightType.ARMOR
-                            model.treasuryLogs.forEach { entry ->
-                                runCatching { addTreasuryLog(TreasuryTransaction(TreasuryTransactionType.valueOf(entry.type), entry.playerName, entry.amount, entry.timestamp)) }
-                            }
-                            model.pointsLogs.forEach { entry ->
-                                runCatching { addPointsLog(ClanPointsTransaction(ClanPointsTransactionType.valueOf(entry.type), ClanPointsSource.valueOf(entry.source), entry.amount, entry.balanceAfter, entry.timestamp)) }
-                            }
-                            restorePermissionOverrides(this, model.rolePermissions, model.userPermissions)
-                            model.questProgress.forEach { (questId, value) ->
-                                setQuestProgress(questId, ua.inventorytype.pnclans.api.clan.ClanQuestProgress(value.progress, value.completed, value.completedAt, value.completionCount, value.cycleKey))
-                            }
+                        battleWins = model.battleWins
+                        battleLosses = model.battleLosses
+                        bankBalance = model.bankBalance
+                        points = model.points
+                        activityPointsDate = model.activityPointsDate
+                        activityPointsAwardedToday = model.activityPointsAwardedToday
+                        highlightColor = ClanHighlightColor.fromKey(model.highlightColor) ?: ClanHighlightColor.AQUA
+                        highlightEnabled = model.highlightEnabled ?: (model.highlightMode != null && !model.highlightMode.equals("OFF", true))
+                        highlightType = ClanHighlightType.fromKey(model.highlightType) ?: ClanHighlightType.ARMOR
+                        model.treasuryLogs.forEach { entry ->
+                            runCatching { addTreasuryLog(TreasuryTransaction(TreasuryTransactionType.valueOf(entry.type), entry.playerName, entry.amount, entry.timestamp)) }
+                        }
+                        restorePointsLogs(model.pointsLogs.mapNotNull(::decodePointsLog))
+                        restorePointKillRecords(model.pointKillRecords.mapNotNull(::decodePointKillRecord))
+                        restorePermissionOverrides(this, model.rolePermissions, model.userPermissions)
+                        model.questProgress.forEach { (questId, value) ->
+                            setQuestProgress(questId, ua.inventorytype.pnclans.api.clan.ClanQuestProgress(value.progress, value.completed, value.completedAt, value.completionCount, value.cycleKey))
+                        }
                     }
 
                     model.settings.forEach { (key, valBool) ->

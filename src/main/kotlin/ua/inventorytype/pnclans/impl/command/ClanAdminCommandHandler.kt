@@ -1,12 +1,9 @@
 package ua.inventorytype.pnclans.impl.command
 
-import org.bukkit.Bukkit
 import org.bukkit.command.CommandSender
 import ua.inventorytype.pnclans.BukkitPlugin
 import ua.inventorytype.pnclans.api.clan.Clan
-import ua.inventorytype.pnclans.api.clan.ClanPointsSource
 import ua.inventorytype.pnclans.api.clan.ClanQuestProgress
-import ua.inventorytype.pnclans.api.clan.ClanRole
 import ua.inventorytype.pnclans.api.clan.TreasuryTransaction
 import ua.inventorytype.pnclans.api.clan.TreasuryTransactionType
 import ua.inventorytype.pnclans.impl.clan.ClanStatsPeriod
@@ -17,6 +14,9 @@ import java.math.BigDecimal
 /** Validated administrative mutations exposed through `/clan admin`. */
 internal class ClanAdminCommandHandler(private val plugin: BukkitPlugin) {
     private val clans get() = plugin.clanService
+    private val pointsAdmin = ClanAdminPointsCommandHandler(plugin)
+    private val shopAdmin = ClanAdminShopCommandHandler(plugin)
+    private val memberAdmin = ClanAdminMemberCommandHandler(plugin)
 
     fun execute(sender: CommandSender, args: List<String>): Boolean {
         if (!sender.hasPermission(ADMIN_PERMISSION)) {
@@ -30,9 +30,10 @@ internal class ClanAdminCommandHandler(private val plugin: BukkitPlugin) {
             "stats" -> showMemberStats(sender, args.drop(1))
             "mmr" -> mutateMmr(sender, args.drop(1))
             "bank", "treasury" -> mutateBank(sender, args.drop(1))
-            "points" -> mutatePoints(sender, args.drop(1))
+            "points" -> pointsAdmin.execute(sender, args.drop(1))
+            "shop" -> shopAdmin.execute(sender, args.drop(1))
             "level" -> mutateLevel(sender, args.drop(1))
-            "member" -> mutateMember(sender, args.drop(1))
+            "member" -> memberAdmin.execute(sender, args.drop(1))
             "quest" -> mutateQuest(sender, args.drop(1))
             "battle" -> mutateBattle(sender, args.drop(1))
             "save" -> {
@@ -44,22 +45,23 @@ internal class ClanAdminCommandHandler(private val plugin: BukkitPlugin) {
                 }
             }
             "reload" -> reload(sender)
-            else -> {
-                sender.reply("&#FC3737✖ &fНеизвестная админская операция. Используйте &e/clan admin help&f.")
-            }
+            else -> sender.reply("&#FC3737✖ &fНеизвестная админская операция. Используйте &e/clan admin help&f.")
         }
         return true
     }
 
     fun complete(args: List<String>): List<String> {
         if (args.isEmpty()) return ACTIONS
+        if (args.firstOrNull().equals("points", true)) return pointsAdmin.complete(args.drop(1))
+        if (args.firstOrNull().equals("shop", true)) return shopAdmin.complete(args.drop(1))
+        if (args.firstOrNull().equals("member", true)) return memberAdmin.complete(args.drop(1))
+
         val current = args.last()
         val suggestions = when (args.size) {
             1 -> ACTIONS
             2 -> when (args[0].lowercase()) {
-                "mmr", "bank", "treasury", "points" -> VALUE_OPERATIONS
+                "mmr", "bank", "treasury" -> VALUE_OPERATIONS
                 "level" -> listOf("set")
-                "member" -> listOf("remove")
                 "quest" -> listOf("reset")
                 "battle" -> listOf("stop")
                 "info" -> clanNames()
@@ -67,8 +69,7 @@ internal class ClanAdminCommandHandler(private val plugin: BukkitPlugin) {
                 else -> emptyList()
             }
             3 -> when (args[0].lowercase()) {
-                "mmr", "bank", "treasury", "points", "level", "quest", "battle" -> clanNames()
-                "member" -> memberNames()
+                "mmr", "bank", "treasury", "level", "quest", "battle" -> clanNames()
                 "stats" -> ClanStatsPeriod.entries.map { it.name.lowercase() }
                 else -> emptyList()
             }
@@ -173,33 +174,6 @@ internal class ClanAdminCommandHandler(private val plugin: BukkitPlugin) {
         audit(sender, "${parsed.operation} bank ${parsed.clan.id} amount=${parsed.amount} result=${parsed.clan.bankBalance}")
     }
 
-    private fun mutatePoints(sender: CommandSender, args: List<String>) {
-        val parsed = parseLongMutation(sender, args, "/clan admin points <add|remove|set> <clan> <amount>") ?: return
-        val target = when (parsed.operation) {
-            "add" -> runCatching { Math.addExact(parsed.clan.points, parsed.amount) }.getOrNull()
-            "remove" -> parsed.clan.points - parsed.amount
-            "set" -> parsed.amount
-            else -> return usage(sender, "/clan admin points <add|remove|set> <clan> <amount>")
-        }
-        if (target == null || target < 0L) {
-            sender.reply("&#FC3737✖ &fИтоговый баланс клановых очков недопустим.")
-            return
-        }
-        val delta = target - parsed.clan.points
-        val success = when {
-            delta > 0L -> plugin.clanPointsService.award(parsed.clan, delta, ClanPointsSource.ADMIN)
-            delta < 0L -> plugin.clanPointsService.spend(parsed.clan, -delta, ClanPointsSource.ADMIN)
-            else -> true
-        }
-        if (!success) {
-            sender.reply("&#FC3737✖ &fОперация с очками отменена событием или отклонена проверкой.")
-            return
-        }
-        parsed.clan.users.forEach { clans.notifyClanUpdated(it.uuid) }
-        sender.reply("&#5EFD7D✔ &fОчки клана &#5EA9FD${parsed.clan.name}&f: &#FC65DF${parsed.clan.points}&f.")
-        audit(sender, "${parsed.operation} points ${parsed.clan.id} amount=${parsed.amount} result=${parsed.clan.points}")
-    }
-
     private fun mutateLevel(sender: CommandSender, args: List<String>) {
         if (!args.getOrNull(0).equals("set", true)) return usage(sender, "/clan admin level set <clan> <1..5>")
         val clan = args.getOrNull(1)?.let(clans::getClanByName) ?: return usage(sender, "/clan admin level set <clan> <1..5>")
@@ -210,28 +184,6 @@ internal class ClanAdminCommandHandler(private val plugin: BukkitPlugin) {
         if (!saveAndNotify(sender, clan) { clan.level = previousLevel }) return
         sender.reply("&#5EFD7D✔ &fУровень клана &#5EA9FD${clan.name} &fустановлен на &e$level&f.")
         audit(sender, "set level ${clan.id} result=$level")
-    }
-
-    private fun mutateMember(sender: CommandSender, args: List<String>) {
-        if (!args.getOrNull(0).equals("remove", true)) return usage(sender, "/clan admin member remove <player>")
-        val playerName = args.getOrNull(1) ?: return usage(sender, "/clan admin member remove <player>")
-        val (clan, member) = clans.findMemberByName(playerName) ?: run {
-            sender.reply("&#FC3737✖ &fУчастник &e$playerName &fне найден.")
-            return
-        }
-        if (clan.getUserRole(member) == ClanRole.LEADER) {
-            sender.reply("&#FC3737✖ &fЛидера нельзя удалить обычной командой. Сначала передайте лидерство или распустите клан через подтверждение.")
-            return
-        }
-        if (!clans.removeUserFromClan(clan, member.uuid, kicked = true)) {
-            sender.reply("&#FC3737✖ &fУдаление участника отменено событием или ошибкой сохранения.")
-            return
-        }
-        clan.users.forEach { clans.notifyClanUpdated(it.uuid) }
-        clans.notifyClanUpdated(member.uuid)
-        Bukkit.getPlayer(member.uuid)?.sendMessage(ColorUtil.color("&#FC3737✖ &fАдминистратор исключил вас из клана &#5EA9FD${clan.name}&f."))
-        sender.reply("&#5EFD7D✔ &fИгрок &e${member.playerName} &fудалён из клана &#5EA9FD${clan.name}&f.")
-        audit(sender, "removed member ${member.uuid} from ${clan.id}")
     }
 
     private fun mutateQuest(sender: CommandSender, args: List<String>) {
@@ -315,9 +267,10 @@ internal class ClanAdminCommandHandler(private val plugin: BukkitPlugin) {
         sender.reply("&#5EA9FD/clan admin stats <player> [period] &8• &fстатистика участника")
         sender.reply("&#5EA9FD/clan admin mmr <add|remove|set> <clan> <amount>")
         sender.reply("&#5EA9FD/clan admin bank <add|remove|set> <clan> <amount>")
-        sender.reply("&#5EA9FD/clan admin points <add|remove|set> <clan> <amount>")
+        sender.reply("&#5EA9FD/clan admin points <...> &8• &fистория, reset, rollback и anti-farm")
+        sender.reply("&#5EA9FD/clan admin shop <...> &8• &fтовары, цены, категории, addhand")
+        sender.reply("&#5EA9FD/clan admin member <...> &8• &fсостав, роли и передача лидерства")
         sender.reply("&#5EA9FD/clan admin level set <clan> <1..5>")
-        sender.reply("&#5EA9FD/clan admin member remove <player>")
         sender.reply("&#5EA9FD/clan admin quest reset <clan> <quest-id>")
         sender.reply("&#5EA9FD/clan admin battle stop <clan> [winner-clan]")
         sender.reply("&#5EA9FD/clan admin save &8• &#5EA9FD/clan admin reload")
@@ -347,7 +300,7 @@ internal class ClanAdminCommandHandler(private val plugin: BukkitPlugin) {
 
     private companion object {
         const val ADMIN_PERMISSION = "pnclans.admin"
-        val ACTIONS = listOf("help", "info", "stats", "mmr", "bank", "points", "level", "member", "quest", "battle", "save", "reload")
+        val ACTIONS = listOf("help", "info", "stats", "mmr", "bank", "points", "shop", "member", "level", "quest", "battle", "save", "reload")
         val VALUE_OPERATIONS = listOf("add", "remove", "set")
     }
 }

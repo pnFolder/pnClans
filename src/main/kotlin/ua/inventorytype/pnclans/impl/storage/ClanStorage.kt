@@ -15,6 +15,7 @@ import ua.inventorytype.pnclans.api.clan.ClanSetting
 import ua.inventorytype.pnclans.impl.clan.ClanImpl
 import ua.inventorytype.pnclans.impl.clan.ClanUser
 import ua.inventorytype.pnclans.impl.clan.ClanDailyCombatStats
+import ua.inventorytype.pnclans.impl.clan.ClanPointKillRecord
 import java.io.File
 import java.nio.file.Files
 import java.nio.file.StandardCopyOption
@@ -25,6 +26,7 @@ import ua.inventorytype.pnclans.api.clan.ClanPointsTransaction
 import ua.inventorytype.pnclans.api.clan.ClanPointsTransactionType
 import ua.inventorytype.pnclans.api.clan.ClanPointsSource
 import ua.inventorytype.pnclans.api.clan.ClanQuestProgress
+import ua.inventorytype.pnclans.api.event.ClanPointsAntiFarmReason
 import ua.inventorytype.pnclans.api.permission.ClanPerms
 
 @Serializable
@@ -50,6 +52,7 @@ data class ClanDataModel(
     val homes: Map<String, ClanHomeModel> = emptyMap(),
     val treasuryLogs: List<TreasuryLogModel> = emptyList(),
     val pointsLogs: List<ClanPointsLogModel> = emptyList(),
+    val pointKillRecords: List<ClanPointKillRecordModel> = emptyList(),
     val rolePermissions: Map<String, Map<String, Boolean>> = emptyMap(),
     val userPermissions: Map<String, Map<String, Boolean>> = emptyMap(),
     val questProgress: Map<String, ClanQuestProgressModel> = emptyMap()
@@ -87,7 +90,23 @@ data class ClanPointsLogModel(
     val source: String,
     val amount: Long,
     val balanceAfter: Long,
-    val timestamp: Long
+    val timestamp: Long,
+    val id: String = "",
+    val actor: String? = null,
+    val target: String? = null,
+    val reason: String? = null,
+    val relatedTransactionId: String? = null
+)
+
+@Serializable
+data class ClanPointKillRecordModel(
+    val killerUuid: String,
+    val victimUuid: String,
+    val sameIp: Boolean = false,
+    val baseAmount: Long = 0L,
+    val grantedAmount: Long = 0L,
+    val reasons: Set<String> = emptySet(),
+    val timestamp: Long = 0L
 )
 
 @Serializable
@@ -150,6 +169,7 @@ class ClanStorage(private val plugin: BukkitPlugin) : IClanStorage {
                     pitch = loc.pitch
                 )
             }
+            val impl = clan as? ClanImpl
 
             val dataModel = ClanDataModel(
                 id = clan.id,
@@ -169,13 +189,26 @@ class ClanStorage(private val plugin: BukkitPlugin) : IClanStorage {
                 highlightType = clan.highlightType.name,
                 members = memberModels,
                 settings = settingModels,
-                homes = homeModels
-                ,treasuryLogs = clan.treasuryLogs.map { TreasuryLogModel(it.type.name, it.playerName, it.amount, it.timestamp) },
-                pointsLogs = clan.pointsLogs.map { ClanPointsLogModel(it.type.name, it.source.name, it.amount, it.balanceAfter, it.timestamp) },
-                rolePermissions = (clan as? ClanImpl)?.rolePermissions.orEmpty()
+                homes = homeModels,
+                treasuryLogs = clan.treasuryLogs.map { TreasuryLogModel(it.type.name, it.playerName, it.amount, it.timestamp) },
+                pointsLogs = clan.pointsLogs.map {
+                    ClanPointsLogModel(it.type.name, it.source.name, it.amount, it.balanceAfter, it.timestamp, it.id, it.actor, it.target, it.reason, it.relatedTransactionId)
+                },
+                pointKillRecords = impl?.pointKillRecords.orEmpty().map {
+                    ClanPointKillRecordModel(
+                        killerUuid = it.killerUuid.toString(),
+                        victimUuid = it.victimUuid.toString(),
+                        sameIp = it.sameIp,
+                        baseAmount = it.baseAmount,
+                        grantedAmount = it.grantedAmount,
+                        reasons = it.reasons.map(ClanPointsAntiFarmReason::name).toSet(),
+                        timestamp = it.timestamp
+                    )
+                },
+                rolePermissions = impl?.rolePermissions.orEmpty()
                     .mapKeys { it.key.name }
                     .mapValues { (_, values) -> values.associate { it.first.node to it.second } },
-                userPermissions = (clan as? ClanImpl)?.userPermissions.orEmpty()
+                userPermissions = impl?.userPermissions.orEmpty()
                     .mapKeys { it.key.toString() }
                     .mapValues { (_, values) -> values.associate { it.first.node to it.second } },
                 questProgress = clan.questProgress.mapValues { (_, value) ->
@@ -237,9 +270,8 @@ class ClanStorage(private val plugin: BukkitPlugin) : IClanStorage {
                     model.treasuryLogs.forEach { entry ->
                         runCatching { addTreasuryLog(TreasuryTransaction(TreasuryTransactionType.valueOf(entry.type), entry.playerName, entry.amount, entry.timestamp)) }
                     }
-                    model.pointsLogs.forEach { entry ->
-                        runCatching { addPointsLog(ClanPointsTransaction(ClanPointsTransactionType.valueOf(entry.type), ClanPointsSource.valueOf(entry.source), entry.amount, entry.balanceAfter, entry.timestamp)) }
-                    }
+                    restorePointsLogs(model.pointsLogs.mapNotNull(::decodePointsLog))
+                    restorePointKillRecords(model.pointKillRecords.mapNotNull(::decodePointKillRecord))
                     restorePermissionOverrides(this, model.rolePermissions, model.userPermissions)
                     model.questProgress.forEach { (questId, value) ->
                         setQuestProgress(questId, ClanQuestProgress(value.progress, value.completed, value.completedAt, value.completionCount, value.cycleKey))
@@ -293,6 +325,33 @@ class ClanStorage(private val plugin: BukkitPlugin) : IClanStorage {
         }.getOrDefault(arrayOfNulls(54))
     }
 }
+
+internal fun decodePointsLog(entry: ClanPointsLogModel): ClanPointsTransaction? = runCatching {
+    ClanPointsTransaction(
+        type = ClanPointsTransactionType.valueOf(entry.type),
+        source = ClanPointsSource.valueOf(entry.source),
+        amount = entry.amount,
+        balanceAfter = entry.balanceAfter,
+        timestamp = entry.timestamp,
+        id = entry.id.takeIf(String::isNotBlank) ?: UUID.randomUUID().toString(),
+        actor = entry.actor,
+        target = entry.target,
+        reason = entry.reason,
+        relatedTransactionId = entry.relatedTransactionId
+    )
+}.getOrNull()
+
+internal fun decodePointKillRecord(entry: ClanPointKillRecordModel): ClanPointKillRecord? = runCatching {
+    ClanPointKillRecord(
+        killerUuid = UUID.fromString(entry.killerUuid),
+        victimUuid = UUID.fromString(entry.victimUuid),
+        sameIp = entry.sameIp,
+        baseAmount = entry.baseAmount,
+        grantedAmount = entry.grantedAmount,
+        reasons = entry.reasons.mapNotNull { runCatching { ClanPointsAntiFarmReason.valueOf(it) }.getOrNull() }.toSet(),
+        timestamp = entry.timestamp
+    )
+}.getOrNull()
 
 private fun writeAtomically(file: File, content: String) {
     val temp = File(file.parentFile, "${file.name}.tmp")

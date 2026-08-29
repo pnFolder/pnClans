@@ -47,14 +47,53 @@ class ClanImpl(
     override fun addPointsLog(log: ClanPointsTransaction) {
         synchronized(_pointsLogs) {
             _pointsLogs.add(log)
-            if (_pointsLogs.size > 500) _pointsLogs.removeAt(0)
+            if (_pointsLogs.size > EMERGENCY_POINTS_LOG_LIMIT) _pointsLogs.removeAt(0)
         }
     }
 
     internal fun restorePointsLogs(logs: List<ClanPointsTransaction>) {
         synchronized(_pointsLogs) {
             _pointsLogs.clear()
-            _pointsLogs.addAll(logs)
+            _pointsLogs.addAll(logs.takeLast(EMERGENCY_POINTS_LOG_LIMIT))
+        }
+    }
+
+    internal fun prunePointsLogs(maxCount: Int) {
+        synchronized(_pointsLogs) {
+            val target = maxCount.coerceAtLeast(1)
+            while (_pointsLogs.size > target) _pointsLogs.removeAt(0)
+        }
+    }
+
+    private val _pointKillRecords = java.util.Collections.synchronizedList(mutableListOf<ClanPointKillRecord>())
+    internal val pointKillRecords: List<ClanPointKillRecord>
+        get() = synchronized(_pointKillRecords) { _pointKillRecords.toList() }
+
+    internal fun addPointKillRecord(record: ClanPointKillRecord) {
+        synchronized(_pointKillRecords) {
+            _pointKillRecords.add(record)
+            if (_pointKillRecords.size > EMERGENCY_ANTI_FARM_LIMIT) _pointKillRecords.removeAt(0)
+        }
+    }
+
+    internal fun restorePointKillRecords(records: List<ClanPointKillRecord>) {
+        synchronized(_pointKillRecords) {
+            _pointKillRecords.clear()
+            _pointKillRecords.addAll(records.takeLast(EMERGENCY_ANTI_FARM_LIMIT))
+        }
+    }
+
+    internal fun clearPointKillRecords() {
+        synchronized(_pointKillRecords) { _pointKillRecords.clear() }
+    }
+
+    internal fun prunePointKillRecords(oldestAllowed: Long, maxCount: Int) {
+        synchronized(_pointKillRecords) {
+            if (oldestAllowed != Long.MIN_VALUE) {
+                _pointKillRecords.removeIf { it.timestamp < oldestAllowed }
+            }
+            val target = maxCount.coerceAtLeast(1)
+            while (_pointKillRecords.size > target) _pointKillRecords.removeAt(0)
         }
     }
 
@@ -244,4 +283,9 @@ class ClanImpl(
 
     /** Returns the [User] with the given UUID in O(1), or null if not a member. */
     fun getUserByUuid(uuid: UUID): User? = _members[uuid]?.user
+
+    private companion object {
+        const val EMERGENCY_POINTS_LOG_LIMIT = 10_000
+        const val EMERGENCY_ANTI_FARM_LIMIT = 20_000
+    }
 }

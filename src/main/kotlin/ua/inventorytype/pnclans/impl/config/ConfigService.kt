@@ -18,10 +18,12 @@ import java.nio.file.StandardCopyOption
 /**
  * Service responsible for loading, saving, and managing all plugin configuration files.
  *
- * Manages three YAML files:
- * - `config.yml`   → [Settings]      — general plugin settings, storage type, economy options
- * - `menus.yml`    → [MenusConfig]   — 100% config-driven GUI layout, item slots, actions
- * - `messages.yml` → [MessagesConfig] — all player-facing event responses as [Action] lists
+ * Managed YAML files:
+ * - `config.yml`   → [Settings] — general plugin settings, storage type, economy options
+ * - `menus.yml`    → [MenusConfig] — config-driven GUI layout, item slots, actions
+ * - `messages.yml` → [MessagesConfig] — player-facing event responses as [Action] lists
+ * - `points.yml`   → [ClanPointsConfig] — anti-farm, personal point and point-history rules
+ * - `shop.yml`     → [ClanShopConfig] — clan shop catalogue and display
  * - `quests.yml`   → [ClanQuestsConfig] — shared quest objectives, cycles, prerequisites, and rewards
  * - `battles.yml`  → [ClanBattlesConfig] — arena battles, rules, rewards, and battle GUI
  *
@@ -59,6 +61,9 @@ class ConfigService(private val plugin: Plugin) {
      */
     lateinit var messages: MessagesConfig private set
 
+    /** Loaded point, history and anti-farm rules from `points.yml`. */
+    lateinit var points: ClanPointsConfig private set
+
     /** Loaded clan shop definition from `shop.yml`. */
     lateinit var shop: ClanShopConfig private set
 
@@ -78,6 +83,7 @@ class ConfigService(private val plugin: Plugin) {
         val previousSettings = if (::settings.isInitialized) settings else null
         val previousMenus = if (::menus.isInitialized) menus else null
         val previousMessages = if (::messages.isInitialized) messages else null
+        val previousPoints = if (::points.isInitialized) points else null
         val previousShop = if (::shop.isInitialized) shop else null
         val previousQuests = if (::quests.isInitialized) quests else null
         val previousBattles = if (::battles.isInitialized) battles else null
@@ -90,6 +96,7 @@ class ConfigService(private val plugin: Plugin) {
             settings = loadOrCreate("config.yml", Settings.serializer(), Settings())
             menus = loadOrCreate("menus.yml", MenusConfig.serializer(), MenusConfig())
             messages = loadOrCreate("messages.yml", MessagesConfig.serializer(), MessagesConfig())
+            points = loadOrCreate("points.yml", ClanPointsConfig.serializer(), ClanPointsConfig())
             val defaultShop = ClanShopConfig()
             val shopFile = File(plugin.dataFolder, "shop.yml")
             val existingShopContent = shopFile.takeIf(File::exists)?.readText()
@@ -128,6 +135,7 @@ class ConfigService(private val plugin: Plugin) {
             previousSettings?.let { settings = it }
             previousMenus?.let { menus = it }
             previousMessages?.let { messages = it }
+            previousPoints?.let { points = it }
             previousShop?.let { shop = it }
             previousQuests?.let { quests = it }
             previousBattles?.let { battles = it }

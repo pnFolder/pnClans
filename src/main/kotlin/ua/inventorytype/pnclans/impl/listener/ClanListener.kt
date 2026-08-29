@@ -18,7 +18,10 @@ import org.bukkit.event.player.PlayerQuitEvent
 import ua.inventorytype.pnclans.BukkitPlugin
 import ua.inventorytype.pnclans.api.clan.ClanSetting
 import ua.inventorytype.pnclans.api.clan.ClanPointsSource
+import ua.inventorytype.pnclans.impl.clan.ClanPointsService
+import ua.inventorytype.pnclans.impl.clan.ClanUser
 import ua.inventorytype.pnclans.impl.config.ClanChatMode
+import kotlin.math.floor
 
 class ClanListener(private val plugin: BukkitPlugin) : Listener {
 
@@ -56,13 +59,18 @@ class ClanListener(private val plugin: BukkitPlugin) : Listener {
         val victimBattle = plugin.clanBattleService.battleForPlayer(victim)
         val organizedBattleKill = victimBattle != null && killer != null &&
             victimBattle.id == plugin.clanBattleService.battleForPlayer(killer)?.id
+        val memberCfg = configService.points.memberPoints
 
         val victimClan = clanService.getClanUser(victim)
         if (victimClan != null) {
             victimClan.deaths += 1
-            val victimUser = victimClan.getMember(victim.uniqueId) as? ua.inventorytype.pnclans.impl.clan.ClanUser
+            val victimUser = victimClan.getMember(victim.uniqueId) as? ClanUser
             victimUser?.recordDeath()
-            victimUser?.points = (victimUser.points - 1).coerceAtLeast(0)
+            victimUser?.let {
+                it.points = (it.points.toLong() - memberCfg.deathPenalty.toLong())
+                    .coerceIn(0L, Int.MAX_VALUE.toLong())
+                    .toInt()
+            }
             clanService.saveClan(victimClan)
         }
 
@@ -70,14 +78,36 @@ class ClanListener(private val plugin: BukkitPlugin) : Listener {
             val killerClan = clanService.getClanUser(killer)
             if (killerClan != null) {
                 killerClan.kills += 1
-                val killerUser = killerClan.getMember(killer.uniqueId) as? ua.inventorytype.pnclans.impl.clan.ClanUser
+                val killerUser = killerClan.getMember(killer.uniqueId) as? ClanUser
                 killerUser?.recordKill()
-                killerUser?.points = (killerUser.points + 3).coerceAtLeast(0)
-                val awarded = organizedBattleKill || plugin.clanPointsService.award(
+
+                val decision = if (organizedBattleKill) null else plugin.clanPointsAntiFarmService.evaluate(
                     killerClan,
-                    cfg.clanPointsPerPlayerKill,
-                    ClanPointsSource.PLAYER_KILL
+                    killer,
+                    victim,
+                    cfg.clanPointsPerPlayerKill
                 )
+                val personalMultiplier = if (memberCfg.applyAntiFarmMultiplier && decision != null) decision.multiplier else 1.0
+                val personalReward = floor(memberCfg.playerKillReward.toDouble() * personalMultiplier)
+                    .toLong()
+                    .coerceAtLeast(0L)
+                killerUser?.let {
+                    it.points = (it.points.toLong() + personalReward)
+                        .coerceIn(0L, Int.MAX_VALUE.toLong())
+                        .toInt()
+                }
+
+                val awarded = when {
+                    organizedBattleKill -> true
+                    decision == null || decision.amount <= 0L -> false
+                    else -> (plugin.clanPointsService as ClanPointsService).awardPlayerKill(
+                        clan = killerClan,
+                        amount = decision.amount,
+                        killerName = killer.name,
+                        victimName = victim.name,
+                        antiFarmReasons = decision.reasons
+                    )
+                }
                 plugin.clanQuestService.recordPlayerKill(killerClan, killer)
                 if (!awarded) clanService.saveClan(killerClan)
             }
@@ -171,7 +201,7 @@ class ClanListener(private val plugin: BukkitPlugin) : Listener {
         // Обновляем сохраненный ник игрока, если он изменился в Minecraft
         val user = clan.getMember(player.uniqueId)
         if (user != null && user.playerName != player.name) {
-            (user as? ua.inventorytype.pnclans.impl.clan.ClanUser)?.playerName = player.name
+            (user as? ClanUser)?.playerName = player.name
             clanService.saveClan(clan)
         }
 
