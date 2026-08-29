@@ -113,15 +113,20 @@ jobs:
           test -f "release-artifacts/pnClans-${{ steps.metadata.outputs.version }}-paper-java21.jar"
           test -f "release-artifacts/pnClans-${{ steps.metadata.outputs.version }}-paper-java25.jar"
 
-      - name: Publish release
+      - name: Publish or update release
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           set -euo pipefail
           TAG="${{ steps.metadata.outputs.tag }}"
+
           if gh release view "$TAG" >/dev/null 2>&1; then
-            echo "Release $TAG already exists; nothing to publish."
+            echo "Updating existing $TAG as a regular GitHub Release"
+            gh release edit "$TAG" \
+              --title "${{ steps.metadata.outputs.title }}" \
+              --notes-file "${{ steps.metadata.outputs.notes }}" \
+              --prerelease=false
             exit 0
           fi
 
