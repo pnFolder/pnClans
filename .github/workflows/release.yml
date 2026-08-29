@@ -76,16 +76,12 @@ jobs:
 
           if [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
             STAGE="STABLE"
-            PRERELEASE="false"
           elif [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+-alpha\.[1-9][0-9]*$ ]]; then
             STAGE="ALPHA"
-            PRERELEASE="true"
           elif [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+-beta\.[1-9][0-9]*$ ]]; then
             STAGE="BETA"
-            PRERELEASE="true"
           elif [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+-rc\.[1-9][0-9]*$ ]]; then
             STAGE="RC"
-            PRERELEASE="true"
           else
             echo "Unsupported release version '$VERSION'. Expected X.Y.Z, X.Y.Z-alpha.N, X.Y.Z-beta.N or X.Y.Z-rc.N" >&2
             exit 1
@@ -109,7 +105,6 @@ jobs:
           echo "notes=$NOTES" >> "$GITHUB_OUTPUT"
           echo "title=$TITLE" >> "$GITHUB_OUTPUT"
           echo "stage=$STAGE" >> "$GITHUB_OUTPUT"
-          echo "prerelease=$PRERELEASE" >> "$GITHUB_OUTPUT"
 
       - name: Verify release assets
         shell: bash
@@ -130,16 +125,10 @@ jobs:
             exit 0
           fi
 
-          EXTRA_ARGS=()
-          if [ "${{ steps.metadata.outputs.prerelease }}" = "true" ]; then
-            EXTRA_ARGS+=(--prerelease)
-          fi
-
           echo "Publishing $TAG as ${{ steps.metadata.outputs.stage }}"
           gh release create "$TAG" \
             "release-artifacts/pnClans-${{ steps.metadata.outputs.version }}-paper-java21.jar" \
             "release-artifacts/pnClans-${{ steps.metadata.outputs.version }}-paper-java25.jar" \
             --target "$GITHUB_SHA" \
             --title "${{ steps.metadata.outputs.title }}" \
-            --notes-file "${{ steps.metadata.outputs.notes }}" \
-            "${EXTRA_ARGS[@]}"
+            --notes-file "${{ steps.metadata.outputs.notes }}"
