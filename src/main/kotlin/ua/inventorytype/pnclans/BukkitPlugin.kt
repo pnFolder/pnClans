@@ -18,6 +18,7 @@ import ua.inventorytype.pnclans.impl.clan.ClanInviteService
 import ua.inventorytype.pnclans.impl.clan.ClanHighlightService
 import ua.inventorytype.pnclans.impl.clan.ClanService
 import ua.inventorytype.pnclans.impl.clan.ClanPointsService
+import ua.inventorytype.pnclans.impl.clan.ClanPointsAntiFarmService
 import ua.inventorytype.pnclans.impl.clan.ClanActivityPointsService
 import ua.inventorytype.pnclans.impl.clan.ClanQuestService
 import ua.inventorytype.pnclans.impl.clan.ClanBattleService
@@ -29,6 +30,7 @@ import ua.inventorytype.pnclans.impl.config.ConfigService
 import ua.inventorytype.pnclans.impl.config.ConfigValidator
 import ua.inventorytype.pnclans.impl.config.ConfigurationBackfill
 import ua.inventorytype.pnclans.impl.config.MenuConfigValidator
+import ua.inventorytype.pnclans.impl.config.PointsConfigValidator
 import ua.inventorytype.pnclans.impl.economy.EconomyService
 import ua.inventorytype.pnclans.impl.inventory.listener.GuiListener
 import ua.inventorytype.pnclans.impl.listener.ClanListener
@@ -61,6 +63,9 @@ class BukkitPlugin : JavaPlugin() {
         private set
 
     lateinit var clanPointsService: ClanPoints
+        private set
+
+    internal lateinit var clanPointsAntiFarmService: ClanPointsAntiFarmService
         private set
 
     lateinit var clanActivityPointsService: ClanActivityPointsService
@@ -119,6 +124,7 @@ class BukkitPlugin : JavaPlugin() {
         // after the next /reload or server restart.
         configService.loadAll()
         ConfigValidator.validate(this, configService)
+        PointsConfigValidator.validate(this, configService)
         MenuConfigValidator.validate(this, configService)
     }
 
@@ -138,6 +144,7 @@ class BukkitPlugin : JavaPlugin() {
         placeholderRegistry = PlaceholderRegistry()
         clanService = ClanService(this)
         clanPointsService = ClanPointsService(clanService)
+        clanPointsAntiFarmService = ClanPointsAntiFarmService(this)
         clanActivityPointsService = ClanActivityPointsService(this)
         clanQuestService = ClanQuestService(this)
         clanBattleService = ClanBattleService(this)
