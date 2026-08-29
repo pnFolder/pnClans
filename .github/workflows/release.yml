@@ -40,8 +40,8 @@ jobs:
       - name: Upload release JAR
         uses: actions/upload-artifact@v4
         with:
-          name: pnClans-release-java${{ matrix.java }}
-          path: build/libs/*-java${{ matrix.java }}-all.jar
+          name: pnClans-release-paper-java${{ matrix.java }}
+          path: build/libs/pnClans-*-paper-java${{ matrix.java }}.jar
           if-no-files-found: error
           retention-days: 1
 
@@ -59,7 +59,7 @@ jobs:
       - name: Download release JARs
         uses: actions/download-artifact@v4
         with:
-          pattern: pnClans-release-java*
+          pattern: pnClans-release-paper-java*
           path: release-artifacts
           merge-multiple: true
 
@@ -75,16 +75,19 @@ jobs:
           fi
 
           if [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            CHANNEL="STABLE"
+            STAGE="STABLE"
             PRERELEASE="false"
-          elif [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+-beta\.[0-9]+$ ]]; then
-            CHANNEL="BETA"
+          elif [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+-alpha\.[1-9][0-9]*$ ]]; then
+            STAGE="ALPHA"
             PRERELEASE="true"
-          elif [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+-alpha\.[0-9]+$ ]]; then
-            CHANNEL="ALPHA"
+          elif [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+-beta\.[1-9][0-9]*$ ]]; then
+            STAGE="BETA"
+            PRERELEASE="true"
+          elif [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+-rc\.[1-9][0-9]*$ ]]; then
+            STAGE="RC"
             PRERELEASE="true"
           else
-            echo "Unsupported release version '$VERSION'. Expected X.Y.Z, X.Y.Z-beta.N or X.Y.Z-alpha.N" >&2
+            echo "Unsupported release version '$VERSION'. Expected X.Y.Z, X.Y.Z-alpha.N, X.Y.Z-beta.N or X.Y.Z-rc.N" >&2
             exit 1
           fi
 
@@ -93,22 +96,27 @@ jobs:
             echo "Missing release notes file: $NOTES" >&2
             exit 1
           fi
+
+          TAG="v${VERSION}"
           TITLE="$(sed -n '1s/^# //p' "$NOTES")"
-          if [ -z "$TITLE" ]; then
-            TITLE="pnClans v${VERSION}"
+          if [[ ! "$TITLE" =~ ^${TAG}[[:space:]]—[[:space:]].+ ]]; then
+            echo "Release title must start with '$TAG — '" >&2
+            exit 1
           fi
+
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
           echo "notes=$NOTES" >> "$GITHUB_OUTPUT"
           echo "title=$TITLE" >> "$GITHUB_OUTPUT"
-          echo "channel=$CHANNEL" >> "$GITHUB_OUTPUT"
+          echo "stage=$STAGE" >> "$GITHUB_OUTPUT"
           echo "prerelease=$PRERELEASE" >> "$GITHUB_OUTPUT"
 
       - name: Verify release assets
         shell: bash
         run: |
           set -euo pipefail
-          test -f "release-artifacts/pnClans-${{ steps.metadata.outputs.version }}-java21-all.jar"
-          test -f "release-artifacts/pnClans-${{ steps.metadata.outputs.version }}-java25-all.jar"
+          test -f "release-artifacts/pnClans-${{ steps.metadata.outputs.version }}-paper-java21.jar"
+          test -f "release-artifacts/pnClans-${{ steps.metadata.outputs.version }}-paper-java25.jar"
 
       - name: Publish release
         env:
@@ -116,7 +124,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          TAG="v${{ steps.metadata.outputs.version }}"
+          TAG="${{ steps.metadata.outputs.tag }}"
           if gh release view "$TAG" >/dev/null 2>&1; then
             echo "Release $TAG already exists; nothing to publish."
             exit 0
@@ -127,10 +135,10 @@ jobs:
             EXTRA_ARGS+=(--prerelease)
           fi
 
-          echo "Publishing $TAG as ${{ steps.metadata.outputs.channel }}"
+          echo "Publishing $TAG as ${{ steps.metadata.outputs.stage }}"
           gh release create "$TAG" \
-            "release-artifacts/pnClans-${{ steps.metadata.outputs.version }}-java21-all.jar" \
-            "release-artifacts/pnClans-${{ steps.metadata.outputs.version }}-java25-all.jar" \
+            "release-artifacts/pnClans-${{ steps.metadata.outputs.version }}-paper-java21.jar" \
+            "release-artifacts/pnClans-${{ steps.metadata.outputs.version }}-paper-java25.jar" \
             --target "$GITHUB_SHA" \
             --title "${{ steps.metadata.outputs.title }}" \
             --notes-file "${{ steps.metadata.outputs.notes }}" \
