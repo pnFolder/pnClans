@@ -4,8 +4,9 @@ import org.bukkit.Material
 import org.bukkit.command.CommandSender
 import org.bukkit.entity.Player
 import ua.inventorytype.pnclans.BukkitPlugin
+import ua.inventorytype.pnclans.api.Action
 import ua.inventorytype.pnclans.api.ItemRewardAction
-import ua.inventorytype.pnclans.api.clan.Clan
+import ua.inventorytype.pnclans.api.SerializedItemRewardAction
 import ua.inventorytype.pnclans.api.shop.ClanShopCurrency
 import ua.inventorytype.pnclans.impl.config.ClanShopPaymentOption
 import ua.inventorytype.pnclans.impl.config.ClanShopProductConfig
@@ -109,21 +110,12 @@ internal class ClanAdminShopCommandHandler(private val plugin: BukkitPlugin) {
                 sender.reply("&#FC3737✖ &fВозьмите предмет в основную руку.")
                 return
             }
-            val meta = held.itemMeta
-            val rewardAction = ItemRewardAction(
-                item = held.type.name,
-                amount = held.amount.coerceAtLeast(1),
-                name = meta?.takeIf { it.hasDisplayName() }?.displayName,
-                lore = meta?.lore.orEmpty(),
-                enchantments = held.enchantments.mapKeys { (enchantment, _) -> enchantment.key.key.uppercase() },
-                unbreakable = meta?.isUnbreakable ?: false,
-                unsafeEnchantments = true
-            )
+            val serialized = ItemStackSerializer.toBase64(arrayOf(held))
             AddItemData(
                 material = held.type,
                 amount = held.amount.coerceAtLeast(1),
-                itemStack = ItemStackSerializer.toBase64(arrayOf(held)),
-                reward = rewardAction,
+                itemStack = serialized,
+                reward = SerializedItemRewardAction(serialized),
                 nextIndex = 1
             )
         } else {
@@ -274,7 +266,7 @@ internal class ClanAdminShopCommandHandler(private val plugin: BukkitPlugin) {
         sender.reply("&#5EA9FD/clan admin shop list [page]")
         sender.reply("&#5EA9FD/clan admin shop info <product-id>")
         sender.reply("&#5EA9FD/clan admin shop add <id> <material> <price> [currency] [category]")
-        sender.reply("&#5EA9FD/clan admin shop addhand <id> <price> [currency] [category] &8• предмет из руки")
+        sender.reply("&#5EA9FD/clan admin shop addhand <id> <price> [currency] [category] &8• точная копия предмета из руки")
         sender.reply("&#5EA9FD/clan admin shop price <id> <price> [currency]")
         sender.reply("&#5EA9FD/clan admin shop category <id> <category>")
         sender.reply("&#5EA9FD/clan admin shop slot <id> <0..53>")
@@ -291,7 +283,7 @@ internal class ClanAdminShopCommandHandler(private val plugin: BukkitPlugin) {
         val material: Material,
         val amount: Int,
         val itemStack: String?,
-        val reward: ItemRewardAction,
+        val reward: Action,
         val nextIndex: Int
     )
 
