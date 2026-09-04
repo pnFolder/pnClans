@@ -41,7 +41,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: pnClans-release-paper-java${{ matrix.java }}
-          path: build/libs/pnClans-*-paper-java${{ matrix.java }}.jar
+          path: build/libs/pnClans-*-paper-mc1.21.11-java${{ matrix.java }}.jar
           if-no-files-found: error
           retention-days: 1
 
@@ -76,12 +76,16 @@ jobs:
 
           if [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
             STAGE="STABLE"
+            PRERELEASE="false"
           elif [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+-alpha\.[1-9][0-9]*$ ]]; then
             STAGE="ALPHA"
+            PRERELEASE="true"
           elif [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+-beta\.[1-9][0-9]*$ ]]; then
             STAGE="BETA"
+            PRERELEASE="true"
           elif [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+-rc\.[1-9][0-9]*$ ]]; then
             STAGE="RC"
+            PRERELEASE="true"
           else
             echo "Unsupported release version '$VERSION'. Expected X.Y.Z, X.Y.Z-alpha.N, X.Y.Z-beta.N or X.Y.Z-rc.N" >&2
             exit 1
@@ -105,13 +109,14 @@ jobs:
           echo "notes=$NOTES" >> "$GITHUB_OUTPUT"
           echo "title=$TITLE" >> "$GITHUB_OUTPUT"
           echo "stage=$STAGE" >> "$GITHUB_OUTPUT"
+          echo "prerelease=$PRERELEASE" >> "$GITHUB_OUTPUT"
 
       - name: Verify release assets
         shell: bash
         run: |
           set -euo pipefail
-          test -f "release-artifacts/pnClans-${{ steps.metadata.outputs.version }}-paper-java21.jar"
-          test -f "release-artifacts/pnClans-${{ steps.metadata.outputs.version }}-paper-java25.jar"
+          test -f "release-artifacts/pnClans-${{ steps.metadata.outputs.version }}-paper-mc1.21.11-java21.jar"
+          test -f "release-artifacts/pnClans-${{ steps.metadata.outputs.version }}-paper-mc1.21.11-java25.jar"
 
       - name: Publish or update release
         env:
@@ -120,20 +125,27 @@ jobs:
         run: |
           set -euo pipefail
           TAG="${{ steps.metadata.outputs.tag }}"
+          PRERELEASE="${{ steps.metadata.outputs.prerelease }}"
 
           if gh release view "$TAG" >/dev/null 2>&1; then
-            echo "Updating existing $TAG as a regular GitHub Release"
+            echo "Updating existing $TAG"
             gh release edit "$TAG" \
               --title "${{ steps.metadata.outputs.title }}" \
               --notes-file "${{ steps.metadata.outputs.notes }}" \
-              --prerelease=false
+              --prerelease="$PRERELEASE"
             exit 0
+          fi
+
+          PRERELEASE_ARGS=()
+          if [ "$PRERELEASE" = "true" ]; then
+            PRERELEASE_ARGS+=(--prerelease)
           fi
 
           echo "Publishing $TAG as ${{ steps.metadata.outputs.stage }}"
           gh release create "$TAG" \
-            "release-artifacts/pnClans-${{ steps.metadata.outputs.version }}-paper-java21.jar" \
-            "release-artifacts/pnClans-${{ steps.metadata.outputs.version }}-paper-java25.jar" \
+            "release-artifacts/pnClans-${{ steps.metadata.outputs.version }}-paper-mc1.21.11-java21.jar" \
+            "release-artifacts/pnClans-${{ steps.metadata.outputs.version }}-paper-mc1.21.11-java25.jar" \
             --target "$GITHUB_SHA" \
             --title "${{ steps.metadata.outputs.title }}" \
-            --notes-file "${{ steps.metadata.outputs.notes }}"
+            --notes-file "${{ steps.metadata.outputs.notes }}" \
+            "${PRERELEASE_ARGS[@]}"
