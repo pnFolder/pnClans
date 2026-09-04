@@ -203,6 +203,10 @@ class ClanCommand(
                         sender.sendMessage(msg(sender, cfg.msgNoPermission))
                         return true
                     }
+                    if (!args.getOrNull(1).equals("confirm", ignoreCase = true)) {
+                        sender.sendMessage("§c[pnClans] Для подтверждения роспуска клана используйте §e/clan disband confirm§c.")
+                        return true
+                    }
                     val errorMsg = clanService.disbandClan(
                         clan,
                         sender,
@@ -254,6 +258,13 @@ class ClanCommand(
             if (modules.treasury) subcommands.addAll(listOf("deposit", "withdraw"))
             if (modules.chest) subcommands.add("chest")
             return (subcommands + plugin.publicSubcommandNames()).filter { it.startsWith(args[0], ignoreCase = true) }
+        }
+        if (args.size == 2 && args[0].equals("disband", true)) {
+            val player = sender as? Player ?: return emptyList()
+            val clan = clanService.getClanUser(player) ?: return emptyList()
+            val member = clan.getMember(player.uniqueId) ?: return emptyList()
+            if (clan.getUserRole(member) != ClanRole.LEADER) return emptyList()
+            return listOf("confirm").filter { it.startsWith(args[1], ignoreCase = true) }
         }
         if (args.size == 2 && modules.homes && args[0].lowercase() in setOf("home", "sethome", "delhome")) {
             val p = sender as? Player ?: return emptyList()
