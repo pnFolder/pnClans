@@ -193,7 +193,25 @@ class ClanCommand(
                     } else MainUX(clanService).open(sender)
                 }
 
-                "invite", "kick", "leave", "disband" -> MainUX(clanService).open(sender)
+                "disband" -> {
+                    val clan = clanService.getClanUser(sender) ?: run {
+                        sender.sendMessage(msg(sender, cfg.msgNoClan))
+                        return true
+                    }
+                    val member = clan.getMember(sender.uniqueId) ?: return true
+                    if (clan.getUserRole(member) != ClanRole.LEADER) {
+                        sender.sendMessage(msg(sender, cfg.msgNoPermission))
+                        return true
+                    }
+                    val errorMsg = clanService.disbandClan(
+                        clan,
+                        sender,
+                        endActiveBattle = plugin.clanBattleService.hasActiveBattle(clan)
+                    )
+                    if (errorMsg != null) sender.sendMessage(errorMsg)
+                }
+
+                "invite", "kick", "leave" -> MainUX(clanService).open(sender)
                 "reload" -> adminHandler.execute(sender, listOf("reload"))
 
                 else -> {
@@ -229,7 +247,7 @@ class ClanCommand(
         }
         val modules = cfg.modules
         if (args.size == 1) {
-            val subcommands = mutableListOf("menu", "accept", "deny", "top", "stats")
+            val subcommands = mutableListOf("menu", "accept", "deny", "top", "stats", "disband")
             if (sender.hasPermission("pnclans.admin")) subcommands.addAll(listOf("admin", "reload"))
             if (configService.battles.enabled) subcommands.add("battle")
             if (modules.homes) subcommands.addAll(listOf("home", "sethome", "delhome"))
