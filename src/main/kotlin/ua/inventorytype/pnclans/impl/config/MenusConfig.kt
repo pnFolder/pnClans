@@ -24,6 +24,20 @@ data class GuiMenuConfig(
     val items: Map<String, GuiItemConfig> = emptyMap()
 )
 
+@Serializable
+data class GuiBackgroundConfig(
+    @YamlComment("Включает декоративный фон в тех GUI, где он добавлен явно")
+    val enabled: Boolean = true,
+    @YamlComment("Материал основных ячеек фона")
+    val primaryMaterial: String = "BLACK_STAINED_GLASS_PANE",
+    @YamlComment("Материал акцентных ячеек фона")
+    val secondaryMaterial: String = "ORANGE_STAINED_GLASS_PANE",
+    @YamlComment("Слоты основных ячеек фона")
+    val primarySlots: List<Int> = listOf(0, 2, 3, 4, 5, 6, 8, 10, 16, 17, 18, 26, 27, 35, 37, 43, 45, 47, 48, 50, 51, 53),
+    @YamlComment("Слоты акцентных ячеек фона")
+    val secondarySlots: List<Int> = listOf(1, 7, 9, 11, 12, 13, 14, 15, 19, 25, 28, 34, 36, 38, 39, 40, 41, 42, 44, 46, 52)
+)
+
 /**
  * Configuration of the main clan dashboard with dynamic state labels.
  *
@@ -109,6 +123,9 @@ data class TopMenuConfig(
  */
 @Serializable
 class MenusConfig {
+
+    @YamlComment("Общий декоративный фон. Каждый GUI подключает его явно")
+    val background: GuiBackgroundConfig = GuiBackgroundConfig()
 
     @YamlComment("Меню для игрока, который пока не состоит в клане")
     val noClanMenu: GuiMenuConfig = defaultNoClanMenu()

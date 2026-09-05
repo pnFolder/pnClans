@@ -54,7 +54,7 @@ class ClanShopUX(
         currentPage = currentPage.coerceAtMost(pageCount() - 1)
         title(config.title)
         rows(guiRows)
-        hotWorldDecor(true)
+        background(clanService.plugin.configService.menus.background)
 
         addHeader()
         addCategories()

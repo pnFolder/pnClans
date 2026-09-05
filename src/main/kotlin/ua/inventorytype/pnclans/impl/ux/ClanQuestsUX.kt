@@ -52,7 +52,7 @@ class ClanQuestsUX(
     init {
         title(config.title)
         rows(guiRows)
-        hotWorldDecor(true)
+        background(clanService.plugin.configService.menus.background)
         addHeader()
         addQuestEntries()
         addControls()

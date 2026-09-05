@@ -24,7 +24,7 @@ class UserPermissionsUX(
 
         title(menuCfg.title.replace("{player}", targetMember.playerName))
         rows(menuCfg.rows.coerceIn(1, 6))
-        hotWorldDecor(true)
+        background(clanService.plugin.configService.menus.background)
 
         menuCfg.items["permission"]?.let { permissionTemplate ->
             permissionSlots(menuCfg.rows).zip(ClanPerms.ALL_PERMISSIONS).forEach { (slotIndex, perm) ->

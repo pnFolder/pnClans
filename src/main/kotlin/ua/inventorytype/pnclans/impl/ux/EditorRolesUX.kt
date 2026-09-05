@@ -25,7 +25,7 @@ class EditorRolesUX(clanService: ClanService) : BaseGui(clanService) {
 
         title(menuCfg.title)
         rows(menuCfg.rows)
-        hotWorldDecor(true)
+        background(clanService.plugin.configService.menus.background)
 
         menuCfg.items["overview"]?.let { itemCfg ->
             slot(itemCfg.slot) {
@@ -133,7 +133,7 @@ class RolePermissionsUX(
 
         title("&#FC7D37« Права Роли » &7• $roleName")
         rows(6)
-        hotWorldDecor(true)
+        background(clanService.plugin.configService.menus.background)
 
         menuCfg.items["permission"]?.let { permissionTemplate ->
             ClanPerms.ALL_PERMISSIONS.take(permissionSlots.size).forEachIndexed { index, perm ->

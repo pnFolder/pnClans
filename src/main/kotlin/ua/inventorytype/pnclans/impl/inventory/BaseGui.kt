@@ -12,14 +12,14 @@ import org.bukkit.inventory.InventoryHolder
 import ua.inventorytype.pnclans.api.ActionContext
 import ua.inventorytype.pnclans.impl.clan.ClanService
 import ua.inventorytype.pnclans.impl.config.GuiMenuConfig
+import ua.inventorytype.pnclans.impl.config.GuiBackgroundConfig
 import ua.inventorytype.pnclans.impl.inventory.annotation.GuiDsl
-import ua.inventorytype.pnclans.impl.inventory.builder.ItemBuilder
 import ua.inventorytype.pnclans.impl.inventory.builder.SlotBuilder
 import ua.inventorytype.pnclans.impl.util.ColorUtil
 
 /**
  * Base abstract GUI class supporting fluent DSL layout, YAML config deserialization,
- * dynamic updates, and signature HotWorld glass border decor.
+ * dynamic updates, and explicitly configured decoration.
  */
 @GuiDsl
 abstract class BaseGui(
@@ -32,8 +32,6 @@ abstract class BaseGui(
 
     private val slots = mutableMapOf<Int, SlotBuilder>()
     private var closeAction: ((InventoryCloseEvent) -> Unit)? = null
-    private var borderMaterial: Material? = null
-    private var hotWorldDecor: Boolean = false
 
     private val inv: Inventory by lazy {
         if (type == InventoryType.CHEST) {
@@ -79,11 +77,6 @@ abstract class BaseGui(
             inventory.setItem(index, slots[index]?.buildItemFor(player))
         }
 
-        if (hotWorldDecor) {
-            applyHotWorldDecor()
-        } else {
-            borderMaterial?.let { applyBorder(it) }
-        }
     }
 
     fun update(player: Player) {
@@ -97,21 +90,37 @@ abstract class BaseGui(
             }
         }
 
-        if (hotWorldDecor) {
-            applyHotWorldDecor()
-        } else {
-            borderMaterial?.let { applyBorder(it) }
-        }
     }
 
     fun border(material: Material) {
-        this.borderMaterial = material
+        val size = if (type == InventoryType.CHEST) rows.coerceIn(1, 6) * 9 else type.defaultSize
+        for (index in 0 until size) {
+            val isBorder = if (type == InventoryType.CHEST) {
+                index < 9 || index >= size - 9 || index % 9 == 0 || index % 9 == 8
+            } else {
+                index == 0 || index == size - 1
+            }
+            if (isBorder) decorativeSlot(index, material)
+        }
     }
 
-    /** Enables signature Orange & Black glass pattern decor */
-    fun hotWorldDecor(enabled: Boolean = true) {
-        this.hotWorldDecor = enabled
+    /** Adds the configured background to this GUI. Functional slots declared later override it. */
+    fun background(config: GuiBackgroundConfig) {
+        if (!config.enabled) return
+        val primary = parseMaterial(config.primaryMaterial, Material.BLACK_STAINED_GLASS_PANE)
+        val secondary = parseMaterial(config.secondaryMaterial, Material.ORANGE_STAINED_GLASS_PANE)
+        config.primarySlots.forEach { decorativeSlot(it, primary) }
+        config.secondarySlots.forEach { decorativeSlot(it, secondary) }
     }
+
+    private fun decorativeSlot(index: Int, material: Material) {
+        val size = if (type == InventoryType.CHEST) rows.coerceIn(1, 6) * 9 else type.defaultSize
+        if (index !in 0 until size) return
+        slot(index) { item(material) { name(" ") } }
+    }
+
+    private fun parseMaterial(value: String, fallback: Material): Material =
+        runCatching { Material.valueOf(value.uppercase()) }.getOrDefault(fallback)
 
     /**
      * Digitizes and populates GUI title, rows, item slots, materials, names, lores, glow, and actions
@@ -123,8 +132,6 @@ abstract class BaseGui(
     ) {
         title(guiConfig.title)
         rows(guiConfig.rows)
-        hotWorldDecor(true)
-
         guiConfig.items.forEach { (key, itemConfig) ->
             if (itemConfig.slot in 0 until (rows * 9)) {
                 slot(itemConfig.slot) {
@@ -171,42 +178,6 @@ abstract class BaseGui(
     open fun open(player: Player) {
         update(player)
         player.openInventory(inventory)
-    }
-
-    private fun applyHotWorldDecor() {
-        val blackItem = ItemBuilder(Material.BLACK_STAINED_GLASS_PANE).apply { name(" ") }.build()
-        val orangeItem = ItemBuilder(Material.ORANGE_STAINED_GLASS_PANE).apply { name(" ") }.build()
-
-        val blackSlots = intArrayOf(0, 2, 3, 4, 5, 6, 8, 10, 16, 17, 18, 26, 27, 35, 37, 43, 45, 47, 48, 50, 51, 53)
-        val orangeSlots = intArrayOf(1, 7, 9, 11, 12, 13, 14, 15, 19, 25, 28, 34, 36, 38, 39, 40, 41, 42, 44, 46, 52)
-
-        for (s in blackSlots) {
-            if (s < inventory.size && inventory.getItem(s) == null) inventory.setItem(s, blackItem)
-        }
-        for (s in orangeSlots) {
-            if (s < inventory.size && inventory.getItem(s) == null) inventory.setItem(s, orangeItem)
-        }
-    }
-
-    private fun applyBorder(material: Material) {
-        val borderItem = ItemBuilder(material).apply { name(" ") }.build()
-        val size = inventory.size
-
-        for (i in 0 until size) {
-            if (type == InventoryType.CHEST) {
-                if (i < 9 || i >= size - 9 || i % 9 == 0 || i % 9 == 8) {
-                    if (inventory.getItem(i) == null) {
-                        inventory.setItem(i, borderItem)
-                    }
-                }
-            } else {
-                if (i == 0 || i == size - 1) {
-                    if (inventory.getItem(i) == null) {
-                        inventory.setItem(i, borderItem)
-                    }
-                }
-            }
-        }
     }
 
     open fun handleClose(e: InventoryCloseEvent) {

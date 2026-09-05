@@ -18,7 +18,7 @@ class NoClanUX(clanService: ClanService) : BaseGui(clanService) {
 
         title(menuCfg.title)
         rows(menuCfg.rows.coerceIn(1, 6))
-        hotWorldDecor(true)
+        background(clanService.plugin.configService.menus.background)
 
         addItem("info")
         addItem("create", mapOf("cost" to cfg.settings.createClanCost.toBigDecimal().stripTrailingZeros().toPlainString())) { player ->

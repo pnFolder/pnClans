@@ -25,7 +25,7 @@ class TreasuryUX(clanService: ClanService) : BaseGui(clanService) {
 
         title(menuCfg.title)
         rows(menuCfg.rows)
-        hotWorldDecor(true)
+        background(clanService.plugin.configService.menus.background)
 
         menuCfg.items["center"]?.let { itemCfg ->
             slot(itemCfg.slot) {
@@ -409,7 +409,7 @@ class HistoryUX(
 
         title(menuCfg.title.replace("{page}", (currentPage + 1).toString()).replace("{pages}", "?"))
         rows(menuCfg.rows.coerceIn(1, 6))
-        hotWorldDecor(true)
+        background(clanService.plugin.configService.menus.background)
 
         entrySlots.forEachIndexed { position, slotIndex ->
             slot(slotIndex) {

@@ -20,7 +20,7 @@ class ClanColorUX(clanService: ClanService) : BaseGui(clanService) {
 
         title(menuCfg.title)
         rows(menuCfg.rows.coerceIn(1, 6))
-        hotWorldDecor(true)
+        background(clanService.plugin.configService.menus.background)
 
         addItem("overview", placeholders = { clan -> commonPlaceholders(clan) })
         addItem("typeInfo")

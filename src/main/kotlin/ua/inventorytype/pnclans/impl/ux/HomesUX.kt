@@ -35,7 +35,7 @@ class HomesUX(
 
         title(applyPlaceholders(homeCfg.title, pagePlaceholders))
         rows(homeCfg.rows)
-        hotWorldDecor(true)
+        background(clanService.plugin.configService.menus.background)
 
         homeCfg.homes.filter { it.page == currentPage }.forEach { entry ->
             val lockedMat = parseMaterial(entry.lockedMaterial, Material.BARRIER)

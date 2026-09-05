@@ -23,7 +23,7 @@ class HelpUX(clanService: ClanService) : BaseGui(clanService) {
 
         title(menuCfg.title)
         rows(menuCfg.rows)
-        hotWorldDecor(true)
+        background(clanService.plugin.configService.menus.background)
 
         menuCfg.items["evolution"]?.let { itemCfg ->
             slot(itemCfg.slot) {

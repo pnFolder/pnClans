@@ -40,7 +40,7 @@ class TopClansUX(
 
         title(replace(menuCfg.title, pagePlaceholders))
         rows(menuCfg.rows)
-        hotWorldDecor(true)
+        background(clanService.plugin.configService.menus.background)
 
         menuCfg.items["overview"]?.let { itemCfg ->
             slot(itemCfg.slot) {

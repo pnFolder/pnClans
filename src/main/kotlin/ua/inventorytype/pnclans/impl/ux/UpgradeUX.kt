@@ -25,7 +25,7 @@ class UpgradeUX(clanService: ClanService) : BaseGui(clanService) {
 
         title(menuCfg.title)
         rows(menuCfg.rows)
-        hotWorldDecor(true)
+        background(clanService.plugin.configService.menus.background)
 
         val levelSlots = listOf(20, 22, 24, 29, 31)
         menuCfg.items["level"]?.let { levelTemplate ->

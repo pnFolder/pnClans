@@ -23,7 +23,7 @@ class ClanShopPaymentUX(
     init {
         title(config.display.paymentTitle)
         rows(6)
-        hotWorldDecor(true)
+        background(clanService.plugin.configService.menus.background)
 
         product?.let { configuredProduct ->
             slot(13) {
