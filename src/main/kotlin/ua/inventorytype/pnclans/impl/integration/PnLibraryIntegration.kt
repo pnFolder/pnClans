@@ -44,7 +44,7 @@ class PnLibraryIntegration(private val plugin: BukkitPlugin) : AutoCloseable {
                 .support(PnLibraryIdentity.SUPPORT_URL)
                 .build())
             setup.metrics { metrics ->
-                metrics.bStats(BSTATS_PROJECT_ID).charts { charts ->
+                metrics.bStats(BSTATS_PROJECT_ID).fastStats(FASTSTATS_TOKEN).charts { charts ->
                     charts.simplePie("clan_chat_mode") { plugin.configService.settings.clanChat.mode.name }
                     charts.simplePie("storage_type") { plugin.configService.settings.storageType.uppercase() }
                     charts.simplePie("update_channel") { plugin.configService.settings.updateChannel.name }
@@ -181,6 +181,7 @@ class PnLibraryIntegration(private val plugin: BukkitPlugin) : AutoCloseable {
     companion object {
         private const val MODULE_ID = "pnclans"
         private const val BSTATS_PROJECT_ID = 33208
+        private const val FASTSTATS_TOKEN = "735be9bdf5db9ca9ee9cf05dc73fbfcc"
         private const val POLICY_SOURCE =
             "https://raw.githubusercontent.com/pnFolder/pnlibrary-policy/main/.pnlibrary/policies/PnClansPolicy.java"
         const val MINIMUM_LIBRARY_VERSION = "0.0.1-dev.6"
