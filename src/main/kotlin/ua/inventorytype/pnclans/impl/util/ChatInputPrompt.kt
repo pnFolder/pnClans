@@ -1,5 +1,7 @@
 package ua.inventorytype.pnclans.impl.util
 
+import ua.inventorytype.pnclans.impl.integration.entity
+import ua.inventorytype.pnclans.impl.integration.laterEntity
 import org.bukkit.Bukkit
 import org.bukkit.entity.Player
 import org.bukkit.event.EventHandler
@@ -7,7 +9,7 @@ import org.bukkit.event.EventPriority
 import org.bukkit.event.Listener
 import org.bukkit.event.player.AsyncPlayerChatEvent
 import org.bukkit.event.player.PlayerQuitEvent
-import ru.privatenull.pnlibrary.api.tasks.TaskHandle
+import org.pnfolder.pnlibrary.api.tasks.TaskHandle
 import ua.inventorytype.pnclans.BukkitPlugin
 import java.time.Duration
 import java.util.UUID

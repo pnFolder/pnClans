@@ -4,11 +4,6 @@ import com.charleskorn.kaml.PolymorphismStyle
 import com.charleskorn.kaml.Yaml
 import com.charleskorn.kaml.YamlConfiguration
 import kotlinx.serialization.KSerializer
-import ru.privatenull.pnlibrary.core.config.yaml.CodeFirstYaml
-import ru.privatenull.pnlibrary.api.config.ConfigCodec
-import ru.privatenull.pnlibrary.api.config.ConfigGroup
-import ru.privatenull.pnlibrary.api.config.ConfigValueValidator
-import ru.privatenull.pnlibrary.api.config.ManagedConfig
 import org.bukkit.entity.Player
 import org.bukkit.plugin.Plugin
 import ua.inventorytype.pnclans.BukkitPlugin
@@ -57,10 +52,6 @@ class ConfigService(private val plugin: Plugin) {
     private val shopFile = managed("shop.yml", ClanShopConfig.serializer(), ClanShopConfig())
     private val questsFile = managed("quests.yml", ClanQuestsConfig.serializer(), ClanQuestsConfig())
     private val battlesFile = managed("battles.yml", ClanBattlesConfig.serializer(), ClanBattlesConfig())
-
-    private val files = ConfigGroup()
-        .add(settingsFile).add(menusFile).add(messagesFile).add(pointsFile)
-        .add(shopFile).add(questsFile).add(battlesFile)
 
     /** Loaded general plugin settings from `config.yml`. */
     lateinit var settings: Settings private set
@@ -184,8 +175,8 @@ class ConfigService(private val plugin: Plugin) {
         battlesFile.save(battles)
     }
 
-    /** Выгружает все конфигурации из памяти, не удаляя файлы. */
-    fun unloadAll() = files.unloadAll()
+    /** Значения живут в полях сервиса и освобождаются вместе с ним; файлы не удаляются. */
+    fun unloadAll() = Unit
 
     /**
      * Retrieves the configurable display name for a [ClanRole] from `config.yml`.
@@ -293,17 +284,8 @@ class ConfigService(private val plugin: Plugin) {
      * @param default The default instance to serialize and write if the file is missing.
      * @return The deserialized configuration instance.
      */
-    private fun <T> managed(fileName: String, serializer: KSerializer<T>, default: T): ManagedConfig<T> =
-        CodeFirstYaml(
-            file = File(plugin.dataFolder, fileName),
-            defaults = default,
-            codec = object : ConfigCodec<T> {
-                override fun encode(value: T): String = yaml.encodeToString(serializer, value)
-                override fun decode(yaml: String): T = this@ConfigService.yaml.decodeFromString(serializer, yaml)
-            },
-            logger = plugin.logger,
-            validator = ConfigValueValidator { emptyList() },
-        )
+    private fun <T> managed(fileName: String, serializer: KSerializer<T>, default: T): ManagedYamlFile<T> =
+        ManagedYamlFile(File(plugin.dataFolder, fileName), default, plugin.logger, yaml, serializer)
 }
 
 /** Named animation slots exposed through [ConfigService.animationFrames]. */
