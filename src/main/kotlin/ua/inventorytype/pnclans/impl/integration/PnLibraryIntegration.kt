@@ -1,15 +1,17 @@
 package ua.inventorytype.pnclans.impl.integration
 
 import org.bukkit.Bukkit
-import ru.privatenull.pnlibrary.api.diagnostics.DiagnosticLevel
-import ru.privatenull.pnlibrary.api.diagnostics.DiagnosticConfiguration
-import ru.privatenull.pnlibrary.api.diagnostics.DiagnosticContainer
-import ru.privatenull.pnlibrary.api.runtime.PnLibrary
-import ru.privatenull.pnlibrary.api.runtime.PnLibraryProvider
-import ru.privatenull.pnlibrary.api.plugin.PluginContext
-import ru.privatenull.pnlibrary.api.updates.PluginUpdateRequest
-import ru.privatenull.pnlibrary.api.updates.UpdateChannel
-import ru.privatenull.pnlibrary.api.tasks.TaskScope
+import org.pnfolder.pnlibrary.api.diagnostics.DiagnosticLevel
+import org.pnfolder.pnlibrary.api.diagnostics.DiagnosticConfiguration
+import org.pnfolder.pnlibrary.api.diagnostics.DiagnosticContainer
+import org.pnfolder.pnlibrary.api.runtime.PnLibrary
+import org.pnfolder.pnlibrary.api.runtime.PnLibraryProvider
+import org.pnfolder.pnlibrary.api.plugin.ModuleContext
+import org.pnfolder.pnlibrary.api.remote.PolicyErrorAction
+import org.pnfolder.pnlibrary.api.remote.RemotePolicySettings
+import org.pnfolder.pnlibrary.api.runtime.PnLibraryIdentity
+import org.pnfolder.pnlibrary.api.updates.UpdateChannel
+import org.pnfolder.pnlibrary.api.tasks.TaskScope
 import ua.inventorytype.pnclans.BukkitPlugin
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.function.Supplier
@@ -30,53 +32,69 @@ class PnLibraryIntegration(private val plugin: BukkitPlugin) : AutoCloseable {
     private var loadedAddons = 0
     private var closed = false
 
-    private val context: PluginContext = library.plugins.register(plugin) { setup ->
-        setup.metrics(BSTATS_PROJECT_ID) { metrics ->
-            metrics.simplePie("clan_chat_mode") { plugin.configService.settings.clanChat.mode.name }
-            metrics.simplePie("storage_type") { plugin.configService.settings.storageType.uppercase() }
-            metrics.simplePie("update_channel") { plugin.configService.settings.updateChannel.name }
-            metrics.simplePie("economy_available") { economyConnected.toString() }
-            metrics.simplePie("placeholder_api") { placeholderConnected.toString() }
-            metrics.singleLineChart("loaded_addons") { loadedAddons }
+    private val registration = library.plugins.register(plugin)
+
+    private val context: ModuleContext = try {
+        registration.registerModule(MODULE_ID) { setup ->
+            // A policy that cannot be checked (offline server, JRE without a compiler) never stops pnClans;
+            // only an explicit denial from the policy does.
+            setup.remotePolicy(RemotePolicySettings.builder()
+                .source(POLICY_SOURCE)
+                .onError(PolicyErrorAction.KEEP_RUNNING)
+                .support(PnLibraryIdentity.SUPPORT_URL)
+                .build())
+            setup.metrics { metrics ->
+                metrics.bStats(BSTATS_PROJECT_ID).charts { charts ->
+                    charts.simplePie("clan_chat_mode") { plugin.configService.settings.clanChat.mode.name }
+                    charts.simplePie("storage_type") { plugin.configService.settings.storageType.uppercase() }
+                    charts.simplePie("update_channel") { plugin.configService.settings.updateChannel.name }
+                    charts.simplePie("economy_available") { economyConnected.toString() }
+                    charts.simplePie("placeholder_api") { placeholderConnected.toString() }
+                    charts.singleLineChart("loaded_addons") { loadedAddons }
+                }
+            }
+            setup.diagnostics(plugin.dataFolder.toPath(), DiagnosticContainer.builder("pnclans")
+                .snapshot(Supplier {
+                    val clans = runCatching { plugin.clanService.getAllClans() }.getOrDefault(emptyList())
+                    mapOf(
+                        "version" to plugin.description.version,
+                        "storageType" to plugin.configService.settings.storageType.uppercase(),
+                        "storageImplementation" to runCatching { plugin.clanService.storage.javaClass.name }.getOrNull(),
+                        "loadedClans" to clans.size,
+                        "loadedMembers" to clans.sumOf { it.users.size },
+                        "onlineClanMembers" to Bukkit.getOnlinePlayers().count {
+                            runCatching { plugin.clanService.getClanByUuid(it.uniqueId) != null }.getOrDefault(false)
+                        },
+                        "loadedAddons" to loadedAddons,
+                        "economyConnected" to economyConnected,
+                        "placeholderApiConnected" to placeholderConnected,
+                        "packetEventsInitialized" to runCatching {
+                            com.github.retrooper.packetevents.PacketEvents.getAPI().isInitialized
+                        }.getOrDefault(false),
+                        "reportedErrors" to reportedErrors.get(),
+                    )
+                })
+                .configuration(DiagnosticConfiguration.builder("config.yml")
+                    .secretKeyRegex("(?i).*(password|passwd|token|secret|api[-_]?key|webhook|credential).*")
+                    .build())
+                .configuration("menus.yml")
+                .configuration("messages.yml")
+                .configuration("points.yml")
+                .configuration("shop.yml")
+                .configuration("quests.yml")
+                .configuration("battles.yml")
+                .build())
+            setup.updates("pnFolder", "pnClans") { updater ->
+                updater
+                    .channel(Supplier { UpdateChannel.valueOf(plugin.configService.settings.updateChannel.name) })
+                    .automaticDownload(plugin.configService.settings.autoUpdate)
+                    .artifact("(?i)^pnClans-.*-paper-.*-java21\\.jar$", 21, 24)
+                    .artifact("(?i)^pnClans-.*-paper-.*-java25\\.jar$", 25)
+            }
         }
-        setup.diagnostics(plugin.dataFolder.toPath(), DiagnosticContainer.builder("pnclans")
-            .snapshot(Supplier {
-                val clans = runCatching { plugin.clanService.getAllClans() }.getOrDefault(emptyList())
-                mapOf(
-                    "version" to plugin.description.version,
-                    "storageType" to plugin.configService.settings.storageType.uppercase(),
-                    "storageImplementation" to runCatching { plugin.clanService.storage.javaClass.name }.getOrNull(),
-                    "loadedClans" to clans.size,
-                    "loadedMembers" to clans.sumOf { it.users.size },
-                    "onlineClanMembers" to Bukkit.getOnlinePlayers().count {
-                        runCatching { plugin.clanService.getClanByUuid(it.uniqueId) != null }.getOrDefault(false)
-                    },
-                    "loadedAddons" to loadedAddons,
-                    "economyConnected" to economyConnected,
-                    "placeholderApiConnected" to placeholderConnected,
-                    "packetEventsInitialized" to runCatching {
-                        com.github.retrooper.packetevents.PacketEvents.getAPI().isInitialized
-                    }.getOrDefault(false),
-                    "reportedErrors" to reportedErrors.get(),
-                )
-            })
-            .configuration(DiagnosticConfiguration.file("config.yml")
-                .secretKeyRegex("(?i).*(password|passwd|token|secret|api[-_]?key|webhook|credential).*")
-                .build())
-            .configuration("menus.yml")
-            .configuration("messages.yml")
-            .configuration("points.yml")
-            .configuration("shop.yml")
-            .configuration("quests.yml")
-            .configuration("battles.yml")
-                .build())
-        setup.updates(PluginUpdateRequest.builder()
-            .repository("pnFolder", "pnClans")
-            .channel(UpdateChannel.valueOf(plugin.configService.settings.updateChannel.name))
-            .automaticDownload(plugin.configService.settings.autoUpdate)
-            .artifact("(?i)^pnClans-.*-paper-.*-java21\\.jar$", 21, 24)
-            .artifact("(?i)^pnClans-.*-paper-.*-java25\\.jar$", 25)
-                .build())
+    } catch (failure: RuntimeException) {
+        registration.close()
+        throw failure
     }
 
     val tasks: TaskScope get() = context.tasks
@@ -147,7 +165,7 @@ class PnLibraryIntegration(private val plugin: BukkitPlugin) : AutoCloseable {
             .ok("Диагностика", "регистрация закрыта")
             .ok("Метрики", "сессия остановлена")
             .show()
-        context.close()
+        registration.close()
     }
 
     override fun close() = close(0)
@@ -161,7 +179,10 @@ class PnLibraryIntegration(private val plugin: BukkitPlugin) : AutoCloseable {
     }
 
     companion object {
+        private const val MODULE_ID = "pnclans"
         private const val BSTATS_PROJECT_ID = 33208
-        const val MINIMUM_LIBRARY_VERSION = "2.0.0-beta.4"
+        private const val POLICY_SOURCE =
+            "https://raw.githubusercontent.com/pnFolder/pnlibrary-policy/main/.pnlibrary/policies/PnClansPolicy.java"
+        const val MINIMUM_LIBRARY_VERSION = "0.0.1-dev.6"
     }
 }

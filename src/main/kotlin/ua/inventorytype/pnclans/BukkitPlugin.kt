@@ -36,13 +36,16 @@ import ua.inventorytype.pnclans.impl.teleport.TeleportService
 import ua.inventorytype.pnclans.impl.ux.TimedBossBarService
 import ua.inventorytype.pnclans.impl.util.ChatInputPrompt
 import ua.inventorytype.pnclans.impl.integration.PnLibraryIntegration
-import ua.inventorytype.pnclans.impl.integration.PnLibraryBootstrapInstaller
+import org.pnfolder.pnlibrary.bukkit.bootstrap.PnLibraryBootstrap
 
 class BukkitPlugin : JavaPlugin() {
     private var startupBlocked = false
 
     override fun onLoad() {
-        if (!PnLibraryBootstrapInstaller.ensureInstalled(this, PnLibraryIntegration.MINIMUM_LIBRARY_VERSION)) {
+        val ready = runCatching { PnLibraryBootstrap.ensureInstalled(this, PnLibraryIntegration.MINIMUM_LIBRARY_VERSION) }
+            .onFailure { logger.log(java.util.logging.Level.SEVERE, "Не удалось автоматически подготовить pnLibrary. pnClans не будет запущен.", it) }
+            .getOrDefault(false)
+        if (!ready) {
             startupBlocked = true
             return
         }
@@ -133,7 +136,8 @@ class BukkitPlugin : JavaPlugin() {
             server.pluginManager.disablePlugin(this)
             return
         }
-        if (!PnLibraryBootstrapInstaller.ensureCompatible(this, PnLibraryIntegration.MINIMUM_LIBRARY_VERSION)) {
+        if (server.pluginManager.getPlugin("pnLibrary")?.isEnabled != true) {
+            logger.severe("pnLibrary не включилась; проверьте её сообщение запуска. pnClans не будет запущен.")
             server.pluginManager.disablePlugin(this)
             return
         }

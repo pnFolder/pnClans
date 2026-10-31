@@ -1,5 +1,6 @@
 package ua.inventorytype.pnclans.impl.ux
 
+import ua.inventorytype.pnclans.impl.integration.repeatEntity
 import org.bukkit.Bukkit
 import org.bukkit.boss.BarColor
 import org.bukkit.boss.BarStyle
@@ -8,7 +9,7 @@ import org.bukkit.entity.Player
 import org.bukkit.event.EventHandler
 import org.bukkit.event.Listener
 import org.bukkit.event.player.PlayerQuitEvent
-import ru.privatenull.pnlibrary.api.tasks.TaskHandle
+import org.pnfolder.pnlibrary.api.tasks.TaskHandle
 import ua.inventorytype.pnclans.BukkitPlugin
 import java.time.Duration
 import java.util.UUID

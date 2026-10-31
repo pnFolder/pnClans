@@ -26,6 +26,8 @@ repositories {
     maven("https://repo.codemc.io/repository/maven-snapshots/")
 }
 
+val pnLibraryVersion = "0.0.1-dev.6"
+
 dependencies {
     testImplementation(kotlin("test-junit5"))
     testRuntimeOnly("org.junit.platform:junit-platform-launcher:1.12.2")
@@ -35,8 +37,9 @@ dependencies {
     implementation("com.charleskorn.kaml:kaml:0.67.0")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
     implementation("org.xerial:sqlite-jdbc:3.46.0.0")
-    compileOnly("ru.privatenull:pnlibrary-api:2.0.0-beta.6")
-    compileOnly("ru.privatenull:pnlibrary-core:2.0.0-beta.4") { isTransitive = false }
+    // The shared runtime plugin is installed by the pnLibrary bootstrap shaded into the jar; only its API is needed to compile.
+    implementation("io.github.pnfolder:pnlibrary-bootstrap-bukkit:$pnLibraryVersion")
+    compileOnly("io.github.pnfolder:pnlibrary-api:$pnLibraryVersion")
 
     compileOnly("me.clip:placeholderapi:2.12.3")
     implementation("com.github.retrooper:packetevents-spigot:2.13.1-SNAPSHOT")
@@ -63,6 +66,9 @@ tasks {
         // another plugin's embedded or standalone PacketEvents installation.
         relocate("com.github.retrooper", "ua.inventorytype.pnclans.libs")
         relocate("io.github.retrooper", "ua.inventorytype.pnclans.libs")
+        relocate("org.pnfolder.pnlibrary.bootstrap", "ua.inventorytype.pnclans.libs.pnbootstrap")
+        relocate("org.pnfolder.pnlibrary.bukkit.bootstrap", "ua.inventorytype.pnclans.libs.pnbootstrap.bukkit")
+        relocate("org.pnfolder.pnlibrary.console", "ua.inventorytype.pnclans.libs.pnbootstrap.console")
     }
 
     build {
