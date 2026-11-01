@@ -1,6 +1,7 @@
 package ua.inventorytype.pnclans.impl.listener
 
 import org.bukkit.Bukkit
+import ua.inventorytype.pnclans.impl.integration.sync
 import org.bukkit.entity.Player
 import org.bukkit.entity.Projectile
 import org.bukkit.event.EventHandler
@@ -140,7 +141,7 @@ class ClanListener(private val plugin: BukkitPlugin) : Listener {
         event.isCancelled = true
         val player = event.player
         val clanMessage = message.removePrefix(prefix).trim()
-        plugin.server.scheduler.runTask(plugin, Runnable {
+        plugin.pnLibraryIntegration.tasks.sync(Runnable {
             if (player.isOnline) sendClanChat(player, clanMessage)
         })
     }

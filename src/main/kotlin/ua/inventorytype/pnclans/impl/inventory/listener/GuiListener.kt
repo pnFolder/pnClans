@@ -1,6 +1,7 @@
 package ua.inventorytype.pnclans.impl.inventory.listener
 
 import org.bukkit.entity.Player
+import ua.inventorytype.pnclans.impl.integration.later
 import org.bukkit.event.EventHandler
 import org.bukkit.event.EventPriority
 import org.bukkit.event.Listener
@@ -91,10 +92,10 @@ class GuiListener(val plugin: BukkitPlugin) : Listener {
     }
 
     private fun scheduleInventoryUpdate(player: Player) {
-        plugin.server.scheduler.runTaskLater(plugin, Runnable {
+        plugin.pnLibraryIntegration.tasks.later(1L, Runnable {
             if (player.isOnline) {
                 player.updateInventory()
             }
-        }, 1L)
+        })
     }
 }

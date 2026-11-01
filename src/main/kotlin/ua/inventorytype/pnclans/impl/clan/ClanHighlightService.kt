@@ -1,6 +1,8 @@
 package ua.inventorytype.pnclans.impl.clan
 
 import ua.inventorytype.pnclans.impl.integration.Log
+import ua.inventorytype.pnclans.impl.integration.sync
+import ua.inventorytype.pnclans.impl.integration.later
 
 import com.github.retrooper.packetevents.PacketEvents
 import com.github.retrooper.packetevents.event.PacketListenerAbstract
@@ -177,9 +179,9 @@ class ClanHighlightService(private val plugin: BukkitPlugin) : Listener {
     }
 
     fun resyncClanLater(clan: Clan) {
-        Bukkit.getScheduler().runTaskLater(plugin, Runnable {
+        plugin.pnLibraryIntegration.tasks.later(1L, Runnable {
             if (plugin.isEnabled) syncClan(clan)
-        }, 1L)
+        })
     }
 
     /**
@@ -192,9 +194,9 @@ class ClanHighlightService(private val plugin: BukkitPlugin) : Listener {
             return
         }
         sendArmor(viewer, target, coloredLeatherArmor(Color.fromRGB(170, 0, 170)))
-        Bukkit.getScheduler().runTaskLater(plugin, Runnable {
+        plugin.pnLibraryIntegration.tasks.later(seconds * 20, Runnable {
             if (viewer.isOnline && target.isOnline) sendDefaultArmor(viewer, target)
-        }, seconds * 20)
+        })
     }
 
     fun shutdown() {
@@ -210,7 +212,7 @@ class ClanHighlightService(private val plugin: BukkitPlugin) : Listener {
     @EventHandler
     fun onClanSaved(event: ClanSavedEvent) {
         if (pendingClanSyncs.putIfAbsent(event.clan.id, event.clan) == null) {
-            Bukkit.getScheduler().runTask(plugin, Runnable {
+            plugin.pnLibraryIntegration.tasks.sync(Runnable {
                 val clan = pendingClanSyncs.remove(event.clan.id) ?: return@Runnable
                 if (plugin.isEnabled) syncClan(clan)
             })

@@ -1,6 +1,7 @@
 package ua.inventorytype.pnclans.impl.updater
 
 import ua.inventorytype.pnclans.impl.integration.Log
+import ua.inventorytype.pnclans.impl.integration.async
 
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.booleanOrNull
@@ -48,7 +49,7 @@ class AutoUpdater(private val plugin: BukkitPlugin) {
     fun checkForUpdatesAsync() {
         cleanupOldJarsAsync()
 
-        plugin.server.scheduler.runTaskAsynchronously(plugin, Runnable {
+        plugin.pnLibraryIntegration.tasks.async(Runnable {
             try {
                 performCheck()
             } catch (e: Exception) {
@@ -59,7 +60,7 @@ class AutoUpdater(private val plugin: BukkitPlugin) {
 
     /** Scans `/plugins/` for obsolete versioned pnClans JARs and removes them. */
     fun cleanupOldJarsAsync() {
-        plugin.server.scheduler.runTaskAsynchronously(plugin, Runnable {
+        plugin.pnLibraryIntegration.tasks.async(Runnable {
             try {
                 val pluginsFolder = plugin.dataFolder.parentFile ?: return@Runnable
                 val current = SemanticVersion.parse(currentVersion) ?: return@Runnable

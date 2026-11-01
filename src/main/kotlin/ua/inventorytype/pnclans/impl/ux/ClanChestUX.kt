@@ -1,6 +1,7 @@
 package ua.inventorytype.pnclans.impl.ux
 
 import org.bukkit.Material
+import ua.inventorytype.pnclans.impl.integration.later
 import org.bukkit.entity.Player
 import org.bukkit.event.inventory.InventoryClickEvent
 import org.bukkit.event.inventory.InventoryCloseEvent
@@ -237,14 +238,14 @@ class ClanChestUX(
 
     private fun scheduleStatsUpdate(player: Player?) {
         if (player == null) return
-        clanService.plugin.server.scheduler.runTaskLater(clanService.plugin, Runnable {
+        clanService.plugin.pnLibraryIntegration.tasks.later(1L, Runnable {
             val statsSlot = clanService.plugin.configService.menus.chestMenu.items["stats"]?.slot ?: return@Runnable
             inventory.viewers.filterIsInstance<Player>().forEach { viewer ->
                 if (viewer.isOnline && viewer.openInventory.topInventory.holder == this) {
                     updateSlot(statsSlot, viewer)
                 }
             }
-        }, 1L)
+        })
     }
 
     override fun handleClose(e: InventoryCloseEvent) {

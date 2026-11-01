@@ -1,6 +1,8 @@
 package ua.inventorytype.pnclans.impl.clan
 
 import org.bukkit.Bukkit
+import org.pnfolder.pnlibrary.api.tasks.TaskHandle
+import ua.inventorytype.pnclans.impl.integration.repeat
 import org.bukkit.entity.Player
 import org.bukkit.event.EventHandler
 import org.bukkit.event.Listener
@@ -11,7 +13,6 @@ import org.bukkit.event.player.PlayerJoinEvent
 import org.bukkit.event.player.PlayerMoveEvent
 import org.bukkit.event.player.PlayerQuitEvent
 import org.bukkit.event.entity.EntityDamageByEntityEvent
-import org.bukkit.scheduler.BukkitTask
 import ua.inventorytype.pnclans.BukkitPlugin
 import java.time.LocalDate
 import java.util.UUID
@@ -21,11 +22,11 @@ import java.util.concurrent.ConcurrentHashMap
 class ClanActivityPointsService(private val plugin: BukkitPlugin) : Listener {
     private val lastActivity = ConcurrentHashMap<UUID, Long>()
     private val lastQuestInterval = ConcurrentHashMap<String, Long>()
-    private val task: BukkitTask
+    private val task: TaskHandle
 
     init {
         Bukkit.getPluginManager().registerEvents(this, plugin)
-        task = Bukkit.getScheduler().runTaskTimer(plugin, Runnable { tick() }, 20L, 20L)
+        task = plugin.pnLibraryIntegration.tasks.repeat(20L, 20L, Runnable { tick() })
     }
 
     fun shutdown() {

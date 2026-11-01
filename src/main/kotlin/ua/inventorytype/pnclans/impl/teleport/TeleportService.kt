@@ -2,7 +2,8 @@ package ua.inventorytype.pnclans.impl.teleport
 
 import org.bukkit.Location
 import org.bukkit.entity.Player
-import org.bukkit.scheduler.BukkitRunnable
+import org.pnfolder.pnlibrary.api.tasks.TaskHandle
+import ua.inventorytype.pnclans.impl.integration.repeat
 import ua.inventorytype.pnclans.BukkitPlugin
 import ua.inventorytype.pnclans.api.clan.Clan
 import java.util.UUID
@@ -10,7 +11,7 @@ import java.util.concurrent.ConcurrentHashMap
 
 class TeleportService(private val plugin: BukkitPlugin) {
 
-    private val pendingTeleports = ConcurrentHashMap<UUID, BukkitRunnable>()
+    private val pendingTeleports = ConcurrentHashMap<UUID, TaskHandle>()
 
     fun teleportToHome(player: Player, clan: Clan, homeName: String, targetLocation: Location) {
         cancelTeleport(player.uniqueId)
@@ -29,13 +30,13 @@ class TeleportService(private val plugin: BukkitPlugin) {
             "seconds" to delaySeconds.toString()
         ))
 
-        val runnable = object : BukkitRunnable() {
-            var secondsLeft = delaySeconds
-
-            override fun run() {
+        var secondsLeft = delaySeconds
+        lateinit var handle: TaskHandle
+        val action = Runnable {
+            run {
                 if (!player.isOnline) {
                     cancelTeleport(player.uniqueId)
-                    return
+                    return@Runnable
                 }
 
                 val currentLoc = player.location
@@ -47,7 +48,7 @@ class TeleportService(private val plugin: BukkitPlugin) {
                 if (currentLoc.world != startLocation.world || distSq > MAX_MOVE_DISTANCE_SQUARED || player.health < startHealth) {
                     cfg.send(player, cfg.messages.teleport.cancelled)
                     cancelTeleport(player.uniqueId)
-                    return
+                    return@Runnable
                 }
 
                 secondsLeft--
@@ -58,13 +59,13 @@ class TeleportService(private val plugin: BukkitPlugin) {
                     }
                     cfg.send(player, cfg.messages.teleport.completed, mapOf("home" to homeName))
                     pendingTeleports.remove(player.uniqueId)
-                    cancel()
+                    handle.cancel()
                 }
             }
         }
 
-        pendingTeleports[player.uniqueId] = runnable
-        runnable.runTaskTimer(plugin, 20L, 20L)
+        handle = plugin.pnLibraryIntegration.tasks.repeat(20L, 20L, action)
+        pendingTeleports[player.uniqueId] = handle
     }
 
     fun cancelTeleport(uuid: UUID) {

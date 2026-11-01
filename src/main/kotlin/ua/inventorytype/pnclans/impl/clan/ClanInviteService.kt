@@ -1,6 +1,7 @@
 package ua.inventorytype.pnclans.impl.clan
 
 import org.bukkit.Bukkit
+import ua.inventorytype.pnclans.impl.integration.later
 import org.bukkit.entity.Player
 import ua.inventorytype.pnclans.api.clan.ClanRole
 import ua.inventorytype.pnclans.api.permission.ClanPerms
@@ -219,10 +220,9 @@ class ClanInviteService(private val clanService: ClanService) {
     }
 
     private fun scheduleExpiration(invite: ClanInvite, lifetimeSeconds: Int) {
-        Bukkit.getScheduler().runTaskLater(
-            clanService.plugin,
-            Runnable { pendingInvites.remove(invite.targetUuid, invite) },
-            lifetimeSeconds.toLong() * TICKS_PER_SECOND
+        clanService.plugin.pnLibraryIntegration.tasks.later(
+            lifetimeSeconds.toLong() * TICKS_PER_SECOND,
+            Runnable { pendingInvites.remove(invite.targetUuid, invite) }
         )
     }
 

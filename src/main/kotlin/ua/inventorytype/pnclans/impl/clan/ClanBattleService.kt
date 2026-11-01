@@ -1,6 +1,9 @@
 package ua.inventorytype.pnclans.impl.clan
 
 import org.bukkit.Bukkit
+import org.pnfolder.pnlibrary.api.tasks.TaskHandle
+import ua.inventorytype.pnclans.impl.integration.sync
+import ua.inventorytype.pnclans.impl.integration.later
 import org.bukkit.Location
 import org.bukkit.NamespacedKey
 import org.bukkit.World
@@ -17,7 +20,6 @@ import org.bukkit.event.player.PlayerMoveEvent
 import org.bukkit.event.player.PlayerRespawnEvent
 import org.bukkit.event.player.PlayerTeleportEvent
 import org.bukkit.persistence.PersistentDataType
-import org.bukkit.scheduler.BukkitTask
 import ua.inventorytype.pnclans.BukkitPlugin
 import ua.inventorytype.pnclans.api.Action
 import ua.inventorytype.pnclans.api.battle.ClanBattle
@@ -94,8 +96,8 @@ private data class ClanBattleLobby(
     val readyClanIds: MutableSet<String> = mutableSetOf(),
     val expiresAt: Long,
     var countdownEndsAt: Long = 0L,
-    var countdownTask: BukkitTask? = null,
-    var expiryTask: BukkitTask? = null
+    var countdownTask: TaskHandle? = null,
+    var expiryTask: TaskHandle? = null
 )
 
 private data class ActiveClanBattle(
@@ -103,7 +105,7 @@ private data class ActiveClanBattle(
     val participantsByClan: MutableMap<String, MutableSet<UUID>>,
     val returnLocations: MutableMap<UUID, Location>,
     val damageByClan: MutableMap<String, Long> = mutableMapOf(),
-    var timerTask: BukkitTask? = null
+    var timerTask: TaskHandle? = null
 )
 
 /** Handles challenge flow, lobby rosters, arena isolation, scoring, rewards, and battle lifecycle. */
@@ -213,7 +215,7 @@ internal class ClanBattleService(private val plugin: BukkitPlugin) : Listener {
             now + config.challengeTimeoutSeconds.coerceAtLeast(1L) * 1000L
         )
         challenges[challenge.id] = challenge
-        Bukkit.getScheduler().runTaskLater(plugin, Runnable { expireChallenge(challenge.id) }, config.challengeTimeoutSeconds.coerceAtLeast(1L) * 20L)
+        plugin.pnLibraryIntegration.tasks.later(config.challengeTimeoutSeconds.coerceAtLeast(1L) * 20L, Runnable { expireChallenge(challenge.id) })
         notifyClan(challenger, plugin.configService.messages.battles.challengeSent, mapOf("opponent" to defender.name, "challenge_id" to challenge.id.toString()))
         notifyClan(defender, plugin.configService.messages.battles.challengeReceived, mapOf("challenger" to challenger.name, "challenge_id" to challenge.id.toString()))
         notifyGui(challenger)
@@ -258,7 +260,7 @@ internal class ClanBattleService(private val plugin: BukkitPlugin) : Listener {
         }
         lobbiesById[lobby.id] = lobby
         challenges.remove(challengeId)
-        lobby.expiryTask = Bukkit.getScheduler().runTaskLater(plugin, Runnable { expireLobby(lobby.id) }, lobbyTimeout * 20L)
+        lobby.expiryTask = plugin.pnLibraryIntegration.tasks.later(lobbyTimeout * 20L, Runnable { expireLobby(lobby.id) })
         notifyLobby(lobby, messages.lobbyOpened, mapOf(
             "minimum" to minimum.toString(),
             "maximum" to config.maximumParticipants.coerceAtLeast(1).toString(),
@@ -414,7 +416,7 @@ internal class ClanBattleService(private val plugin: BukkitPlugin) : Listener {
             }
             else -> return
         }
-        Bukkit.getScheduler().runTask(plugin, Runnable {
+        plugin.pnLibraryIntegration.tasks.sync(Runnable {
             if (player.isOnline && player.teleport(destination) && returnLocation != null) completeReturn(player)
         })
     }
@@ -462,7 +464,7 @@ internal class ClanBattleService(private val plugin: BukkitPlugin) : Listener {
         active.participantsByClan[clan.id]?.remove(memberUuid)
         active.returnLocations.remove(memberUuid)?.let { returnLocation ->
             val player = Bukkit.getPlayer(memberUuid)?.takeIf(Player::isOnline)
-            if (player != null) Bukkit.getScheduler().runTask(plugin, Runnable {
+            if (player != null) plugin.pnLibraryIntegration.tasks.sync(Runnable {
                 if (player.teleport(returnLocation)) completeReturn(player) else queueReturn(memberUuid, returnLocation, active.battle.arenaId)
             }) else queueReturn(memberUuid, returnLocation, active.battle.arenaId)
         }
@@ -486,11 +488,11 @@ internal class ClanBattleService(private val plugin: BukkitPlugin) : Listener {
         val seconds = config.countdownSeconds.coerceAtLeast(0L)
         lobby.countdownEndsAt = System.currentTimeMillis() + seconds * 1000L
         notifyLobby(lobby, plugin.configService.messages.battles.lobbyCountdownStarted, mapOf("seconds" to seconds.toString()))
-        lobby.countdownTask = Bukkit.getScheduler().runTaskLater(plugin, Runnable {
+        lobby.countdownTask = plugin.pnLibraryIntegration.tasks.later(seconds * 20L, Runnable {
             lobby.countdownTask = null
             lobby.countdownEndsAt = 0L
             startLobbyBattle(lobby.id)
-        }, seconds * 20L)
+        })
     }
 
     private fun startLobbyBattle(lobbyId: UUID) {
@@ -561,7 +563,7 @@ internal class ClanBattleService(private val plugin: BukkitPlugin) : Listener {
         notifyClan(defender, messages.started, battlePlaceholders(battle, challenger, defender))
         notifyGui(challenger)
         notifyGui(defender)
-        active.timerTask = Bukkit.getScheduler().runTaskLater(plugin, Runnable { finish(battle.id, null, ClanBattleEndReason.TIME_LIMIT) }, config.battleDurationSeconds.coerceAtLeast(1L) * 20L)
+        active.timerTask = plugin.pnLibraryIntegration.tasks.later(config.battleDurationSeconds.coerceAtLeast(1L) * 20L, Runnable { finish(battle.id, null, ClanBattleEndReason.TIME_LIMIT) })
     }
 
     private fun finish(battleId: UUID, forcedWinnerId: String?, reason: ClanBattleEndReason) {
