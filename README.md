@@ -90,9 +90,9 @@ pnClans регистрирует в pnLibrary сведения о хранили
 ключей и webhook перед шифрованием.
 
 ```text
-/pndebug pnClans
-/pndebug pnClans --config
-/pndebug pnClans --full
+/pn debug pnClans
+/pn debug pnClans --config
+/pn debug pnClans --full
 ```
 
 Командой владеет pnLibrary; отдельная debug-команда в pnClans не регистрируется.

@@ -135,7 +135,7 @@ class PnLibraryIntegration(private val plugin: BukkitPlugin) : AutoCloseable {
             .ok("База данных", "${plugin.configService.settings.storageType.uppercase()}, кланов: $loadedClansCount")
             .ok("Аддоны", "загружено: $loadedAddonsCount")
             .ok("bStats", "project ID: $BSTATS_PROJECT_ID")
-            .ok("Диагностика", "/pndebug pnClans")
+            .ok("Диагностика", "/pn debug pnClans")
 
         if (economyConnected) box.ok("Vault", "экономика подключена")
         else box.warn("Vault", "провайдер экономики не найден")
