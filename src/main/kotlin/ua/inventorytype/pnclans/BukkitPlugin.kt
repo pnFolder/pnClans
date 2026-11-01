@@ -33,7 +33,6 @@ import ua.inventorytype.pnclans.impl.config.PointsConfigValidator
 import ua.inventorytype.pnclans.impl.economy.EconomyService
 import ua.inventorytype.pnclans.impl.inventory.listener.GuiListener
 import ua.inventorytype.pnclans.impl.listener.ClanListener
-import ua.inventorytype.pnclans.impl.placeholder.PnClansExpansion
 import ua.inventorytype.pnclans.impl.teleport.TeleportService
 import ua.inventorytype.pnclans.impl.ux.TimedBossBarService
 import ua.inventorytype.pnclans.impl.util.ChatInputPrompt
@@ -189,11 +188,8 @@ class BukkitPlugin : JavaPlugin() {
             cmd.tabCompleter = clanCommand
         }
 
-        var papiConnected = false
-        if (Bukkit.getPluginManager().isPluginEnabled("PlaceholderAPI")) {
-            PnClansExpansion(this).register()
-            papiConnected = true
-        }
+        val papiConnected = Bukkit.getPluginManager().isPluginEnabled("PlaceholderAPI") &&
+            pnLibraryIntegration.registerPlaceholders()
 
         pnLibraryIntegration.started(
             economyConnected = economyConnected,

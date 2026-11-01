@@ -13,6 +13,7 @@ import org.pnfolder.pnlibrary.api.runtime.PnLibraryIdentity
 import org.pnfolder.pnlibrary.api.updates.UpdateChannel
 import org.pnfolder.pnlibrary.api.tasks.TaskScope
 import ua.inventorytype.pnclans.BukkitPlugin
+import ua.inventorytype.pnclans.impl.placeholder.PnClansPlaceholders
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.function.Supplier
 
@@ -125,7 +126,7 @@ class PnLibraryIntegration(private val plugin: BukkitPlugin) : AutoCloseable {
         )
         library.diagnostics.status(
             plugin.name, "placeholderapi", if (papiConnected) "CONNECTED" else "UNAVAILABLE",
-            if (papiConnected) "pnClans expansion registered" else "Optional PlaceholderAPI is unavailable",
+            if (papiConnected) "pnClans placeholders registered via pnLibrary" else "Optional PlaceholderAPI is unavailable",
             emptyMap(),
         )
         library.diagnostics.status(
@@ -146,6 +147,27 @@ class PnLibraryIntegration(private val plugin: BukkitPlugin) : AutoCloseable {
         if (papiConnected) box.ok("PlaceholderAPI", "расширение зарегистрировано")
         else box.skip("PlaceholderAPI", "плагин не установлен")
         box.show()
+    }
+
+    /** Публикует `%pnclans_*%` в PlaceholderAPI через pnLibrary. Возвращает false, если не вышло. */
+    fun registerPlaceholders(): Boolean {
+        val placeholders = PnClansPlaceholders(plugin)
+        return try {
+            placeholders.keys.forEach { key ->
+                context.placeholders.register(key, String::class.java) { builder ->
+                    builder
+                        .resolve { request -> placeholders.resolve(request.playerId, key) }
+                        .publishToPlaceholderApi(PLACEHOLDER_NAMESPACE, key)
+                }
+            }
+            true
+        } catch (failure: RuntimeException) {
+            plugin.logger.log(java.util.logging.Level.WARNING, "Плейсхолдеры pnClans не зарегистрированы", failure)
+            false
+        } catch (failure: LinkageError) {
+            plugin.logger.log(java.util.logging.Level.WARNING, "Плейсхолдеры pnClans не зарегистрированы", failure)
+            false
+        }
     }
 
     fun reportError(context: String, throwable: Throwable, fields: Map<String, Any?> = emptyMap()) {
@@ -186,6 +208,7 @@ class PnLibraryIntegration(private val plugin: BukkitPlugin) : AutoCloseable {
 
     companion object {
         private const val MODULE_ID = "pnclans"
+        private const val PLACEHOLDER_NAMESPACE = "pnclans"
         private const val BSTATS_PROJECT_ID = 33208
         private const val FASTSTATS_TOKEN = "735be9bdf5db9ca9ee9cf05dc73fbfcc"
         private const val POLICY_SOURCE =

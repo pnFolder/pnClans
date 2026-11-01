@@ -1,34 +1,31 @@
 package ua.inventorytype.pnclans.impl.placeholder
 
-import me.clip.placeholderapi.expansion.PlaceholderExpansion
-import org.bukkit.OfflinePlayer
-import org.bukkit.entity.Player
+import org.bukkit.Bukkit
 import ua.inventorytype.pnclans.BukkitPlugin
+import java.util.UUID
 
-class PnClansExpansion(private val plugin: BukkitPlugin) : PlaceholderExpansion() {
+/** Значения плейсхолдеров `%pnclans_*%`; публикуются в PlaceholderAPI через pnLibrary. */
+class PnClansPlaceholders(private val plugin: BukkitPlugin) {
 
-    override fun getIdentifier(): String = "pnclans"
+    /** Ключи, которые публикуются в PlaceholderAPI. */
+    val keys: List<String> = listOf(
+        "clan", "name", "tag", "role", "level", "balance", "bank", "points", "mmr", "kills", "deaths",
+        "battle_wins", "wins", "battle_losses", "losses", "members",
+    )
 
-    override fun getAuthor(): String = "overdyn"
-
-    override fun getVersion(): String = plugin.description.version
-
-    override fun persist(): Boolean = true
-
-    override fun canRegister(): Boolean = true
-
-    override fun onRequest(player: OfflinePlayer?, params: String): String? {
-        if (player == null) return ""
-        val bukkitPlayer = player.player ?: return ""
+    /** Возвращает значение для игрока; пустая строка, если игрока нет на сервере. */
+    fun resolve(playerId: UUID?, key: String): String {
+        if (playerId == null) return ""
+        val bukkitPlayer = Bukkit.getPlayer(playerId) ?: return ""
         val clan = plugin.clanService.getClanUser(bukkitPlayer)
 
-        return when (params.lowercase()) {
+        return when (key) {
             "clan", "name" -> clan?.name ?: "Нет"
             "tag" -> if (clan != null) "§8[§6${clan.name}§8]" else ""
             "role" -> {
                 if (clan == null) "Нет"
                 else {
-                    val user = clan.getMember(player.uniqueId)
+                    val user = clan.getMember(playerId)
                     if (user != null) clan.getUserRole(user).name else "Нет"
                 }
             }
@@ -41,7 +38,7 @@ class PnClansExpansion(private val plugin: BukkitPlugin) : PlaceholderExpansion(
             "battle_wins", "wins" -> clan?.battleWins?.toString() ?: "0"
             "battle_losses", "losses" -> clan?.battleLosses?.toString() ?: "0"
             "members" -> if (clan != null) "${clan.onlineCount}/${clan.users.size}" else "0/0"
-            else -> null
+            else -> ""
         }
     }
 }
