@@ -1,5 +1,7 @@
 package ua.inventorytype.pnclans.impl.config
 
+import ua.inventorytype.pnclans.impl.integration.Log
+
 import org.bukkit.Material
 import ua.inventorytype.pnclans.BukkitPlugin
 
@@ -87,8 +89,8 @@ internal object MenuConfigValidator {
         validateEntrySlots("treasuryHistoryMenu.entrySlots", menus.treasuryHistoryMenu.entrySlots, menus.treasuryHistoryMenu.rows, ::issue)
 
         if (issues.isNotEmpty()) {
-            issues.forEach { plugin.logger.warning("[pnClans/MenuConfig] $it") }
-            plugin.logger.warning(
+            issues.forEach { Log.warning("[pnClans/MenuConfig] $it") }
+            Log.warning(
                 "[pnClans/MenuConfig] Found ${issues.size} menu configuration issue(s). " +
                     "Missing IDs are not replaced by blank fallback items; repair the paths above."
             )

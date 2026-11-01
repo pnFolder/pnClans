@@ -1,5 +1,7 @@
 package ua.inventorytype.pnclans.impl.storage
 
+import ua.inventorytype.pnclans.impl.integration.Log
+
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import org.bukkit.Bukkit
@@ -202,7 +204,7 @@ class SQLiteClanStorage(private val plugin: BukkitPlugin) : IClanStorage {
             }
             true
         }.onFailure { ex ->
-            plugin.logger.severe("SQLite: Failed to save clan ${clan.name}: ${ex.message}")
+            Log.error("SQLite: Failed to save clan ${clan.name}", ex)
         }.getOrDefault(false)
     }
 
@@ -277,7 +279,7 @@ class SQLiteClanStorage(private val plugin: BukkitPlugin) : IClanStorage {
                 }
             }
         }.onFailure { ex ->
-            plugin.logger.severe("SQLite: Failed to load clans: ${ex.message}")
+            Log.error("SQLite: Failed to load clans", ex)
         }
         return loaded
     }
@@ -306,7 +308,7 @@ class SQLiteClanStorage(private val plugin: BukkitPlugin) : IClanStorage {
                 pstmt.executeUpdate()
             }
         }.onFailure { ex ->
-            plugin.logger.severe("SQLite: Failed to save chest for $clanId: ${ex.message}")
+            Log.error("SQLite: Failed to save chest for $clanId", ex)
         }
     }
 

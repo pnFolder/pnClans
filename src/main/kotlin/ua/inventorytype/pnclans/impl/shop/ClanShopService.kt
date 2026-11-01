@@ -1,5 +1,7 @@
 package ua.inventorytype.pnclans.impl.shop
 
+import ua.inventorytype.pnclans.impl.integration.Log
+
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -134,7 +136,7 @@ internal class ClanShopService(private val plugin: BukkitPlugin) {
 
         val preparedItem = runCatching { prepareRewards(productId, product) }
             .getOrElse { error ->
-                plugin.logger.log(Level.SEVERE, "Invalid clan shop reward configuration for product '$productId'.", error)
+                Log.error("Invalid clan shop reward configuration for product '$productId'.", error)
                 return ClanShopPurchaseResult.Rejected(ClanShopPurchaseRejection.REWARD_FAILED)
             }
 
@@ -154,7 +156,7 @@ internal class ClanShopService(private val plugin: BukkitPlugin) {
         if (!reservePurchase(clan, productId)) {
             val refunded = currencies.refund(currency, player, clan, event.price)
             if (!refunded) {
-                plugin.logger.severe("Clan shop ledger failed after charging ${player.name} for '$productId', and the refund also failed.")
+                Log.error("Clan shop ledger failed after charging ${player.name} for '$productId', and the refund also failed.")
                 return ClanShopPurchaseResult.Rejected(ClanShopPurchaseRejection.REFUND_FAILED, event.price)
             }
             return ClanShopPurchaseResult.Rejected(ClanShopPurchaseRejection.LEDGER_FAILED, event.price)
@@ -163,9 +165,7 @@ internal class ClanShopService(private val plugin: BukkitPlugin) {
         when (val delivery = deliverRewards(player, clan, productId, product, preparedItem)) {
             RewardDeliveryResult.Success -> Unit
             is RewardDeliveryResult.Failed -> {
-                plugin.logger.log(
-                    Level.SEVERE,
-                    "Clan shop reward delivery failed for player=${player.name}, clan=${clan.id}, product=$productId. deliveryStarted=${delivery.deliveryStarted}",
+                Log.error("Clan shop reward delivery failed for player=${player.name}, clan=${clan.id}, product=$productId. deliveryStarted=${delivery.deliveryStarted}",
                     delivery.error
                 )
 
@@ -334,9 +334,7 @@ internal class ClanShopService(private val plugin: BukkitPlugin) {
         return runCatching { json.decodeFromString<ClanShopPurchaseLedger>(ledgerFile.readText()) }
             .onFailure { error ->
                 ledgerHealthy = false
-                plugin.logger.log(
-                    Level.SEVERE,
-                    "Cannot read ${ledgerFile.name}. Clan shop purchases are disabled until the ledger is repaired and the plugin is reloaded.",
+                Log.error("Cannot read ${ledgerFile.name}. Clan shop purchases are disabled until the ledger is repaired and the plugin is reloaded.",
                     error
                 )
             }
@@ -363,9 +361,7 @@ internal class ClanShopService(private val plugin: BukkitPlugin) {
             onFailure = { error ->
                 tempFile.delete()
                 ledgerHealthy = false
-                plugin.logger.log(
-                    Level.SEVERE,
-                    "Cannot persist ${ledgerFile.name}. Clan shop purchases are disabled until reload to protect purchase limits.",
+                Log.error("Cannot persist ${ledgerFile.name}. Clan shop purchases are disabled until reload to protect purchase limits.",
                     error
                 )
                 false

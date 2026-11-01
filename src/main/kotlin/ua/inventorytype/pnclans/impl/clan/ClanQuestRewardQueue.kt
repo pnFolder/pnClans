@@ -1,5 +1,7 @@
 package ua.inventorytype.pnclans.impl.clan
 
+import ua.inventorytype.pnclans.impl.integration.Log
+
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -174,7 +176,7 @@ internal class ClanQuestRewardQueue(private val plugin: BukkitPlugin) {
         if (!saveLedger()) return
 
         if (!awarded) {
-            plugin.logger.warning(
+            Log.warning(
                 "[pnClans] Quest reward points remain pending: clan=${clan.id}, quest=${delivery.questId}, amount=${delivery.rewardPoints}"
             )
         }
@@ -218,9 +220,7 @@ internal class ClanQuestRewardQueue(private val plugin: BukkitPlugin) {
         saveLedger()
 
         result.exceptionOrNull()?.let { error ->
-            plugin.logger.log(
-                Level.SEVERE,
-                "[pnClans] Quest reward action failed after claim: clan=${clan.id}, quest=${delivery.questId}, player=${player.name}. Automatic retry is disabled to prevent duplicate rewards.",
+            Log.error("[pnClans] Quest reward action failed after claim: clan=${clan.id}, quest=${delivery.questId}, player=${player.name}. Automatic retry is disabled to prevent duplicate rewards.",
                 error
             )
         }
@@ -235,7 +235,7 @@ internal class ClanQuestRewardQueue(private val plugin: BukkitPlugin) {
             }
         }
         if (changed) {
-            plugin.logger.severe("[pnClans] $reason delivery=${delivery.id}")
+            Log.error("[pnClans] $reason delivery=${delivery.id}")
             saveLedger()
         }
     }
@@ -254,7 +254,7 @@ internal class ClanQuestRewardQueue(private val plugin: BukkitPlugin) {
             if (delivery.pointsState == QuestRewardDeliveryState.CLAIMING) {
                 delivery.pointsState = QuestRewardDeliveryState.FAILED
                 changed = true
-                plugin.logger.severe(
+                Log.error(
                     "[pnClans] Ambiguous quest point reward found after restart: ${delivery.id}. It will not be retried automatically to prevent duplication."
                 )
             }
@@ -262,7 +262,7 @@ internal class ClanQuestRewardQueue(private val plugin: BukkitPlugin) {
                 if (state == QuestRewardDeliveryState.CLAIMING) {
                     delivery.recipients[uuid] = QuestRewardDeliveryState.FAILED
                     changed = true
-                    plugin.logger.severe(
+                    Log.error(
                         "[pnClans] Ambiguous quest action reward found after restart: ${delivery.id}, player=$uuid. It will not be retried automatically to prevent duplication."
                     )
                 }
@@ -276,9 +276,7 @@ internal class ClanQuestRewardQueue(private val plugin: BukkitPlugin) {
         return runCatching { json.decodeFromString<QuestRewardLedger>(file.readText()) }
             .onFailure { error ->
                 healthy = false
-                plugin.logger.log(
-                    Level.SEVERE,
-                    "Cannot read ${file.name}. Quest completion rewards are disabled until the file is repaired and the plugin is reloaded.",
+                Log.error("Cannot read ${file.name}. Quest completion rewards are disabled until the file is repaired and the plugin is reloaded.",
                     error
                 )
             }
@@ -301,9 +299,7 @@ internal class ClanQuestRewardQueue(private val plugin: BukkitPlugin) {
             onFailure = { error ->
                 temp.delete()
                 healthy = false
-                plugin.logger.log(
-                    Level.SEVERE,
-                    "Cannot persist ${file.name}. Quest reward delivery is disabled to avoid duplicates.",
+                Log.error("Cannot persist ${file.name}. Quest reward delivery is disabled to avoid duplicates.",
                     error
                 )
                 false

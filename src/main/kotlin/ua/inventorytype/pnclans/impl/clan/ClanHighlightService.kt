@@ -1,5 +1,7 @@
 package ua.inventorytype.pnclans.impl.clan
 
+import ua.inventorytype.pnclans.impl.integration.Log
+
 import com.github.retrooper.packetevents.PacketEvents
 import com.github.retrooper.packetevents.event.PacketListenerAbstract
 import com.github.retrooper.packetevents.event.PacketListenerPriority
@@ -118,9 +120,7 @@ class ClanHighlightService(private val plugin: BukkitPlugin) : Listener {
                     }
                 }
             } catch (throwable: Throwable) {
-                plugin.logger.log(
-                    java.util.logging.Level.SEVERE,
-                    "[pnClans] Ошибка syncClan (клана «${clan.name}», игрок ${viewer.name})",
+                Log.error("[pnClans] Ошибка syncClan (клана «${clan.name}», игрок ${viewer.name})",
                     throwable
                 )
             }
@@ -319,9 +319,7 @@ class ClanHighlightService(private val plugin: BukkitPlugin) : Listener {
                 WrapperPlayServerEntityMetadata(target.entityId, setGlowFlag(metadata, true))
             )
         } catch (throwable: Throwable) {
-            plugin.logger.log(
-                java.util.logging.Level.SEVERE,
-                "[pnClans] Не удалось получить метаданные для подсветки ${target.name}",
+            Log.error("[pnClans] Не удалось получить метаданные для подсветки ${target.name}",
                 throwable
             )
         }
@@ -345,9 +343,7 @@ class ClanHighlightService(private val plugin: BukkitPlugin) : Listener {
                 WrapperPlayServerEntityMetadata(target.entityId, setGlowFlag(metadata, false))
             )
         } catch (throwable: Throwable) {
-            plugin.logger.log(
-                java.util.logging.Level.SEVERE,
-                "[pnClans] Не удалось очистить подсветку ${target.name}",
+            Log.error("[pnClans] Не удалось очистить подсветку ${target.name}",
                 throwable
             )
         }

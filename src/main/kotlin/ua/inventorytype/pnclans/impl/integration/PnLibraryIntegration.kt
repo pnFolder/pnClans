@@ -19,6 +19,8 @@ import java.util.function.Supplier
 /** Owns every pnLibrary registration made by pnClans. */
 class PnLibraryIntegration(private val plugin: BukkitPlugin) : AutoCloseable {
 
+    init { Log.fallback(plugin.logger) }
+
     private val library: PnLibrary = PnLibraryProvider.getOrNull()
         ?: error("pnLibrary service is unavailable; install a compatible pnLibrary runtime")
     init {
@@ -97,6 +99,8 @@ class PnLibraryIntegration(private val plugin: BukkitPlugin) : AutoCloseable {
         throw failure
     }
 
+    init { Log.attach(context.logger) }
+
     val tasks: TaskScope get() = context.tasks
 
     fun started(
@@ -160,7 +164,9 @@ class PnLibraryIntegration(private val plugin: BukkitPlugin) : AutoCloseable {
     fun close(savedClansCount: Int) {
         if (closed) return
         closed = true
-        context.lifecycle.disabled()
+        val lifecycle = context.lifecycle
+        Log.detach()
+        lifecycle.disabled()
             .ok("Хранилище", "сохранено кланов: $savedClansCount")
             .ok("Диагностика", "регистрация закрыта")
             .ok("Метрики", "сессия остановлена")

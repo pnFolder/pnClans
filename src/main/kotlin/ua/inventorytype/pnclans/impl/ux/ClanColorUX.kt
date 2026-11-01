@@ -1,5 +1,7 @@
 package ua.inventorytype.pnclans.impl.ux
 
+import ua.inventorytype.pnclans.impl.integration.Log
+
 import org.bukkit.Material
 import org.bukkit.entity.Player
 import ua.inventorytype.pnclans.api.clan.Clan
@@ -64,7 +66,7 @@ class ClanColorUX(clanService: ClanService) : BaseGui(clanService) {
         val itemCfg = clanService.plugin.configService.menus.clanColorMenu.items[key] ?: return
         val maxSlot = clanService.plugin.configService.menus.clanColorMenu.rows.coerceIn(1, 6) * 9 - 1
         if (itemCfg.slot !in 0..maxSlot) {
-            clanService.plugin.logger.warning("[pnClans] clanColorMenu item '$key' has invalid slot ${itemCfg.slot}; item skipped.")
+            Log.warning("[pnClans] clanColorMenu item '$key' has invalid slot ${itemCfg.slot}; item skipped.")
             return
         }
 

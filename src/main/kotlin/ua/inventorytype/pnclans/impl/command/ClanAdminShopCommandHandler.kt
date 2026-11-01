@@ -1,5 +1,7 @@
 package ua.inventorytype.pnclans.impl.command
 
+import ua.inventorytype.pnclans.impl.integration.Log
+
 import org.bukkit.Material
 import org.bukkit.command.CommandSender
 import org.bukkit.entity.Player
@@ -227,7 +229,7 @@ internal class ClanAdminShopCommandHandler(private val plugin: BukkitPlugin) {
             sender.reply("&#FC3737✖ &fНе удалось сохранить shop.yml. Изменение отменено.")
             return false
         }
-        plugin.logger.info("[pnClans/Admin] ${sender.name}: $audit")
+        Log.info("[pnClans/Admin] ${sender.name}: $audit")
         return true
     }
 

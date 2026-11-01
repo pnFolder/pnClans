@@ -1,5 +1,7 @@
 package ua.inventorytype.pnclans.impl.config
 
+import ua.inventorytype.pnclans.impl.integration.Log
+
 import org.bukkit.Material
 import org.bukkit.entity.EntityType
 import ua.inventorytype.pnclans.BukkitPlugin
@@ -17,9 +19,9 @@ internal object ConfigValidator {
         validateQuests(config, ::issue)
         validateBattles(config, ::issue)
 
-        issues.forEach { plugin.logger.warning("[pnClans/Config] $it") }
+        issues.forEach { Log.warning("[pnClans/Config] $it") }
         if (issues.isNotEmpty()) {
-            plugin.logger.warning("[pnClans/Config] Found ${issues.size} configuration issue(s). The plugin kept the administrator values; review the warnings above.")
+            Log.warning("[pnClans/Config] Found ${issues.size} configuration issue(s). The plugin kept the administrator values; review the warnings above.")
         }
         return issues.size
     }

@@ -1,5 +1,7 @@
 package ua.inventorytype.pnclans.impl.config
 
+import ua.inventorytype.pnclans.impl.integration.Log
+
 import com.charleskorn.kaml.PolymorphismStyle
 import com.charleskorn.kaml.Yaml
 import com.charleskorn.kaml.YamlConfiguration
@@ -89,7 +91,7 @@ internal class ConfigMigrationSafety private constructor(
             val file = File(plugin.dataFolder, fileName)
             if (!file.exists()) return null
             val content = runCatching(file::readText).getOrElse { error ->
-                plugin.logger.log(Level.WARNING, "[pnClans] Cannot snapshot $fileName before migration.", error)
+                Log.warning("[pnClans] Cannot snapshot $fileName before migration.", error)
                 return null
             }
             val version = Regex("(?m)^schemaVersion\\s*:\\s*(\\d+)")
@@ -104,9 +106,7 @@ internal class ConfigMigrationSafety private constructor(
 
             return runCatching { yaml.decodeFromString(serializer, content) }
                 .onFailure { error ->
-                    plugin.logger.log(
-                        Level.WARNING,
-                        "[pnClans] Cannot parse $fileName for safe migration; normal config loading will report the underlying problem.",
+                    Log.warning("[pnClans] Cannot parse $fileName for safe migration; normal config loading will report the underlying problem.",
                         error
                     )
                 }
@@ -119,9 +119,9 @@ internal class ConfigMigrationSafety private constructor(
             runCatching {
                 Files.copy(source.toPath(), backup.toPath())
             }.onSuccess {
-                plugin.logger.info("[pnClans] Backed up legacy ${source.name} to ${backup.name} before schema migration.")
+                Log.info("[pnClans] Backed up legacy ${source.name} to ${backup.name} before schema migration.")
             }.onFailure { error ->
-                plugin.logger.log(Level.WARNING, "[pnClans] Could not create migration backup ${backup.name}.", error)
+                Log.warning("[pnClans] Could not create migration backup ${backup.name}.", error)
             }
         }
 
@@ -149,7 +149,7 @@ internal class ConfigMigrationSafety private constructor(
                 onSuccess = { true },
                 onFailure = { error ->
                     temp.delete()
-                    plugin.logger.log(Level.SEVERE, "[pnClans] Failed to preserve administrator values in $fileName.", error)
+                    Log.error("[pnClans] Failed to preserve administrator values in $fileName.", error)
                     false
                 }
             )

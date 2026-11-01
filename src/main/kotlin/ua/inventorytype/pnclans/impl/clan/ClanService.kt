@@ -1,5 +1,7 @@
 package ua.inventorytype.pnclans.impl.clan
 
+import ua.inventorytype.pnclans.impl.integration.Log
+
 import org.bukkit.Bukkit
 import org.bukkit.Location
 import org.bukkit.Material
@@ -91,7 +93,7 @@ class ClanService(
         Bukkit.getOnlinePlayers().forEach { player ->
             getClanByUuid(player.uniqueId)?.let { clan -> playtimeTracker.markOnline(player.uniqueId, clan.id) }
         }
-        plugin.logger.info("Загружено кланов из хранилища (${storage::class.simpleName}): ${_clans.size}")
+        Log.info("Загружено кланов из хранилища (${storage::class.simpleName}): ${_clans.size}")
     }
 
     /**
@@ -235,7 +237,7 @@ class ClanService(
             _clans.remove(clan)
             clan.users.forEach { user -> _uuidToClan.remove(user.uuid, clan) }
             if (cost > 0 && !economy.depositPlayer(leader, cost)) {
-                plugin.logger.severe("[pnClans] Не удалось вернуть стоимость создания клана ${leader.name}: $cost.")
+                Log.error("[pnClans] Не удалось вернуть стоимость создания клана ${leader.name}: $cost.")
             }
             leader.sendMessage(configService.formatMessage(leader, "&#FC3737✖ &fСоздать клан не удалось из-за ошибки сохранения данных."))
             return null
@@ -535,7 +537,7 @@ class ClanService(
             Bukkit.getPluginManager().callEvent(ClanSavedEvent(clan))
             true
         } else {
-            plugin.logger.warning("[pnClans] Клан «${clan.name}» не был сохранён; событие ClanSavedEvent не отправлено.")
+            Log.warning("[pnClans] Клан «${clan.name}» не был сохранён; событие ClanSavedEvent не отправлено.")
             false
         }
     }

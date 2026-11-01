@@ -1,5 +1,7 @@
 package ua.inventorytype.pnclans.impl.command
 
+import ua.inventorytype.pnclans.impl.integration.Log
+
 import org.bukkit.Bukkit
 import org.bukkit.command.Command
 import org.bukkit.command.CommandExecutor
@@ -229,7 +231,7 @@ class ClanCommand(
                 }
             }
         } catch (throwable: Throwable) {
-            plugin.logger.severe("[pnClans] Ошибка при выполнении команды /clan ${args.joinToString(" ")}: ${throwable.message}")
+            Log.error("[pnClans] Ошибка при выполнении команды /clan ${args.joinToString(" ")}", throwable)
             ErrorReporter.report(
                 context = "Unhandled Command Exception: /clan ${args.joinToString(" ")}",
                 throwable = throwable,

@@ -285,7 +285,7 @@ class ConfigService(private val plugin: Plugin) {
      * @return The deserialized configuration instance.
      */
     private fun <T> managed(fileName: String, serializer: KSerializer<T>, default: T): ManagedYamlFile<T> =
-        ManagedYamlFile(File(plugin.dataFolder, fileName), default, plugin.logger, yaml, serializer)
+        ManagedYamlFile(File(plugin.dataFolder, fileName), default, yaml, serializer)
 }
 
 /** Named animation slots exposed through [ConfigService.animationFrames]. */

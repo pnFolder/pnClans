@@ -1,5 +1,7 @@
 package ua.inventorytype.pnclans.impl.ux
 
+import ua.inventorytype.pnclans.impl.integration.Log
+
 import org.bukkit.Material
 import org.bukkit.entity.Player
 import ua.inventorytype.pnclans.api.permission.ClanPerms
@@ -107,14 +109,14 @@ class TreasuryUX(clanService: ClanService) : BaseGui(clanService) {
         val maximumSlot = (menuCfg.rows.coerceIn(1, 6) * 9) - 1
 
         if (amounts.size != slots.size) {
-            clanService.plugin.logger.warning(
+            Log.warning(
                 "[pnClans] Treasury preset '$templateKey' has ${amounts.size} amounts but ${slots.size} slots; only matching pairs will be used."
             )
         }
 
         amounts.zip(slots).forEach { (amount, slotIndex) ->
             if (amount <= 0 || slotIndex !in 0..maximumSlot) {
-                clanService.plugin.logger.warning(
+                Log.warning(
                     "[pnClans] Ignoring invalid treasury preset: operation=$operation amount=$amount slot=$slotIndex."
                 )
                 return@forEach
@@ -256,7 +258,7 @@ class TreasuryUX(clanService: ClanService) : BaseGui(clanService) {
                     return
                 }
                 if (!service.saveClan(clan)) {
-                    service.plugin.logger.severe("[pnClans] Не удалось сохранить пополнение казны и вернуть ${formatAmount(amount)} игроку ${player.name}.")
+                    Log.error("[pnClans] Не удалось сохранить пополнение казны и вернуть ${formatAmount(amount)} игроку ${player.name}.")
                     sendPersistenceFailure(player)
                     if (reopen) reopenTreasury(player) else refreshBalance(player)
                     return
@@ -316,7 +318,7 @@ class TreasuryUX(clanService: ClanService) : BaseGui(clanService) {
                     return
                 }
                 if (!service.saveClan(clan)) {
-                    service.plugin.logger.severe("[pnClans] Не удалось сохранить снятие из казны и вернуть ${formatAmount(amount)} с баланса игрока ${player.name}.")
+                    Log.error("[pnClans] Не удалось сохранить снятие из казны и вернуть ${formatAmount(amount)} с баланса игрока ${player.name}.")
                     sendPersistenceFailure(player)
                     if (reopen) reopenTreasury(player) else refreshBalance(player)
                     return

@@ -1,5 +1,7 @@
 package ua.inventorytype.pnclans.impl.analytics
 
+import ua.inventorytype.pnclans.impl.integration.Log
+
 import org.bukkit.entity.Player
 import ua.inventorytype.pnclans.BukkitPlugin
 import java.util.concurrent.ConcurrentHashMap
@@ -16,7 +18,7 @@ object ErrorReporter {
 
     fun init(plugin: BukkitPlugin) {
         pluginInstance = plugin
-        plugin.logger.info("[ErrorReporter] Локальная система сбора ошибок включена.")
+        Log.info("[ErrorReporter] Локальная система сбора ошибок включена.")
     }
 
     fun shutdown() {
@@ -46,7 +48,7 @@ object ErrorReporter {
             if (extraData.isNotEmpty()) append(" ").append(extraData)
             append("; error #").append(totalErrorsCount.incrementAndGet())
         }
-        plugin.logger.log(Level.SEVERE, details, throwable)
+        Log.error(details, throwable)
     }
 
     private fun getRootCause(throwable: Throwable): Throwable {

@@ -1,5 +1,7 @@
 package ua.inventorytype.pnclans.impl.updater
 
+import ua.inventorytype.pnclans.impl.integration.Log
+
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.contentOrNull
@@ -50,7 +52,7 @@ class AutoUpdater(private val plugin: BukkitPlugin) {
             try {
                 performCheck()
             } catch (e: Exception) {
-                plugin.logger.log(Level.WARNING, "[pnClans] Не удалось проверить обновления на GitHub: ${e.message}", e)
+                Log.warning("[pnClans] Не удалось проверить обновления на GitHub", e)
             }
         })
     }
@@ -72,7 +74,7 @@ class AutoUpdater(private val plugin: BukkitPlugin) {
                     val fileVersion = SemanticVersion.parse(versionText) ?: continue
                     if (current > fileVersion) {
                         if (jar.delete()) {
-                            plugin.logger.info("[pnClans] Автоматически удалён устаревший файл плагина: ${jar.name}")
+                            Log.info("[pnClans] Автоматически удалён устаревший файл плагина: ${jar.name}")
                         } else {
                             jar.deleteOnExit()
                         }
@@ -94,35 +96,35 @@ class AutoUpdater(private val plugin: BukkitPlugin) {
 
         val current = SemanticVersion.parse(currentVersion)
         if (current == null) {
-            plugin.logger.warning("[pnClans] Текущая версия '$currentVersion' не соответствует SemVer; автообновление пропущено.")
+            Log.warning("[pnClans] Текущая версия '$currentVersion' не соответствует SemVer; автообновление пропущено.")
             return
         }
 
         if (candidate == null) {
-            plugin.logger.info("[pnClans] Для канала $channel подходящих GitHub Releases не найдено.")
+            Log.info("[pnClans] Для канала $channel подходящих GitHub Releases не найдено.")
             return
         }
 
-        plugin.logger.info("[pnClans] Канал обновлений: $channel • текущая ${current.display} • доступная ${candidate.version.display}")
+        Log.info("[pnClans] Канал обновлений: $channel • текущая ${current.display} • доступная ${candidate.version.display}")
         if (candidate.version <= current) {
-            plugin.logger.info("[pnClans] Вы используете актуальную версию плагина (${current.display}).")
+            Log.info("[pnClans] Вы используете актуальную версию плагина (${current.display}).")
             return
         }
 
-        plugin.logger.info("=======================================================")
-        plugin.logger.info("[pnClans] ОБНАРУЖЕНО НОВОЕ ОБНОВЛЕНИЕ ПЛАГИНА")
-        plugin.logger.info("[pnClans] ${current.display} -> ${candidate.version.display} • канал ${candidate.channel}")
-        plugin.logger.info("[pnClans] Релиз: https://github.com/$repo/releases/tag/${candidate.tag}")
+        Log.info("=======================================================")
+        Log.info("[pnClans] ОБНАРУЖЕНО НОВОЕ ОБНОВЛЕНИЕ ПЛАГИНА")
+        Log.info("[pnClans] ${current.display} -> ${candidate.version.display} • канал ${candidate.channel}")
+        Log.info("[pnClans] Релиз: https://github.com/$repo/releases/tag/${candidate.tag}")
 
         if (!autoUpdateEnabled()) {
-            plugin.logger.info("[pnClans] Автоскачивание отключено вручную через скрытый параметр autoUpdate: false.")
+            Log.info("[pnClans] Автоскачивание отключено вручную через скрытый параметр autoUpdate: false.")
         } else if (candidate.downloadUrl == null) {
-            plugin.logger.warning("[pnClans] В релизе ${candidate.tag} нет подходящего ${targetArtifactSuffix()} JAR.")
+            Log.warning("[pnClans] В релизе ${candidate.tag} нет подходящего ${targetArtifactSuffix()} JAR.")
         } else {
-            plugin.logger.info("[pnClans] Начинаем автоматическую загрузку ${candidate.version.display}...")
+            Log.info("[pnClans] Начинаем автоматическую загрузку ${candidate.version.display}...")
             downloadUpdate(candidate.downloadUrl, candidate.version.rawWithoutPrefix)
         }
-        plugin.logger.info("=======================================================")
+        Log.info("=======================================================")
     }
 
     private fun fetchReleases(): List<kotlinx.serialization.json.JsonObject> {
@@ -223,14 +225,14 @@ class AutoUpdater(private val plugin: BukkitPlugin) {
                 } catch (_: java.nio.file.AtomicMoveNotSupportedException) {
                     Files.move(tempFile.toPath(), targetFile.toPath(), StandardCopyOption.REPLACE_EXISTING)
                 }
-                plugin.logger.info("[pnClans] Обновление v$version скачано в ${updateFolder.name}/pnClans.jar.")
-                plugin.logger.info("[pnClans] Новая версия заменит текущий JAR при следующем перезапуске сервера.")
+                Log.info("[pnClans] Обновление v$version скачано в ${updateFolder.name}/pnClans.jar.")
+                Log.info("[pnClans] Новая версия заменит текущий JAR при следующем перезапуске сервера.")
             } else {
                 tempFile.delete()
-                plugin.logger.warning("[pnClans] Скачанный JAR v$version пуст, повреждён или не соответствует pnClans.")
+                Log.warning("[pnClans] Скачанный JAR v$version пуст, повреждён или не соответствует pnClans.")
             }
         } catch (e: Exception) {
-            plugin.logger.log(Level.SEVERE, "[pnClans] Ошибка при скачивании автообновления: ${e.message}", e)
+            Log.error("[pnClans] Ошибка при скачивании автообновления", e)
         }
     }
 

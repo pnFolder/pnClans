@@ -1,5 +1,7 @@
 package ua.inventorytype.pnclans.impl.clan
 
+import ua.inventorytype.pnclans.impl.integration.Log
+
 import org.bukkit.Bukkit
 import org.bukkit.entity.Player
 import ua.inventorytype.pnclans.BukkitPlugin
@@ -180,7 +182,7 @@ internal class ClanQuestService(private val plugin: BukkitPlugin) {
 
         val completionCount = current.completionCount + 1
         if (!rewardQueue.enqueue(clan, questId, completionCount, quest, actor)) {
-            plugin.logger.severe(
+            Log.error(
                 "[pnClans] Quest '$questId' reached its target for clan ${clan.id}, but reward bookkeeping could not be persisted. Completion was not committed."
             )
             return false

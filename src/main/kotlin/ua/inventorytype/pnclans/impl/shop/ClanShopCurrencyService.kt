@@ -1,5 +1,7 @@
 package ua.inventorytype.pnclans.impl.shop
 
+import ua.inventorytype.pnclans.impl.integration.Log
+
 import org.bukkit.Bukkit
 import org.bukkit.entity.Player
 import ua.inventorytype.pnclans.BukkitPlugin
@@ -62,7 +64,7 @@ internal class ClanShopCurrencyService(private val plugin: BukkitPlugin) {
             .sortedByDescending { method -> exactMatchCount(method, arguments) }
             .firstOrNull()
             ?: run {
-                plugin.logger.warning(
+                Log.warning(
                     "[pnClans] PlayerPoints API method '$methodName' with compatible argument types was not found."
                 )
                 return null
@@ -70,9 +72,7 @@ internal class ClanShopCurrencyService(private val plugin: BukkitPlugin) {
 
         return runCatching { method.invoke(api, *arguments) }
             .onFailure { error ->
-                plugin.logger.log(
-                    Level.WARNING,
-                    "[pnClans] PlayerPoints API call '$methodName' failed using ${method.toGenericString()}.",
+                Log.warning("[pnClans] PlayerPoints API call '$methodName' failed using ${method.toGenericString()}.",
                     error
                 )
             }
@@ -108,7 +108,7 @@ internal class ClanShopCurrencyService(private val plugin: BukkitPlugin) {
             playerPoints.javaClass.methods.firstOrNull { it.name == "getAPI" && it.parameterCount == 0 }
                 ?.invoke(playerPoints)
         }.onFailure { error ->
-            plugin.logger.log(Level.WARNING, "[pnClans] Failed to resolve the PlayerPoints API.", error)
+            Log.warning("[pnClans] Failed to resolve the PlayerPoints API.", error)
         }.getOrNull()
     }
 }

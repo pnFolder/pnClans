@@ -1,5 +1,7 @@
 package ua.inventorytype.pnclans.impl.config
 
+import ua.inventorytype.pnclans.impl.integration.Log
+
 import com.charleskorn.kaml.PolymorphismStyle
 import com.charleskorn.kaml.Yaml
 import com.charleskorn.kaml.YamlConfiguration
@@ -65,7 +67,7 @@ internal object ConfigurationBackfill {
 
             if (filtered != original) writeAtomic(plugin, file, filtered)
         }.onFailure { error ->
-            plugin.logger.log(Level.WARNING, "[pnClans] Failed to migrate legacy updater settings.", error)
+            Log.warning("[pnClans] Failed to migrate legacy updater settings.", error)
         }
     }
 
@@ -92,7 +94,7 @@ internal object ConfigurationBackfill {
             }
             writeAtomic(plugin, file, existingLines.joinToString("\n").trimEnd() + "\n")
         }.onFailure { error ->
-            plugin.logger.log(Level.WARNING, "[pnClans] Failed to backfill $fileName without rewriting it.", error)
+            Log.warning("[pnClans] Failed to backfill $fileName without rewriting it.", error)
         }
     }
 
@@ -146,7 +148,7 @@ internal object ConfigurationBackfill {
                 writeAtomic(plugin, file, target.joinToString("\n").trimEnd() + "\n")
             }
         }.onFailure { error ->
-            plugin.logger.log(Level.WARNING, "[pnClans] Failed to merge missing fields into $fileName.", error)
+            Log.warning("[pnClans] Failed to merge missing fields into $fileName.", error)
         }
     }
 
@@ -267,7 +269,7 @@ internal object ConfigurationBackfill {
                 writeAtomic(plugin, file, target.joinToString("\n").trimEnd() + "\n")
             }
         }.onFailure { error ->
-            plugin.logger.log(Level.WARNING, "[pnClans] Failed to backfill menu item IDs in menus.yml.", error)
+            Log.warning("[pnClans] Failed to backfill menu item IDs in menus.yml.", error)
         }
     }
 

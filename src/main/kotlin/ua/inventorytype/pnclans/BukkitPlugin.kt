@@ -1,5 +1,7 @@
 package ua.inventorytype.pnclans
 
+import ua.inventorytype.pnclans.impl.integration.Log
+
 import org.bukkit.Bukkit
 import org.bukkit.plugin.java.JavaPlugin
 import org.bukkit.plugin.ServicePriority
@@ -42,8 +44,9 @@ class BukkitPlugin : JavaPlugin() {
     private var startupBlocked = false
 
     override fun onLoad() {
+        Log.fallback(logger)
         val ready = runCatching { PnLibraryBootstrap.ensureInstalled(this, PnLibraryIntegration.MINIMUM_LIBRARY_VERSION) }
-            .onFailure { logger.log(java.util.logging.Level.SEVERE, "Не удалось автоматически подготовить pnLibrary. pnClans не будет запущен.", it) }
+            .onFailure { Log.error("Не удалось автоматически подготовить pnLibrary. pnClans не будет запущен.", it) }
             .getOrDefault(false)
         if (!ready) {
             startupBlocked = true
@@ -51,7 +54,7 @@ class BukkitPlugin : JavaPlugin() {
         }
         PacketEvents.setAPI(SpigotPacketEventsBuilder.build(this))
         PacketEvents.getAPI().load()
-        logger.info("[pnClans] PacketEvents loaded from ${PacketEvents::class.java.protectionDomain.codeSource?.location}")
+        Log.info("[pnClans] PacketEvents loaded from ${PacketEvents::class.java.protectionDomain.codeSource?.location}")
     }
 
     internal lateinit var pnLibraryIntegration: PnLibraryIntegration
@@ -137,13 +140,13 @@ class BukkitPlugin : JavaPlugin() {
             return
         }
         if (server.pluginManager.getPlugin("pnLibrary")?.isEnabled != true) {
-            logger.severe("pnLibrary не включилась; проверьте её сообщение запуска. pnClans не будет запущен.")
+            Log.error("pnLibrary не включилась; проверьте её сообщение запуска. pnClans не будет запущен.")
             server.pluginManager.disablePlugin(this)
             return
         }
         PacketEvents.getAPI().settings.debug(false).checkForUpdates(false).timeStampMode(TimeStampMode.MILLIS).reEncodeByDefault(true)
         PacketEvents.getAPI().init()
-        logger.info("[pnClans] Enabled ${description.version} on ${server.version}; PacketEvents initialized=${PacketEvents.getAPI().isInitialized}")
+        Log.info("[pnClans] Enabled ${description.version} on ${server.version}; PacketEvents initialized=${PacketEvents.getAPI().isInitialized}")
 
         economyService = EconomyService()
         val economyConnected = economyService.setup()

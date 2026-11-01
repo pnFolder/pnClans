@@ -1,5 +1,7 @@
 package ua.inventorytype.pnclans.impl.storage
 
+import ua.inventorytype.pnclans.impl.integration.Log
+
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -220,7 +222,7 @@ class ClanStorage(private val plugin: BukkitPlugin) : IClanStorage {
             writeAtomically(file, json.encodeToString(dataModel))
             true
         }.onFailure { ex ->
-            plugin.logger.severe("Failed to save clan ${clan.name}: ${ex.message}")
+            Log.error("Failed to save clan ${clan.name}", ex)
         }.getOrDefault(false)
     }
 
@@ -293,7 +295,7 @@ class ClanStorage(private val plugin: BukkitPlugin) : IClanStorage {
 
                 loaded.add(clan)
             }.onFailure { ex ->
-                plugin.logger.warning("Failed to load clan file ${file.name}: ${ex.message}")
+                Log.warning("Failed to load clan file ${file.name}", ex)
             }
         }
 
@@ -313,7 +315,7 @@ class ClanStorage(private val plugin: BukkitPlugin) : IClanStorage {
             val encoded = ItemStackSerializer.toBase64(items)
             writeAtomically(file, encoded)
         }.onFailure { ex ->
-            plugin.logger.severe("Failed to save chest for clan $clanId: ${ex.message}")
+            Log.error("Failed to save chest for clan $clanId", ex)
         }
     }
 

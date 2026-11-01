@@ -1,5 +1,7 @@
 package ua.inventorytype.pnclans.impl.config
 
+import ua.inventorytype.pnclans.impl.integration.Log
+
 import org.bukkit.plugin.Plugin
 
 /** Reports unsafe or contradictory values from points.yml without replacing administrator values. */
@@ -45,12 +47,12 @@ object PointsConfigValidator {
         nonNegative("history.antiFarmRetentionDays", cfg.history.antiFarmRetentionDays)
         if (cfg.admin.historyPageSize !in 1..50) issues += "admin.historyPageSize must be between 1 and 50"
 
-        issues.forEach { plugin.logger.warning("[pnClans/PointsConfig] points.yml.$it") }
+        issues.forEach { Log.warning("[pnClans/PointsConfig] points.yml.$it") }
         if (anti.sameIp.enabled) {
-            plugin.logger.warning("[pnClans/PointsConfig] points.yml antiFarm.sameIp is enabled. Ensure Paper receives real client IPs behind Velocity/Bungee; otherwise all players may appear to share the proxy address.")
+            Log.warning("[pnClans/PointsConfig] points.yml antiFarm.sameIp is enabled. Ensure Paper receives real client IPs behind Velocity/Bungee; otherwise all players may appear to share the proxy address.")
         }
         if (issues.isNotEmpty()) {
-            plugin.logger.warning("[pnClans/PointsConfig] Found ${issues.size} invalid point configuration value(s). Administrator values were not overwritten.")
+            Log.warning("[pnClans/PointsConfig] Found ${issues.size} invalid point configuration value(s). Administrator values were not overwritten.")
         }
     }
 }

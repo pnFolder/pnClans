@@ -1,5 +1,7 @@
 package ua.inventorytype.pnclans.impl.command
 
+import ua.inventorytype.pnclans.impl.integration.Log
+
 import org.bukkit.Bukkit
 import org.bukkit.command.CommandSender
 import ua.inventorytype.pnclans.BukkitPlugin
@@ -199,7 +201,7 @@ internal class ClanAdminMemberCommandHandler(private val plugin: BukkitPlugin) {
     private fun String.parseRole(): ClanRole? = runCatching { ClanRole.valueOf(uppercase()) }.getOrNull()
 
     private fun audit(sender: CommandSender, operation: String) {
-        plugin.logger.info("[pnClans/Admin] ${sender.name}: $operation")
+        Log.info("[pnClans/Admin] ${sender.name}: $operation")
     }
 
     private fun CommandSender.reply(text: String) {

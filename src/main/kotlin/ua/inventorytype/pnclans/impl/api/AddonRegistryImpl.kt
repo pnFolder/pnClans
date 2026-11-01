@@ -1,5 +1,7 @@
 package ua.inventorytype.pnclans.impl.api
 
+import ua.inventorytype.pnclans.impl.integration.Log
+
 import org.bukkit.plugin.Plugin
 import org.bukkit.Bukkit
 import ua.inventorytype.pnclans.api.PnClansProvider
@@ -48,7 +50,7 @@ internal class AddonRegistryImpl(private val api: PnClansApi, dataFolder: File) 
             entry.enabled = true
             true
         }.getOrElse {
-            entry.owner.logger.severe("pnClans addon ${entry.addon.id} failed: ${it.message}")
+            Log.error("pnClans addon ${entry.addon.id} failed", it)
             false
         }
     }

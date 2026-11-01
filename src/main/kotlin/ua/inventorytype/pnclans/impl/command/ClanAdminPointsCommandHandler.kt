@@ -1,5 +1,7 @@
 package ua.inventorytype.pnclans.impl.command
 
+import ua.inventorytype.pnclans.impl.integration.Log
+
 import org.bukkit.Bukkit
 import org.bukkit.command.CommandSender
 import ua.inventorytype.pnclans.BukkitPlugin
@@ -226,7 +228,7 @@ internal class ClanAdminPointsCommandHandler(private val plugin: BukkitPlugin) {
     private fun formatTime(timestamp: Long): String = TIME_FORMATTER.format(Instant.ofEpochMilli(timestamp))
 
     private fun audit(sender: CommandSender, operation: String) {
-        plugin.logger.info("[pnClans/Admin] ${sender.name}: $operation")
+        Log.info("[pnClans/Admin] ${sender.name}: $operation")
     }
 
     private fun CommandSender.reply(text: String) {
