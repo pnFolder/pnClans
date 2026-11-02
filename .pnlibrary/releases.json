@@ -1,5 +1,74 @@
 {
   "schema": 1,
   "product": "pnclans",
-  "releases": []
+  "releases": [
+    {
+      "version": "1.3.0-beta.5",
+      "channel": "beta",
+      "description": "Подключение к pnLibrary 0.0.1-dev.6: обновления, диагностика, метрики и единый журнал.",
+      "changelogUrl": "https://github.com/PnFolder/pnClans/blob/main/.pnlibrary/changelogs/1.3.0-beta.5.md",
+      "publishedAt": "2026-11-02T15:35:11Z",
+      "api": {
+        "minimum": 1,
+        "maximum": 1
+      },
+      "artifacts": [
+        {
+          "file": "pnClans-1.3.0-beta.5-paper-mc1.21.11-java21.jar",
+          "platform": "BUKKIT",
+          "java": {
+            "minimum": 21,
+            "maximum": 24
+          },
+          "url": "https://github.com/PnFolder/pnClans/releases/download/v1.3.0-beta.5/pnClans-1.3.0-beta.5-paper-mc1.21.11-java21.jar",
+          "sha256": "15593a8e95752e1780dbb9defe0b6c2b54a72d63ed7ae335197366a2fd42fdb1",
+          "size": 24728038
+        },
+        {
+          "file": "pnClans-1.3.0-beta.5-paper-mc1.21.11-java25.jar",
+          "platform": "BUKKIT",
+          "java": {
+            "minimum": 25
+          },
+          "url": "https://github.com/PnFolder/pnClans/releases/download/v1.3.0-beta.5/pnClans-1.3.0-beta.5-paper-mc1.21.11-java25.jar",
+          "sha256": "f9b71819dd5cf16c1463229221595ba543e76275149acc879287455840155a08",
+          "size": 24728047
+        }
+      ]
+    },
+    {
+      "version": "1.3.0-beta.4",
+      "channel": "beta",
+      "description": "Подключение к pnLibrary 0.0.1-dev.6: обновления, диагностика, метрики и единый журнал.",
+      "changelogUrl": "https://github.com/PnFolder/pnClans/blob/main/.pnlibrary/changelogs/1.3.0-beta.4.md",
+      "publishedAt": "2026-09-06T18:10:19Z",
+      "api": {
+        "minimum": 1,
+        "maximum": 1
+      },
+      "artifacts": [
+        {
+          "file": "pnClans-1.3.0-beta.4-paper-mc1.21.11-java21.jar",
+          "platform": "BUKKIT",
+          "java": {
+            "minimum": 21,
+            "maximum": 24
+          },
+          "url": "https://github.com/PnFolder/pnClans/releases/download/v1.3.0-beta.4/pnClans-1.3.0-beta.4-paper-mc1.21.11-java21.jar",
+          "sha256": "95d8eeb2cd5fa5707a34a07e3f136494ac17caef8b107a83b2e94a6659debaf0",
+          "size": 24371657
+        },
+        {
+          "file": "pnClans-1.3.0-beta.4-paper-mc1.21.11-java25.jar",
+          "platform": "BUKKIT",
+          "java": {
+            "minimum": 25
+          },
+          "url": "https://github.com/PnFolder/pnClans/releases/download/v1.3.0-beta.4/pnClans-1.3.0-beta.4-paper-mc1.21.11-java25.jar",
+          "sha256": "b9f696d8dc748750f68d43f4640830889d2b2c50acc1076592d941dc8f061f00",
+          "size": 24371670
+        }
+      ]
+    }
+  ]
 }
