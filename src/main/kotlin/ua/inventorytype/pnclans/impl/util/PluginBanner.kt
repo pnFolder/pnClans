@@ -91,7 +91,7 @@ object PluginBanner {
         logRaw(formatBoxLine("&#5EA9FD✦ ИДЕИ И ПРЕДЛОЖЕНИЯ"))
         logRaw(formatBoxLine("&#ffffffНужен новый плагин или хотите что-то изменить, добавить либо убрать?"))
         logRaw(formatBoxLine("&#ffffffСоздайте тему на форуме или напишите в чат Discord."))
-        logRaw(formatBoxLine("&#5EA9FDhttps://discord.gg/jqRFJC6WDM"))
+        logRaw(formatBoxLine("&#5EA9FDhttps://discord.gg/wYgprUUMhm"))
         logRaw(bottomBorder)
         logRaw("")
     }

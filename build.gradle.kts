@@ -33,10 +33,15 @@ dependencies {
     testRuntimeOnly("org.junit.platform:junit-platform-launcher:1.12.2")
 
     compileOnly("io.papermc.paper:paper-api:1.21.11-R0.1-SNAPSHOT")
-    implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8")
-    implementation("com.charleskorn.kaml:kaml:0.67.0")
-    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
-    implementation("org.xerial:sqlite-jdbc:3.46.0.0")
+    compileOnly("org.jetbrains.kotlin:kotlin-stdlib:2.4.20-Beta2")
+    testImplementation("org.jetbrains.kotlin:kotlin-stdlib:2.4.20-Beta2")
+    // Downloaded by the server from plugin.yml `libraries`, so they stay out of the jar (SQLite alone carries ~14 MB of natives).
+    compileOnly("com.charleskorn.kaml:kaml:0.67.0")
+    compileOnly("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
+    compileOnly("org.xerial:sqlite-jdbc:3.46.0.0")
+    testImplementation("com.charleskorn.kaml:kaml:0.67.0")
+    testImplementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
+    testImplementation("org.xerial:sqlite-jdbc:3.46.0.0")
     // The shared runtime plugin is installed by the pnLibrary bootstrap shaded into the jar; only its API is needed to compile.
     implementation("io.github.pnfolder:pnlibrary-bootstrap-bukkit:$pnLibraryVersion")
     compileOnly("io.github.pnfolder:pnlibrary-api:$pnLibraryVersion")
@@ -62,6 +67,10 @@ kotlin {
 tasks {
     shadowJar {
         archiveFileName.set("pnClans-${project.version}-paper-mc1.21.11-java${javaTarget}.jar")
+        // Gson ships with every Bukkit-based server.
+        exclude("com/google/gson/**")
+        // The README targets Paper, which already ships Adventure.
+        exclude("net/kyori/**")
         // PacketEvents must be isolated when bundled to avoid conflicts with
         // another plugin's embedded or standalone PacketEvents installation.
         relocate("com.github.retrooper", "ua.inventorytype.pnclans.libs")

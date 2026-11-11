@@ -18,10 +18,13 @@ class PnClansPlaceholders(private val plugin: BukkitPlugin) {
         if (playerId == null) return ""
         val bukkitPlayer = Bukkit.getPlayer(playerId) ?: return ""
         val clan = plugin.clanService.getClanUser(bukkitPlayer)
+        val formats = plugin.configService.settings.placeholder
 
         return when (key) {
-            "clan", "name" -> clan?.name ?: "Нет"
-            "tag" -> if (clan != null) "§8[§6${clan.name}§8]" else ""
+            "clan", "name" -> PlaceholderFormat.render(
+                if (clan != null) formats.clanFormat else formats.noClan, clan?.name)
+            "tag" -> PlaceholderFormat.render(
+                if (clan != null) formats.tagFormat else formats.noTag, clan?.name)
             "role" -> {
                 if (clan == null) "Нет"
                 else {

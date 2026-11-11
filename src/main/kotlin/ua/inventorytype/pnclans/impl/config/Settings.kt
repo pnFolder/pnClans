@@ -117,9 +117,24 @@ data class ModuleConfig(
     val pvp: Boolean = true
 )
 
+@Serializable
+data class PlaceholderConfig(
+    @YamlComment("Вид %pnclans_clan% и %pnclans_name%, когда игрок в клане. {clan} — название клана. Поддерживаются &- и HEX-цвета.")
+    val clanFormat: String = "{clan}",
+    @YamlComment("Что показывают %pnclans_clan% и %pnclans_name%, когда игрок не в клане.")
+    val noClan: String = "Нет",
+    @YamlComment("Вид %pnclans_tag%, когда игрок в клане. {clan} — название клана.")
+    val tagFormat: String = "&8[&6{clan}&8]",
+    @YamlComment("Что показывает %pnclans_tag%, когда игрок не в клане. Пусто — ничего не показывать.")
+    val noTag: String = ""
+)
+
 /** Global configuration settings for pnClans. */
 @Serializable
 class Settings {
+    @YamlComment("Вид плейсхолдеров %pnclans_clan%, %pnclans_name% и %pnclans_tag%.")
+    val placeholder: PlaceholderConfig = PlaceholderConfig()
+
     @YamlComment("Настройки кланового чата.")
     val clanChat: ClanChatConfig = ClanChatConfig()
 
