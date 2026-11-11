@@ -11,6 +11,12 @@ softdepend:
   - PlaceholderAPI
   - PlayerPoints
 
+libraries:
+  - org.jetbrains.kotlin:kotlin-stdlib:2.4.20-Beta2
+  - org.xerial:sqlite-jdbc:3.46.0.0
+  - com.charleskorn.kaml:kaml-jvm:0.67.0
+  - org.jetbrains.kotlinx:kotlinx-serialization-json-jvm:1.7.3
+
 commands:
   clan:
     description: Main pnClans command
