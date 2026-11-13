@@ -7,7 +7,7 @@ plugins {
     id("xyz.jpenilla.run-paper") version "3.0.2"
 }
 
-version = "1.3.0-beta.6"
+version = "1.3.0-beta.7"
 
 val javaTarget = providers.gradleProperty("javaTarget").getOrElse("25")
     .also { require(it == "21" || it == "25") { "javaTarget must be 21 or 25" } }
@@ -26,7 +26,7 @@ repositories {
     maven("https://repo.codemc.io/repository/maven-snapshots/")
 }
 
-val pnLibraryVersion = "0.1.0-dev.1"
+val pnLibraryVersion = "0.1.0-dev.3"
 
 dependencies {
     testImplementation(kotlin("test-junit5"))
