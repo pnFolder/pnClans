@@ -37,7 +37,10 @@ class ClanServices(private val plugin: BukkitPlugin) {
         private set
     internal lateinit var pnLibraryIntegration: PnLibraryIntegration
         private set
-    val placeholderValues = ClanPlaceholderValues(plugin)
+    val placeholderValues = ClanPlaceholderValues(
+        formats = { configService.settings.placeholder },
+        roleName = { configService.getRoleDisplayName(it) },
+    )
     lateinit var placeholderRegistry: PlaceholderRegistry
         private set
     lateinit var api: PnClansApi
