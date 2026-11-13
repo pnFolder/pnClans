@@ -42,6 +42,7 @@ dependencies {
     testImplementation("com.charleskorn.kaml:kaml:0.67.0")
     testImplementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
     testImplementation("org.xerial:sqlite-jdbc:3.46.0.0")
+    testImplementation("io.papermc.paper:paper-api:1.21.11-R0.1-SNAPSHOT")
     // The shared runtime plugin is installed by the pnLibrary bootstrap shaded into the jar; only its API is needed to compile.
     implementation("io.github.pnfolder:pnlibrary-bootstrap-bukkit:$pnLibraryVersion")
     compileOnly("io.github.pnfolder:pnlibrary-api:$pnLibraryVersion")

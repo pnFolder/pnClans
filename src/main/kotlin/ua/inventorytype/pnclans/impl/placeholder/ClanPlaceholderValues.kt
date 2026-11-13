@@ -1,16 +1,20 @@
 package ua.inventorytype.pnclans.impl.placeholder
 
-import ua.inventorytype.pnclans.BukkitPlugin
 import ua.inventorytype.pnclans.api.clan.Clan
+import ua.inventorytype.pnclans.api.clan.ClanRole
+import ua.inventorytype.pnclans.impl.config.PlaceholderConfig
+import ua.inventorytype.pnclans.impl.text.ClanText
 import java.util.UUID
 
 /**
  * Единственное место, где описано, что показывает каждый плейсхолдер клана. Отсюда берут значения `{clan_name}` в
  * меню и сообщениях, `%pnclans_name%` в PlaceholderAPI и `{pnclans/pnclans:name}` в дереве pnLibrary.
  */
-class ClanPlaceholderValues(private val plugin: BukkitPlugin) {
-
-    private val formats get() = plugin.services.configService.settings.placeholder
+class ClanPlaceholderValues(
+    private val formats: () -> PlaceholderConfig,
+    private val roleName: (ClanRole) -> String,
+    private val color: (String) -> String = ClanText::legacy,
+) {
 
     /** Ключи без префикса `clan_`. */
     val keys: List<String> = listOf(
@@ -23,8 +27,8 @@ class ClanPlaceholderValues(private val plugin: BukkitPlugin) {
      * Пустая строка, если ключа нет.
      */
     fun value(key: String, clan: Clan?, playerId: UUID?, roleTitle: Boolean): String = when (key) {
-        "clan", "name" -> PlaceholderFormat.render(if (clan != null) formats.clanFormat else formats.noClan, clan?.name)
-        "tag" -> PlaceholderFormat.render(if (clan != null) formats.tagFormat else formats.noTag, clan?.name)
+        "clan", "name" -> formats().let { PlaceholderFormat.render(if (clan != null) it.clanFormat else it.noClan, clan?.name, color) }
+        "tag" -> formats().let { PlaceholderFormat.render(if (clan != null) it.tagFormat else it.noTag, clan?.name, color) }
         "role" -> role(clan, playerId, roleTitle)
         "level" -> clan?.level?.toString() ?: ZERO
         "balance", "bank" -> clan?.bankBalance?.toString() ?: ZERO
@@ -42,7 +46,7 @@ class ClanPlaceholderValues(private val plugin: BukkitPlugin) {
         if (clan == null || playerId == null) return NONE
         val user = clan.getMember(playerId) ?: return NONE
         val role = clan.getUserRole(user)
-        return if (roleTitle) plugin.services.configService.getRoleDisplayName(role) else role.name
+        return if (roleTitle) roleName(role) else role.name
     }
 
     private companion object {
