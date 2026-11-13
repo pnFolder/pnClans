@@ -18,12 +18,12 @@ import ua.inventorytype.pnclans.impl.inventory.builder.ItemBuilder
 class HelpUX(clanService: ClanService) : BaseGui(clanService) {
 
     init {
-        val cfg = clanService.plugin.configService
+        val cfg = clanService.plugin.services.configService
         val menuCfg = cfg.menus.helpMenu
 
         title(menuCfg.title)
         rows(menuCfg.rows)
-        background(clanService.plugin.configService.menus.background)
+        background(clanService.plugin.services.configService.menus.background)
 
         menuCfg.items["evolution"]?.let { itemCfg ->
             slot(itemCfg.slot) {
@@ -69,8 +69,8 @@ class HelpUX(clanService: ClanService) : BaseGui(clanService) {
         itemCfg: GuiItemConfig,
         placeholders: Map<String, String>
     ) {
-        builder.name(clanService.plugin.configService.formatMessage(player, itemCfg.name, placeholders))
-        builder.lore(itemCfg.lore.map { line -> clanService.plugin.configService.formatMessage(player, line, placeholders) })
+        builder.name(clanService.plugin.services.configService.formatMessage(player, itemCfg.name, placeholders))
+        builder.lore(itemCfg.lore.map { line -> clanService.plugin.services.configService.formatMessage(player, line, placeholders) })
         builder.glow(itemCfg.glow)
     }
 

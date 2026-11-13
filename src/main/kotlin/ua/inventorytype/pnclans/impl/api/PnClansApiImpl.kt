@@ -21,7 +21,7 @@ internal class PnClansApiImpl(
 ) : PnClansApi {
     override val apiVersion: Int = PnClansProvider.API_VERSION
     override val placeholders: PlaceholderRegistry
-        get() = service.plugin.placeholderRegistry
+        get() = service.plugin.services.placeholderRegistry
     override val addons: AddonRegistry by lazy { AddonRegistryImpl(this, service.plugin.dataFolder) }
     override val subcommands: ClanSubcommandRegistry by lazy { ClanSubcommandRegistryImpl(service) }
     override val menus: ClanMenuRegistry by lazy { ClanMenuRegistryImpl() }

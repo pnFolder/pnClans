@@ -49,7 +49,7 @@ class AutoUpdater(private val plugin: BukkitPlugin) {
     fun checkForUpdatesAsync() {
         cleanupOldJarsAsync()
 
-        plugin.pnLibraryIntegration.tasks.async(Runnable {
+        plugin.services.pnLibraryIntegration.tasks.async(Runnable {
             try {
                 performCheck()
             } catch (e: Exception) {
@@ -60,7 +60,7 @@ class AutoUpdater(private val plugin: BukkitPlugin) {
 
     /** Scans `/plugins/` for obsolete versioned pnClans JARs and removes them. */
     fun cleanupOldJarsAsync() {
-        plugin.pnLibraryIntegration.tasks.async(Runnable {
+        plugin.services.pnLibraryIntegration.tasks.async(Runnable {
             try {
                 val pluginsFolder = plugin.dataFolder.parentFile ?: return@Runnable
                 val current = SemanticVersion.parse(currentVersion) ?: return@Runnable
@@ -88,7 +88,7 @@ class AutoUpdater(private val plugin: BukkitPlugin) {
     }
 
     private fun performCheck() {
-        val channel = plugin.configService.settings.updateChannel
+        val channel = plugin.services.configService.settings.updateChannel
         val releases = fetchReleases()
         val candidate = releases
             .mapNotNull(::parseRelease)

@@ -22,9 +22,9 @@ class ClanQuestsUX(
     selectedFilter: QuestFilter = QuestFilter.ALL,
     selectedPage: Int = 0
 ) : BaseGui(clanService) {
-    private val config = clanService.plugin.configService.quests
+    private val config = clanService.plugin.services.configService.quests
     private val display = config.display
-    private val questService: ClanQuestService = clanService.plugin.clanQuestService
+    private val questService: ClanQuestService = clanService.plugin.services.clanQuestService
     private val guiRows = config.rows.coerceIn(1, 6)
     private val inventorySize = guiRows * 9
     private val controlSlots = setOf(
@@ -52,7 +52,7 @@ class ClanQuestsUX(
     init {
         title(config.title)
         rows(guiRows)
-        background(clanService.plugin.configService.menus.background)
+        background(clanService.plugin.services.configService.menus.background)
         addHeader()
         addQuestEntries()
         addControls()
@@ -238,10 +238,10 @@ class ClanQuestsUX(
             quest.target.coerceAtLeast(1L)
         )
         when (questService.status(clan, questId)) {
-            ClanQuestStatus.LOCKED -> send(player, clanService.plugin.configService.messages.quests.locked, placeholders)
-            ClanQuestStatus.AVAILABLE -> send(player, clanService.plugin.configService.messages.quests.available, placeholders)
-            ClanQuestStatus.IN_PROGRESS -> send(player, clanService.plugin.configService.messages.quests.inProgress, placeholders)
-            ClanQuestStatus.COMPLETED -> send(player, clanService.plugin.configService.messages.quests.alreadyCompleted, placeholders)
+            ClanQuestStatus.LOCKED -> send(player, clanService.plugin.services.configService.messages.quests.locked, placeholders)
+            ClanQuestStatus.AVAILABLE -> send(player, clanService.plugin.services.configService.messages.quests.available, placeholders)
+            ClanQuestStatus.IN_PROGRESS -> send(player, clanService.plugin.services.configService.messages.quests.inProgress, placeholders)
+            ClanQuestStatus.COMPLETED -> send(player, clanService.plugin.services.configService.messages.quests.alreadyCompleted, placeholders)
         }
     }
 
@@ -448,10 +448,10 @@ class ClanQuestsUX(
         runCatching { Material.valueOf(value.uppercase()) }.getOrDefault(fallback)
 
     private fun format(player: Player, value: String, placeholders: Map<String, String> = emptyMap()): String =
-        clanService.plugin.configService.formatMessage(player, value, placeholders)
+        clanService.plugin.services.configService.formatMessage(player, value, placeholders)
 
     private fun send(player: Player, actions: List<ua.inventorytype.pnclans.api.Action>, placeholders: Map<String, String>) {
-        clanService.plugin.configService.send(player, actions, placeholders)
+        clanService.plugin.services.configService.send(player, actions, placeholders)
     }
 
     private fun isValid(slot: Int): Boolean = slot in 0 until inventorySize

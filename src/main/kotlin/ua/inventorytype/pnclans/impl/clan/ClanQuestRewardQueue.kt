@@ -116,7 +116,7 @@ internal class ClanQuestRewardQueue(private val plugin: BukkitPlugin) {
 
     fun processForPlayer(player: Player) {
         if (!healthy) return
-        val clan = plugin.clanService.getClanUser(player) ?: return
+        val clan = plugin.services.clanService.getClanUser(player) ?: return
         val playerId = player.uniqueId.toString()
         ledger.deliveries.values
             .filter { it.clanId == clan.id && it.recipients[playerId] == QuestRewardDeliveryState.PENDING }
@@ -126,7 +126,7 @@ internal class ClanQuestRewardQueue(private val plugin: BukkitPlugin) {
 
     fun processOnlinePlayers() {
         if (!healthy) return
-        plugin.clanService.getAllClans().forEach(::processForClan)
+        plugin.services.clanService.getAllClans().forEach(::processForClan)
     }
 
     private fun processDelivery(id: String, clan: Clan, onlyPlayer: Player?) {
@@ -142,7 +142,7 @@ internal class ClanQuestRewardQueue(private val plugin: BukkitPlugin) {
         if (onlyPlayer == null) processPoints(delivery, clan)
         if (!healthy) return
 
-        val quest = plugin.configService.quests.quests[delivery.questId]
+        val quest = plugin.services.configService.quests.quests[delivery.questId]
         if (quest == null) {
             markPendingRecipientsFailed(delivery, "Quest '${delivery.questId}' no longer exists; queued action rewards require manual review.")
             return
@@ -171,7 +171,7 @@ internal class ClanQuestRewardQueue(private val plugin: BukkitPlugin) {
             return
         }
 
-        val awarded = plugin.clanPointsService.award(clan, delivery.rewardPoints, ClanPointsSource.QUEST)
+        val awarded = plugin.services.clanPointsService.award(clan, delivery.rewardPoints, ClanPointsSource.QUEST)
         delivery.pointsState = if (awarded) QuestRewardDeliveryState.DELIVERED else QuestRewardDeliveryState.PENDING
         if (!saveLedger()) return
 
@@ -207,7 +207,7 @@ internal class ClanQuestRewardQueue(private val plugin: BukkitPlugin) {
             "target" to quest.target.toString(),
             "reward_points" to delivery.rewardPoints.toString()
         )
-        val context = ActionContext(player, plugin.placeholderRegistry, placeholders, plugin)
+        val context = ActionContext(player, plugin.services.placeholderRegistry, placeholders, plugin)
         val result = runCatching {
             quest.rewards.forEach { action -> action.execute(context) }
         }

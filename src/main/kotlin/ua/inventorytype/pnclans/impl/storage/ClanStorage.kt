@@ -312,7 +312,7 @@ class ClanStorage(private val plugin: BukkitPlugin) : IClanStorage {
     override fun saveChest(clanId: String, items: Array<ItemStack?>) {
         runCatching {
             val file = File(chestDir, "$clanId.dat")
-            val encoded = ItemStackSerializer.toBase64(items)
+            val encoded = ClanItems.encode(items)
             writeAtomically(file, encoded)
         }.onFailure { ex ->
             Log.error("Failed to save chest for clan $clanId", ex)
@@ -323,7 +323,7 @@ class ClanStorage(private val plugin: BukkitPlugin) : IClanStorage {
         val file = File(chestDir, "$clanId.dat")
         if (!file.exists()) return arrayOfNulls(54)
         return runCatching {
-            ItemStackSerializer.fromBase64(file.readText())
+            ClanItems.decode(file.readText())
         }.getOrDefault(arrayOfNulls(54))
     }
 }

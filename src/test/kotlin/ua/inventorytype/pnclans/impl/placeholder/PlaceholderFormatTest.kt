@@ -6,23 +6,25 @@ import kotlin.test.assertEquals
 
 class PlaceholderFormatTest {
     private val defaults = PlaceholderConfig()
+    private val color = { text: String -> text.replace('&', '§') }
+
+    private fun render(template: String, clan: String?) = PlaceholderFormat.render(template, clan, color)
 
     @Test
     fun `defaults keep the old output`() {
-        assertEquals("Wolves", PlaceholderFormat.render(defaults.clanFormat, "Wolves"))
-        assertEquals("Нет", PlaceholderFormat.render(defaults.noClan, null))
-        assertEquals("§8[§6Wolves§8]", PlaceholderFormat.render(defaults.tagFormat, "Wolves"))
-        assertEquals("", PlaceholderFormat.render(defaults.noTag, null))
+        assertEquals("Wolves", render(defaults.clanFormat, "Wolves"))
+        assertEquals("Нет", render(defaults.noClan, null))
+        assertEquals("§8[§6Wolves§8]", render(defaults.tagFormat, "Wolves"))
+        assertEquals("", render(defaults.noTag, null))
     }
 
     @Test
-    fun `custom style and hex colours`() {
-        assertEquals("§7[§6Wolves§7]", PlaceholderFormat.render("&7[&6{clan}&7]", "Wolves"))
-        assertEquals("§x§F§F§0§0§0§0Нет клана", PlaceholderFormat.render("&#FF0000Нет клана", null))
+    fun `custom style`() {
+        assertEquals("§7[§6Wolves§7]", render("&7[&6{clan}&7]", "Wolves"))
     }
 
     @Test
     fun `ampersand in a clan name is not a colour`() {
-        assertEquals("§6A&cB", PlaceholderFormat.render("&6{clan}", "A&cB"))
+        assertEquals("§6A&cB", render("&6{clan}", "A&cB"))
     }
 }

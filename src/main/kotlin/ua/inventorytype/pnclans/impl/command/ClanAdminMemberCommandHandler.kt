@@ -1,5 +1,6 @@
 package ua.inventorytype.pnclans.impl.command
 
+import ua.inventorytype.pnclans.impl.text.ClanText
 import ua.inventorytype.pnclans.impl.integration.Log
 
 import org.bukkit.Bukkit
@@ -8,11 +9,10 @@ import ua.inventorytype.pnclans.BukkitPlugin
 import ua.inventorytype.pnclans.api.clan.Clan
 import ua.inventorytype.pnclans.api.clan.ClanRole
 import ua.inventorytype.pnclans.impl.clan.ClanUser
-import ua.inventorytype.pnclans.impl.util.ColorUtil
 
 /** Administrator operations for membership and role management using ClanService event-safe mutations. */
 internal class ClanAdminMemberCommandHandler(private val plugin: BukkitPlugin) {
-    private val clans get() = plugin.clanService
+    private val clans get() = plugin.services.clanService
 
     fun execute(sender: CommandSender, args: List<String>) {
         when (args.firstOrNull()?.lowercase()) {
@@ -122,7 +122,7 @@ internal class ClanAdminMemberCommandHandler(private val plugin: BukkitPlugin) {
         }
         clan.users.forEach { clans.notifyClanUpdated(it.uuid) }
         clans.notifyClanUpdated(member.uuid)
-        Bukkit.getPlayer(member.uuid)?.sendMessage(ColorUtil.color("&#FC3737✖ &fАдминистратор исключил вас из клана &#5EA9FD${clan.name}&f."))
+        Bukkit.getPlayer(member.uuid)?.sendMessage(ClanText.component("&#FC3737✖ &fАдминистратор исключил вас из клана &#5EA9FD${clan.name}&f."))
         sender.reply("&#5EFD7D✔ &fИгрок &e${member.playerName} &fудалён из клана &#5EA9FD${clan.name}&f.")
         audit(sender, "removed member ${member.uuid} from ${clan.id}")
     }
@@ -205,6 +205,6 @@ internal class ClanAdminMemberCommandHandler(private val plugin: BukkitPlugin) {
     }
 
     private fun CommandSender.reply(text: String) {
-        sendMessage(ColorUtil.color(text))
+        sendMessage(ClanText.component(text))
     }
 }

@@ -26,7 +26,7 @@ repositories {
     maven("https://repo.codemc.io/repository/maven-snapshots/")
 }
 
-val pnLibraryVersion = "0.0.1-dev.6"
+val pnLibraryVersion = "0.1.0-dev.1"
 
 dependencies {
     testImplementation(kotlin("test-junit5"))
@@ -45,8 +45,8 @@ dependencies {
     // The shared runtime plugin is installed by the pnLibrary bootstrap shaded into the jar; only its API is needed to compile.
     implementation("io.github.pnfolder:pnlibrary-bootstrap-bukkit:$pnLibraryVersion")
     compileOnly("io.github.pnfolder:pnlibrary-api:$pnLibraryVersion")
+    compileOnly("io.github.pnfolder:pnlibrary-bukkit-api:$pnLibraryVersion")
 
-    compileOnly("me.clip:placeholderapi:2.12.3")
     implementation("com.github.retrooper:packetevents-spigot:2.13.1-SNAPSHOT")
     compileOnly("com.github.MilkBowl:VaultAPI:1.7") {
         exclude(group = "org.bukkit", module = "bukkit")

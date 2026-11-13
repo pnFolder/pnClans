@@ -26,8 +26,8 @@ import kotlin.math.floor
 
 class ClanListener(private val plugin: BukkitPlugin) : Listener {
 
-    private val clanService = plugin.clanService
-    private val configService = plugin.configService
+    private val clanService = plugin.services.clanService
+    private val configService = plugin.services.configService
     private val cfg get() = configService.settings
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
@@ -57,9 +57,9 @@ class ClanListener(private val plugin: BukkitPlugin) : Listener {
     fun onPlayerDeath(event: PlayerDeathEvent) {
         val victim = event.entity
         val killer = victim.killer
-        val victimBattle = plugin.clanBattleService.battleForPlayer(victim)
+        val victimBattle = plugin.services.clanBattleService.battleForPlayer(victim)
         val organizedBattleKill = victimBattle != null && killer != null &&
-            victimBattle.id == plugin.clanBattleService.battleForPlayer(killer)?.id
+            victimBattle.id == plugin.services.clanBattleService.battleForPlayer(killer)?.id
         val memberCfg = configService.points.memberPoints
 
         val victimClan = clanService.getClanUser(victim)
@@ -82,7 +82,7 @@ class ClanListener(private val plugin: BukkitPlugin) : Listener {
                 val killerUser = killerClan.getMember(killer.uniqueId) as? ClanUser
                 killerUser?.recordKill()
 
-                val decision = if (organizedBattleKill) null else plugin.clanPointsAntiFarmService.evaluate(
+                val decision = if (organizedBattleKill) null else plugin.services.clanPointsAntiFarmService.evaluate(
                     killerClan,
                     killer,
                     victim,
@@ -101,7 +101,7 @@ class ClanListener(private val plugin: BukkitPlugin) : Listener {
                 val awarded = when {
                     organizedBattleKill -> true
                     decision == null || decision.amount <= 0L -> false
-                    else -> (plugin.clanPointsService as ClanPointsService).awardPlayerKill(
+                    else -> (plugin.services.clanPointsService as ClanPointsService).awardPlayerKill(
                         clan = killerClan,
                         amount = decision.amount,
                         killerName = killer.name,
@@ -109,7 +109,7 @@ class ClanListener(private val plugin: BukkitPlugin) : Listener {
                         antiFarmReasons = decision.reasons
                     )
                 }
-                plugin.clanQuestService.recordPlayerKill(killerClan, killer)
+                plugin.services.clanQuestService.recordPlayerKill(killerClan, killer)
                 if (!awarded) clanService.saveClan(killerClan)
             }
         }
@@ -122,9 +122,9 @@ class ClanListener(private val plugin: BukkitPlugin) : Listener {
         val clan = clanService.getClanUser(killer) ?: return
         val reward = cfg.clanPointsPerMobKill[event.entity.type.name] ?: 0L
         if (reward > 0L) {
-            plugin.clanPointsService.award(clan, reward, ClanPointsSource.MOB_KILL)
+            plugin.services.clanPointsService.award(clan, reward, ClanPointsSource.MOB_KILL)
         }
-        plugin.clanQuestService.recordMobKill(clan, killer, event.entity.type.name)
+        plugin.services.clanQuestService.recordMobKill(clan, killer, event.entity.type.name)
     }
 
     @Suppress("DEPRECATION")
@@ -141,7 +141,7 @@ class ClanListener(private val plugin: BukkitPlugin) : Listener {
         event.isCancelled = true
         val player = event.player
         val clanMessage = message.removePrefix(prefix).trim()
-        plugin.pnLibraryIntegration.tasks.sync(Runnable {
+        plugin.services.pnLibraryIntegration.tasks.sync(Runnable {
             if (player.isOnline) sendClanChat(player, clanMessage)
         })
     }
@@ -207,8 +207,8 @@ class ClanListener(private val plugin: BukkitPlugin) : Listener {
         }
 
         clanService.playtimeTracker.markOnline(player.uniqueId, clan.id)
-        plugin.clanHighlightService.syncPlayer(player)
-        plugin.clanQuestService.deliverPendingRewards(player)
+        plugin.services.clanHighlightService.syncPlayer(player)
+        plugin.services.clanQuestService.deliverPendingRewards(player)
 
         if (clan.isSettingEnabled(ClanSetting.JOIN)) {
             val msg = configService.formatMessage(player, cfg.msgJoinNotice, mapOf("player" to player.name))
@@ -222,12 +222,12 @@ class ClanListener(private val plugin: BukkitPlugin) : Listener {
 
     @EventHandler
     fun onRespawn(event: PlayerRespawnEvent) {
-        plugin.clanHighlightService.syncPlayer(event.player)
+        plugin.services.clanHighlightService.syncPlayer(event.player)
     }
 
     @EventHandler
     fun onWorldChange(event: PlayerChangedWorldEvent) {
-        plugin.clanHighlightService.syncPlayer(event.player)
+        plugin.services.clanHighlightService.syncPlayer(event.player)
     }
 
     @EventHandler
@@ -235,7 +235,7 @@ class ClanListener(private val plugin: BukkitPlugin) : Listener {
         val player = event.player
         val clan = clanService.getClanUser(player) ?: return
 
-        plugin.clanHighlightService.forgetPlayer(player)
+        plugin.services.clanHighlightService.forgetPlayer(player)
         clanService.playtimeTracker.flushSession(player.uniqueId, clanService)
 
         if (clan.isSettingEnabled(ClanSetting.JOIN)) {

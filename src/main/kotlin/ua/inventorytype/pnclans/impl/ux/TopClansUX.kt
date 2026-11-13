@@ -27,7 +27,7 @@ class TopClansUX(
 ) : BaseGui(clanService) {
 
     init {
-        val cfg = clanService.plugin.configService
+        val cfg = clanService.plugin.services.configService
         val menuCfg = cfg.menus.topMenu
         val totalClans = rankedClans().size
         val maxPages = pageCount(totalClans, menuCfg.entrySlots.size)
@@ -40,7 +40,7 @@ class TopClansUX(
 
         title(replace(menuCfg.title, pagePlaceholders))
         rows(menuCfg.rows)
-        background(clanService.plugin.configService.menus.background)
+        background(clanService.plugin.services.configService.menus.background)
 
         menuCfg.items["overview"]?.let { itemCfg ->
             slot(itemCfg.slot) {
@@ -155,8 +155,8 @@ class TopClansUX(
         itemCfg: GuiItemConfig,
         placeholders: Map<String, String>
     ) {
-        builder.name(clanService.plugin.configService.formatMessage(player, itemCfg.name, placeholders))
-        builder.lore(itemCfg.lore.map { line -> clanService.plugin.configService.formatMessage(player, line, placeholders) })
+        builder.name(clanService.plugin.services.configService.formatMessage(player, itemCfg.name, placeholders))
+        builder.lore(itemCfg.lore.map { line -> clanService.plugin.services.configService.formatMessage(player, line, placeholders) })
         builder.glow(itemCfg.glow)
     }
 

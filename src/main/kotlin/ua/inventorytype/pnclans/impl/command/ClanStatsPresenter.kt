@@ -1,12 +1,12 @@
 package ua.inventorytype.pnclans.impl.command
 
+import ua.inventorytype.pnclans.impl.text.ClanText
 import org.bukkit.command.CommandSender
 import ua.inventorytype.pnclans.api.User
 import ua.inventorytype.pnclans.api.clan.Clan
 import ua.inventorytype.pnclans.impl.clan.ClanStatsPeriod
 import ua.inventorytype.pnclans.impl.clan.ClanService
 import ua.inventorytype.pnclans.impl.clan.ClanUser
-import ua.inventorytype.pnclans.impl.util.ColorUtil
 import java.util.Locale
 
 internal object ClanStatsPresenter {
@@ -68,6 +68,6 @@ internal object ClanStatsPresenter {
     }
 
     private fun CommandSender.colored(text: String) {
-        sendMessage(ColorUtil.color(text))
+        sendMessage(ClanText.component(text))
     }
 }

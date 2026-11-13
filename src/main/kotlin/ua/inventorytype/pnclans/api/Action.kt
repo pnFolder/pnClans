@@ -1,10 +1,10 @@
 package ua.inventorytype.pnclans.api
 
+import ua.inventorytype.pnclans.impl.text.ClanText
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import net.md_5.bungee.api.ChatMessageType
 import net.md_5.bungee.api.chat.TextComponent
-import net.kyori.adventure.text.minimessage.MiniMessage
 import org.bukkit.Bukkit
 import org.bukkit.Material
 import org.bukkit.Particle
@@ -73,9 +73,7 @@ data class MiniMessageAction(
 ) : Action {
     override fun execute(context: ActionContext) {
         val raw = context.placeholderRegistry.process(context.player, text, context.placeholders, colorize = false)
-        // MiniMessage strictly forbids legacy '§' character. Strip any legacy colors that might have leaked through PlaceholderAPI
-        val clean = raw.replace(Regex("§[0-9a-fk-orx]"), "")
-        context.player.sendMessage(MiniMessage.miniMessage().deserialize(clean))
+        context.player.sendMessage(ClanText.component(raw))
     }
 }
 
@@ -132,7 +130,7 @@ data class BossBarAction(
     override fun execute(context: ActionContext) {
         val plugin = context.plugin ?: return
         val formatted = context.placeholderRegistry.process(context.player, text, context.placeholders)
-        plugin.timedBossBarService.show(
+        plugin.services.timedBossBarService.show(
             context.player,
             formatted,
             color,
@@ -243,7 +241,7 @@ data class BarterAction(
         val material = runCatching { Material.valueOf(item.uppercase()) }.getOrNull() ?: return
 
         if (buy) {
-            if (price > 0 && !plugin.economyService.withdraw(player, price)) {
+            if (price > 0 && !plugin.services.economyService.withdraw(player, price)) {
                 player.sendMessage("§cНедостаточно денег для покупки товара ($price$).")
                 return
             }
@@ -256,7 +254,7 @@ data class BarterAction(
                 return
             }
             player.inventory.removeItem(itemStack)
-            if (price > 0) plugin.economyService.depositPlayer(player, price)
+            if (price > 0) plugin.services.economyService.depositPlayer(player, price)
             player.sendMessage("§aВы продали ${amount}x ${material.name} и получили $price$!")
         }
     }
@@ -393,9 +391,9 @@ data class AddMmrAction(
 ) : Action {
     override fun execute(context: ActionContext) {
         val plugin = context.plugin ?: return
-        val clan = plugin.clanService.getClanUser(context.player) ?: return
+        val clan = plugin.services.clanService.getClanUser(context.player) ?: return
         clan.mmr += amount
-        plugin.clanService.saveClan(clan)
+        plugin.services.clanService.saveClan(clan)
         context.player.sendMessage("§aРейтинг клана увеличен на +$amount MMR!")
     }
 }
@@ -412,7 +410,7 @@ data class OpenGuiAction(
 ) : Action {
     override fun execute(context: ActionContext) {
         val plugin = context.plugin ?: return
-        val clanService = plugin.clanService
+        val clanService = plugin.services.clanService
         when (menu.uppercase()) {
             "MAIN" -> MainUX(clanService).open(context.player)
             "MEMBERS" -> MembersUX(clanService).open(context.player)

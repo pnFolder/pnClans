@@ -44,7 +44,7 @@ object ChatInputPrompt {
                 session.timeoutTask.cancel()
                 val message = event.message.trim()
 
-                plugin.pnLibraryIntegration.tasks.entity(event.player, Runnable {
+                plugin.services.pnLibraryIntegration.tasks.entity(event.player, Runnable {
                     session.onInput(message)
                 })
             }
@@ -77,7 +77,7 @@ object ChatInputPrompt {
 
         val playerId = player.uniqueId
         lateinit var session: PromptSession
-        val timeoutTask = plugin.pnLibraryIntegration.tasks.laterEntity(player, Duration.ofMillis(timeoutTicks.coerceAtLeast(1L) * 50L), Runnable {
+        val timeoutTask = plugin.services.pnLibraryIntegration.tasks.laterEntity(player, Duration.ofMillis(timeoutTicks.coerceAtLeast(1L) * 50L), Runnable {
             if (activePrompts.remove(playerId, session)) {
                 session.onTimeout()
             }

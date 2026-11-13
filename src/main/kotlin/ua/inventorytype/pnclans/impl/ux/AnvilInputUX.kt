@@ -26,7 +26,7 @@ class AnvilInputUX(
     defaultText: String = "100",
     val onSubmit: (Player, Double) -> Unit,
     val onCancel: (Player) -> Unit = { player ->
-        val cfg = clanService.plugin.configService
+        val cfg = clanService.plugin.services.configService
         cfg.send(player, cfg.messages.general.operationCancelled)
         TreasuryUX(clanService).open(player)
     }
@@ -75,7 +75,7 @@ class AnvilInputUX(
                 if (amount != null && amount > 0.0) {
                     this@AnvilInputUX.onSubmit(player, amount)
                 } else {
-                    val cfg = this@AnvilInputUX.clanService.plugin.configService
+                    val cfg = this@AnvilInputUX.clanService.plugin.services.configService
                     cfg.send(player, cfg.messages.general.invalidInput)
                     this@AnvilInputUX.onCancel(player)
                 }

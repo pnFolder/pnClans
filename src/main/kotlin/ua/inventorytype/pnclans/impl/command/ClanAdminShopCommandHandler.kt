@@ -1,5 +1,7 @@
 package ua.inventorytype.pnclans.impl.command
 
+import ua.inventorytype.pnclans.impl.text.ClanText
+import ua.inventorytype.pnclans.impl.storage.ClanItems
 import ua.inventorytype.pnclans.impl.integration.Log
 
 import org.bukkit.Material
@@ -12,8 +14,6 @@ import ua.inventorytype.pnclans.api.SerializedItemRewardAction
 import ua.inventorytype.pnclans.api.shop.ClanShopCurrency
 import ua.inventorytype.pnclans.impl.config.ClanShopPaymentOption
 import ua.inventorytype.pnclans.impl.config.ClanShopProductConfig
-import ua.inventorytype.pnclans.impl.storage.ItemStackSerializer
-import ua.inventorytype.pnclans.impl.util.ColorUtil
 import kotlin.math.ceil
 
 /** Safe in-game editor for the most common shop administration operations. */
@@ -65,7 +65,7 @@ internal class ClanAdminShopCommandHandler(private val plugin: BukkitPlugin) {
     }
 
     private fun list(sender: CommandSender, args: List<String>) {
-        val products = plugin.configService.shop.products.toList().sortedBy { it.first.lowercase() }
+        val products = plugin.services.configService.shop.products.toList().sortedBy { it.first.lowercase() }
         val pageSize = 10
         val pages = maxOf(1, ceil(products.size.toDouble() / pageSize).toInt())
         val page = (args.firstOrNull()?.toIntOrNull() ?: 1).coerceIn(1, pages)
@@ -80,7 +80,7 @@ internal class ClanAdminShopCommandHandler(private val plugin: BukkitPlugin) {
 
     private fun info(sender: CommandSender, args: List<String>) {
         val id = args.firstOrNull() ?: return usage(sender)
-        val product = plugin.configService.shop.products[id] ?: return notFound(sender, id)
+        val product = plugin.services.configService.shop.products[id] ?: return notFound(sender, id)
         sender.reply("")
         sender.reply("&#FC7D37✦ &fТовар &#5EA9FD$id")
         sender.reply("&8Название: &f${product.name}")
@@ -97,7 +97,7 @@ internal class ClanAdminShopCommandHandler(private val plugin: BukkitPlugin) {
             sender.reply("&#FC3737✖ &fID товара: только a-z, 0-9, _ и -.")
             return
         }
-        if (plugin.configService.shop.products.containsKey(id)) {
+        if (plugin.services.configService.shop.products.containsKey(id)) {
             sender.reply("&#FC3737✖ &fТовар &#5EA9FD$id &fуже существует. Используйте другое ID или удалите старый товар.")
             return
         }
@@ -112,7 +112,7 @@ internal class ClanAdminShopCommandHandler(private val plugin: BukkitPlugin) {
                 sender.reply("&#FC3737✖ &fВозьмите предмет в основную руку.")
                 return
             }
-            val serialized = ItemStackSerializer.toBase64(arrayOf(held))
+            val serialized = ClanItems.encode(held)
             AddItemData(
                 material = held.type,
                 amount = held.amount.coerceAtLeast(1),
@@ -135,7 +135,7 @@ internal class ClanAdminShopCommandHandler(private val plugin: BukkitPlugin) {
 
         val price = args.getOrNull(nextIndex)?.toLongOrNull()?.takeIf { it > 0L } ?: return usage(sender)
         val currency = args.getOrNull(nextIndex + 1)?.parseCurrency() ?: ClanShopCurrency.CLAN_POINTS
-        val category = args.getOrNull(nextIndex + 2)?.takeIf { it in plugin.configService.shop.categories }
+        val category = args.getOrNull(nextIndex + 2)?.takeIf { it in plugin.services.configService.shop.categories }
             ?: defaultCategory()
         val rarity = defaultRarity()
         val slot = freeProductSlot()
@@ -159,20 +159,20 @@ internal class ClanAdminShopCommandHandler(private val plugin: BukkitPlugin) {
             sortOrder = nextSortOrder(),
             rarity = rarity
         )
-        if (!replaceProducts(sender, plugin.configService.shop.products + (id to product), "add product $id")) return
+        if (!replaceProducts(sender, plugin.services.configService.shop.products + (id to product), "add product $id")) return
         sender.reply("&#5EFD7D✔ &fДобавлен товар &#5EA9FD$id &8• &#FFD700$price $currency&f.")
     }
 
     private fun remove(sender: CommandSender, args: List<String>) {
         val id = args.firstOrNull() ?: return usage(sender)
-        if (id !in plugin.configService.shop.products) return notFound(sender, id)
-        if (!replaceProducts(sender, plugin.configService.shop.products - id, "remove product $id")) return
+        if (id !in plugin.services.configService.shop.products) return notFound(sender, id)
+        if (!replaceProducts(sender, plugin.services.configService.shop.products - id, "remove product $id")) return
         sender.reply("&#5EFD7D✔ &fТовар &#5EA9FD$id &fудалён из shop.yml.")
     }
 
     private fun price(sender: CommandSender, args: List<String>) {
         val id = args.getOrNull(0) ?: return usage(sender)
-        val product = plugin.configService.shop.products[id] ?: return notFound(sender, id)
+        val product = plugin.services.configService.shop.products[id] ?: return notFound(sender, id)
         val amount = args.getOrNull(1)?.toLongOrNull()?.takeIf { it > 0L } ?: return usage(sender)
         val currency = args.getOrNull(2)?.parseCurrency()
         val payments = if (currency == null) {
@@ -189,15 +189,15 @@ internal class ClanAdminShopCommandHandler(private val plugin: BukkitPlugin) {
 
     private fun category(sender: CommandSender, args: List<String>) {
         val id = args.getOrNull(0) ?: return usage(sender)
-        val product = plugin.configService.shop.products[id] ?: return notFound(sender, id)
-        val category = args.getOrNull(1)?.takeIf { it in plugin.configService.shop.categories } ?: return usage(sender)
+        val product = plugin.services.configService.shop.products[id] ?: return notFound(sender, id)
+        val category = args.getOrNull(1)?.takeIf { it in plugin.services.configService.shop.categories } ?: return usage(sender)
         if (!replaceProduct(sender, id, product.copy(category = category), "category product $id category=$category")) return
         sender.reply("&#5EFD7D✔ &fКатегория товара &#5EA9FD$id&f: &e$category&f.")
     }
 
     private fun slot(sender: CommandSender, args: List<String>) {
         val id = args.getOrNull(0) ?: return usage(sender)
-        val product = plugin.configService.shop.products[id] ?: return notFound(sender, id)
+        val product = plugin.services.configService.shop.products[id] ?: return notFound(sender, id)
         val slot = args.getOrNull(1)?.toIntOrNull()?.takeIf { it in 0..53 } ?: return usage(sender)
         if (!replaceProduct(sender, id, product.copy(slot = slot), "slot product $id slot=$slot")) return
         sender.reply("&#5EFD7D✔ &fSlot товара &#5EA9FD$id&f: &e$slot&f.")
@@ -206,24 +206,24 @@ internal class ClanAdminShopCommandHandler(private val plugin: BukkitPlugin) {
     private fun clone(sender: CommandSender, args: List<String>) {
         val sourceId = args.getOrNull(0) ?: return usage(sender)
         val newId = args.getOrNull(1)?.normalizeId() ?: return usage(sender)
-        val source = plugin.configService.shop.products[sourceId] ?: return notFound(sender, sourceId)
-        if (!VALID_ID.matches(newId) || newId in plugin.configService.shop.products) {
+        val source = plugin.services.configService.shop.products[sourceId] ?: return notFound(sender, sourceId)
+        if (!VALID_ID.matches(newId) || newId in plugin.services.configService.shop.products) {
             sender.reply("&#FC3737✖ &fНовый ID недопустим или уже занят.")
             return
         }
         val copy = source.copy(slot = freeProductSlot(), sortOrder = nextSortOrder())
-        if (!replaceProducts(sender, plugin.configService.shop.products + (newId to copy), "clone product $sourceId -> $newId")) return
+        if (!replaceProducts(sender, plugin.services.configService.shop.products + (newId to copy), "clone product $sourceId -> $newId")) return
         sender.reply("&#5EFD7D✔ &fТовар &#5EA9FD$sourceId &fскопирован как &#5EA9FD$newId&f.")
     }
 
     private fun replaceProduct(sender: CommandSender, id: String, product: ClanShopProductConfig, audit: String): Boolean =
-        replaceProducts(sender, plugin.configService.shop.products + (id to product), audit)
+        replaceProducts(sender, plugin.services.configService.shop.products + (id to product), audit)
 
     private fun replaceProducts(sender: CommandSender, updated: Map<String, ClanShopProductConfig>, audit: String): Boolean {
-        val shop = plugin.configService.shop
+        val shop = plugin.services.configService.shop
         val previous = shop.products
         shop.products = updated
-        val saved = runCatching { plugin.configService.saveShop() }.isSuccess
+        val saved = runCatching { plugin.services.configService.saveShop() }.isSuccess
         if (!saved) {
             shop.products = previous
             sender.reply("&#FC3737✖ &fНе удалось сохранить shop.yml. Изменение отменено.")
@@ -234,22 +234,22 @@ internal class ClanAdminShopCommandHandler(private val plugin: BukkitPlugin) {
     }
 
     private fun freeProductSlot(): Int {
-        val used = plugin.configService.shop.products.values.map { it.slot }.toSet()
-        return plugin.configService.shop.display.productSlots.firstOrNull { it !in used }
-            ?: plugin.configService.shop.display.productSlots.firstOrNull()
+        val used = plugin.services.configService.shop.products.values.map { it.slot }.toSet()
+        return plugin.services.configService.shop.display.productSlots.firstOrNull { it !in used }
+            ?: plugin.services.configService.shop.display.productSlots.firstOrNull()
             ?: 0
     }
 
-    private fun nextSortOrder(): Int = (plugin.configService.shop.products.values.maxOfOrNull { it.sortOrder } ?: 0) + 1
+    private fun nextSortOrder(): Int = (plugin.services.configService.shop.products.values.maxOfOrNull { it.sortOrder } ?: 0) + 1
 
-    private fun defaultCategory(): String = plugin.configService.shop.categories.keys.firstOrNull { it != "all" }
-        ?: plugin.configService.shop.categories.keys.firstOrNull()
+    private fun defaultCategory(): String = plugin.services.configService.shop.categories.keys.firstOrNull { it != "all" }
+        ?: plugin.services.configService.shop.categories.keys.firstOrNull()
         ?: "general"
 
-    private fun defaultRarity(): String = plugin.configService.shop.rarities.keys.firstOrNull() ?: "common"
+    private fun defaultRarity(): String = plugin.services.configService.shop.rarities.keys.firstOrNull() ?: "common"
 
-    private fun productIds(): List<String> = plugin.configService.shop.products.keys.sorted()
-    private fun categoryIds(): List<String> = plugin.configService.shop.categories.keys.sorted()
+    private fun productIds(): List<String> = plugin.services.configService.shop.products.keys.sorted()
+    private fun categoryIds(): List<String> = plugin.services.configService.shop.categories.keys.sorted()
 
     private fun String.parseCurrency(): ClanShopCurrency? = runCatching { ClanShopCurrency.valueOf(uppercase()) }.getOrNull()
     private fun String.normalizeId(): String = lowercase().trim()
@@ -278,7 +278,7 @@ internal class ClanAdminShopCommandHandler(private val plugin: BukkitPlugin) {
     }
 
     private fun CommandSender.reply(text: String) {
-        sendMessage(ColorUtil.color(text))
+        sendMessage(ClanText.component(text))
     }
 
     private data class AddItemData(

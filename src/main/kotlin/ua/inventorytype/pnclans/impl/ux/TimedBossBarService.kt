@@ -59,7 +59,7 @@ class TimedBossBarService(private val plugin: BukkitPlugin) : Listener {
         bar.addPlayer(player)
 
         var elapsedTicks = 0L
-        val task = plugin.pnLibraryIntegration.tasks.repeatEntity(
+        val task = plugin.services.pnLibraryIntegration.tasks.repeatEntity(
             player, Duration.ofMillis(50), Duration.ofMillis(50), Runnable {
             val active = activeBars[player.uniqueId]
             if (active?.bar !== bar || !player.isOnline) {

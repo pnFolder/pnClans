@@ -43,13 +43,13 @@ import java.util.concurrent.ConcurrentHashMap
  * via [subscribe] / [notifyClanUpdated].
  *
  * @param plugin The owning [BukkitPlugin] instance providing config, economy, and logger access.
- * @param configService The configuration service (defaults to [plugin.configService]).
- * @param economy The economy service used for financial operations (defaults to [plugin.economyService]).
+ * @param configService The configuration service (defaults to [plugin.services.configService]).
+ * @param economy The economy service used for financial operations (defaults to [plugin.services.economyService]).
  */
 class ClanService(
     val plugin: BukkitPlugin,
-    val configService: ConfigService = plugin.configService,
-    val economy: EconomyService = plugin.economyService,
+    val configService: ConfigService = plugin.services.configService,
+    val economy: EconomyService = plugin.services.economyService,
 ) {
 
     private val _clans = ConcurrentHashMap.newKeySet<Clan>()
@@ -267,9 +267,9 @@ class ClanService(
      * @return Error message string if disbanding was blocked, or null if successful.
      */
     fun disbandClan(clan: Clan, leaderPlayer: Player? = null, endActiveBattle: Boolean = false): String? {
-        val settings = plugin.configService.settings
+        val settings = plugin.services.configService.settings
 
-        if (plugin.clanBattleService.hasActiveBattle(clan) && !endActiveBattle) {
+        if (plugin.services.clanBattleService.hasActiveBattle(clan) && !endActiveBattle) {
             return "§c[pnClans] Клан участвует в активной битве. Подтвердите роспуск через меню: бой будет завершён техническим поражением."
         }
 
@@ -299,7 +299,7 @@ class ClanService(
             }
         }
 
-        plugin.clanBattleService.prepareClanRemoval(clan)
+        plugin.services.clanBattleService.prepareClanRemoval(clan)
 
         val memberUuids = clan.users.map { it.uuid }
         memberUuids.forEach(playtimeTracker::clearSession)
@@ -398,7 +398,7 @@ class ClanService(
             }
             Bukkit.getPlayer(user.uuid)?.takeIf(Player::isOnline)?.let { player ->
                 playtimeTracker.markOnline(user.uuid, clan.id)
-                plugin.clanQuestService.recordMemberJoined(clan, player)
+                plugin.services.clanQuestService.recordMemberJoined(clan, player)
             }
         }
         return added
@@ -424,8 +424,8 @@ class ClanService(
                 return false
             }
             _uuidToClan.remove(uuid)
-            plugin.clanHighlightService.removeMember(clan, uuid)
-            plugin.clanBattleService.handleMemberRemoved(clan, uuid)
+            plugin.services.clanHighlightService.removeMember(clan, uuid)
+            plugin.services.clanBattleService.handleMemberRemoved(clan, uuid)
         } else {
             Bukkit.getPlayer(uuid)?.takeIf(Player::isOnline)?.let { playtimeTracker.markOnline(uuid, clan.id) }
         }
@@ -508,7 +508,7 @@ class ClanService(
             if (previousLocation == null) clan.deleteHome(normalizedHomeId) else clan.setHome(normalizedHomeId, previousLocation)
             return ClanOperationResult.Rejected(ClanOperationRejection.PERSISTENCE_FAILED)
         }
-        if (isNewHome) plugin.clanQuestService.recordHomeSet(clan, actor)
+        if (isNewHome) plugin.services.clanQuestService.recordHomeSet(clan, actor)
         return ClanOperationResult.Success
     }
 

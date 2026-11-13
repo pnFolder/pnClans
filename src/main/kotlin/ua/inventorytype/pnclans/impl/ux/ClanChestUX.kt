@@ -38,7 +38,7 @@ class ClanChestUX(
 
     private val controlSlots: Set<Int>
         get() {
-            val items = clanService.plugin.configService.menus.chestMenu.items
+            val items = clanService.plugin.services.configService.menus.chestMenu.items
             val fixedKeys = setOf("stats", "back", "core", "upgrade", "close")
             return items
                 .filter { (key, _) -> key in fixedKeys || key.startsWith("decor_") }
@@ -49,7 +49,7 @@ class ClanChestUX(
         }
 
     init {
-        val cfg = clanService.plugin.configService
+        val cfg = clanService.plugin.services.configService
         val menuCfg = cfg.menus.chestMenu
 
         title(menuCfg.title)
@@ -238,8 +238,8 @@ class ClanChestUX(
 
     private fun scheduleStatsUpdate(player: Player?) {
         if (player == null) return
-        clanService.plugin.pnLibraryIntegration.tasks.later(1L, Runnable {
-            val statsSlot = clanService.plugin.configService.menus.chestMenu.items["stats"]?.slot ?: return@Runnable
+        clanService.plugin.services.pnLibraryIntegration.tasks.later(1L, Runnable {
+            val statsSlot = clanService.plugin.services.configService.menus.chestMenu.items["stats"]?.slot ?: return@Runnable
             inventory.viewers.filterIsInstance<Player>().forEach { viewer ->
                 if (viewer.isOnline && viewer.openInventory.topInventory.holder == this) {
                     updateSlot(statsSlot, viewer)

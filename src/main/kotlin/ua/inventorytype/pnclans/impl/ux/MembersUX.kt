@@ -18,13 +18,13 @@ class MembersUX(
 
     init {
         val currentPage = page.coerceAtLeast(0)
-        val cfg = clanService.plugin.configService
+        val cfg = clanService.plugin.services.configService
         val menuCfg = cfg.menus.membersMenu
         val memberSlots = listOf(20, 21, 22, 23, 24, 29, 30, 31, 32, 33)
 
         title(menuCfg.title.replace("{page}", (currentPage + 1).toString()).replace("{pages}", "?"))
         rows(menuCfg.rows.coerceIn(1, 6))
-        background(clanService.plugin.configService.menus.background)
+        background(clanService.plugin.services.configService.menus.background)
 
         fun navPlaceholders(maxPages: Int) = mapOf(
             "page" to (currentPage + 1).toString(),

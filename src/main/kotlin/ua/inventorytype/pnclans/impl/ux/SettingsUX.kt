@@ -26,12 +26,12 @@ class SettingsUX(
 ) : BaseGui(clanService) {
 
     init {
-        val cfg = clanService.plugin.configService
+        val cfg = clanService.plugin.services.configService
         val menuCfg = cfg.menus.settingsMenu
 
         title(menuCfg.title)
         rows(menuCfg.rows)
-        background(clanService.plugin.configService.menus.background)
+        background(clanService.plugin.services.configService.menus.background)
 
         val modules = cfg.settings.modules
 
@@ -116,7 +116,7 @@ class SettingsUX(
         permission: ua.inventorytype.pnclans.api.permission.Permission,
         placeholders: (Boolean) -> Map<String, String>
     ) {
-        val cfg = clanService.plugin.configService
+        val cfg = clanService.plugin.services.configService
         val itemCfg = cfg.menus.settingsMenu.items[key] ?: return
 
         slot(itemCfg.slot) {
@@ -149,7 +149,7 @@ class SettingsUX(
 
     /** Renders the clan chat toggle with the name and lore selected by its configured activation mode. */
     private fun clanChatToggle() {
-        val cfg = clanService.plugin.configService
+        val cfg = clanService.plugin.services.configService
         val baseItemCfg = cfg.menus.settingsMenu.items["chat"] ?: return
 
         slot(baseItemCfg.slot) {
@@ -191,7 +191,7 @@ class SettingsUX(
     }
 
     private fun renderInfoItem(key: String) {
-        val cfg = clanService.plugin.configService
+        val cfg = clanService.plugin.services.configService
         val itemCfg = cfg.menus.settingsMenu.items[key] ?: return
 
         slot(itemCfg.slot) {
@@ -211,7 +211,7 @@ class SettingsUX(
     }
 
     private fun renderColorItem(key: String) {
-        val cfg = clanService.plugin.configService
+        val cfg = clanService.plugin.services.configService
         val itemCfg = cfg.menus.settingsMenu.items[key] ?: return
 
         slot(itemCfg.slot) {
@@ -252,7 +252,7 @@ class SettingsUX(
         )
 
     private fun format(player: Player, template: String, placeholders: Map<String, String>): String =
-        clanService.plugin.configService.formatMessage(player, template, placeholders)
+        clanService.plugin.services.configService.formatMessage(player, template, placeholders)
 
     private fun format(player: Player, templates: List<String>, placeholders: Map<String, String>): List<String> =
         templates.map { format(player, it, placeholders) }

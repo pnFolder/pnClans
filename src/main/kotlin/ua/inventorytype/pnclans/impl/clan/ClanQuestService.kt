@@ -29,7 +29,7 @@ internal class ClanQuestService(private val plugin: BukkitPlugin) {
     private val rewardQueue = ClanQuestRewardQueue(plugin)
 
     fun state(clan: Clan, questId: String): ClanQuestProgress {
-        val quest = plugin.configService.quests.quests[questId]
+        val quest = plugin.services.configService.quests.quests[questId]
         val current = clan.questProgress[questId] ?: ClanQuestProgress()
         if (quest == null || !quest.repeatable || quest.reset == ClanQuestReset.NONE) return current
         val cycle = cycleKey(quest.reset)
@@ -51,13 +51,13 @@ internal class ClanQuestService(private val plugin: BukkitPlugin) {
 
     /** Shop requirements use the current quest cycle; campaign prerequisites intentionally use completion history. */
     fun requiredQuestsMet(clan: Clan, questIds: Set<String>): Boolean =
-        !plugin.configService.quests.enabled || questIds.all { questId ->
-            plugin.configService.quests.quests.containsKey(questId) && isCompleted(clan, questId)
+        !plugin.services.configService.quests.enabled || questIds.all { questId ->
+            plugin.services.configService.quests.quests.containsKey(questId) && isCompleted(clan, questId)
         }
 
     fun status(clan: Clan, questId: String): ClanQuestStatus {
-        if (!plugin.configService.quests.enabled) return ClanQuestStatus.LOCKED
-        val quest = plugin.configService.quests.quests[questId] ?: return ClanQuestStatus.LOCKED
+        if (!plugin.services.configService.quests.enabled) return ClanQuestStatus.LOCKED
+        val quest = plugin.services.configService.quests.quests[questId] ?: return ClanQuestStatus.LOCKED
         if (quest.prerequisites.any { !hasCompletedAtLeastOnce(clan, it) }) return ClanQuestStatus.LOCKED
         val progress = state(clan, questId)
         if (progress.completed) return ClanQuestStatus.COMPLETED
@@ -124,9 +124,9 @@ internal class ClanQuestService(private val plugin: BukkitPlugin) {
         delta: Long,
         entityType: String? = null
     ) {
-        if (!plugin.configService.quests.enabled) return
+        if (!plugin.services.configService.quests.enabled) return
         if (delta <= 0L) return
-        val quests = plugin.configService.quests.quests.filter { (_, quest) ->
+        val quests = plugin.services.configService.quests.quests.filter { (_, quest) ->
             quest.objective == objective &&
                 quest.target > 0L &&
                 (quest.objective != ClanQuestObjective.MOB_KILL || quest.entityTypes.isEmpty() || quest.entityTypes.any { it.equals(entityType, ignoreCase = true) }) &&
@@ -156,7 +156,7 @@ internal class ClanQuestService(private val plugin: BukkitPlugin) {
 
             val next = current.copy(progress = acceptedProgress, cycleKey = currentCycle(quest))
             clan.setQuestProgress(questId, next)
-            if (!plugin.clanService.saveClan(clan)) {
+            if (!plugin.services.clanService.saveClan(clan)) {
                 clan.setQuestProgress(questId, current)
                 return@forEach
             }
@@ -164,7 +164,7 @@ internal class ClanQuestService(private val plugin: BukkitPlugin) {
         }
 
         if (changed) {
-            clan.users.forEach { plugin.clanService.notifyClanUpdated(it.uuid) }
+            clan.users.forEach { plugin.services.clanService.notifyClanUpdated(it.uuid) }
         }
     }
 
@@ -196,7 +196,7 @@ internal class ClanQuestService(private val plugin: BukkitPlugin) {
             cycleKey = currentCycle(quest)
         )
         clan.setQuestProgress(questId, next)
-        if (!plugin.clanService.saveClan(clan)) {
+        if (!plugin.services.clanService.saveClan(clan)) {
             clan.setQuestProgress(questId, current)
             rewardQueue.cancel(clan.id, questId, completionCount)
             return false
@@ -218,7 +218,7 @@ internal class ClanQuestService(private val plugin: BukkitPlugin) {
         )
         clan.users.mapNotNull { Bukkit.getPlayer(it.uuid) }
             .forEach { recipient ->
-                plugin.configService.send(recipient, plugin.configService.messages.quests.completed, placeholders)
+                plugin.services.configService.send(recipient, plugin.services.configService.messages.quests.completed, placeholders)
             }
     }
 

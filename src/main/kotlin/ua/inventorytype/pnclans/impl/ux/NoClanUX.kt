@@ -13,12 +13,12 @@ import ua.inventorytype.pnclans.impl.util.ChatInputPrompt
 class NoClanUX(clanService: ClanService) : BaseGui(clanService) {
 
     init {
-        val cfg = clanService.plugin.configService
+        val cfg = clanService.plugin.services.configService
         val menuCfg = cfg.menus.noClanMenu
 
         title(menuCfg.title)
         rows(menuCfg.rows.coerceIn(1, 6))
-        background(clanService.plugin.configService.menus.background)
+        background(clanService.plugin.services.configService.menus.background)
 
         addItem("info")
         addItem("create", mapOf("cost" to cfg.settings.createClanCost.toBigDecimal().stripTrailingZeros().toPlainString())) { player ->
@@ -33,7 +33,7 @@ class NoClanUX(clanService: ClanService) : BaseGui(clanService) {
         placeholders: Map<String, String> = emptyMap(),
         click: ((Player) -> Unit)? = null
     ) {
-        val itemCfg = clanService.plugin.configService.menus.noClanMenu.items[key] ?: return
+        val itemCfg = clanService.plugin.services.configService.menus.noClanMenu.items[key] ?: return
         slot(itemCfg.slot) {
             dynamicItem(this@NoClanUX.parseMaterial(itemCfg.material, Material.STONE)) { player ->
                 this@NoClanUX.render(this, player, itemCfg, placeholders)
@@ -44,7 +44,7 @@ class NoClanUX(clanService: ClanService) : BaseGui(clanService) {
     }
 
     private fun startCreatePrompt(player: Player) {
-        val cfg = clanService.plugin.configService
+        val cfg = clanService.plugin.services.configService
         val promptCfg = cfg.settings.clanCreation
         val timeoutSeconds = promptCfg.promptTimeoutSeconds.coerceAtLeast(1)
         val cancelInputs = promptCfg.cancelInputs
@@ -81,7 +81,7 @@ class NoClanUX(clanService: ClanService) : BaseGui(clanService) {
     }
 
     private fun render(builder: ItemBuilder, player: Player, itemCfg: GuiItemConfig, placeholders: Map<String, String>) {
-        val cfg = clanService.plugin.configService
+        val cfg = clanService.plugin.services.configService
         builder.name(cfg.formatMessage(player, itemCfg.name, placeholders))
         builder.lore(itemCfg.lore.map { cfg.formatMessage(player, it, placeholders) })
         builder.glow(itemCfg.glow)

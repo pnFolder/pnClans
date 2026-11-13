@@ -25,12 +25,12 @@ import java.util.Locale
 class MainUX(clanService: ClanService) : BaseGui(clanService) {
 
     init {
-        val cfg = clanService.plugin.configService
+        val cfg = clanService.plugin.services.configService
         val menuCfg = cfg.menus.mainMenu
 
         title(menuCfg.title)
         rows(menuCfg.rows)
-        background(clanService.plugin.configService.menus.background)
+        background(clanService.plugin.services.configService.menus.background)
 
         val modules = cfg.settings.modules
 
@@ -99,7 +99,7 @@ class MainUX(clanService: ClanService) : BaseGui(clanService) {
             ClanLeaveConfirmUX(this@MainUX.clanService).open(player)
         }
 
-        clanService.plugin.publicMainMenuButtons().forEach { button ->
+        clanService.plugin.services.api.menus.mainButtons().forEach { button ->
             slot(button.slot) {
                 dynamicItemNullable(Material.PAPER) { player ->
                     val clan = this@MainUX.clanService.getClanUser(player) ?: return@dynamicItemNullable null
@@ -132,14 +132,14 @@ class MainUX(clanService: ClanService) : BaseGui(clanService) {
             slot(addonConfig.slot) {
                 dynamicItemNullable(Material.PAPER) { player ->
                     val clan = this@MainUX.clanService.getClanUser(player) ?: return@dynamicItemNullable null
-                    val provider = this@MainUX.clanService.plugin.publicAddonGui().findItem(addonConfig.item)
+                    val provider = this@MainUX.clanService.plugin.services.api.gui.findItem(addonConfig.item)
                         ?: return@dynamicItemNullable null
                     provider.createItem(ClanAddonGuiContext(player, clan, configId))
                 }
                 onClick { player, _ ->
                     val actionId = addonConfig.action ?: return@onClick
                     val clan = this@MainUX.clanService.getClanUser(player) ?: return@onClick
-                    val action = this@MainUX.clanService.plugin.publicAddonGui().findAction(actionId) ?: return@onClick
+                    val action = this@MainUX.clanService.plugin.services.api.gui.findAction(actionId) ?: return@onClick
                     action.execute(ClanAddonGuiContext(player, clan, configId))
                 }
             }
@@ -182,7 +182,7 @@ class MainUX(clanService: ClanService) : BaseGui(clanService) {
 
     private fun startInvitePrompt(player: Player, itemCfg: GuiItemConfig) {
         val service = clanService
-        val cfg = service.plugin.configService
+        val cfg = service.plugin.services.configService
         val clan = service.getClanUser(player) ?: return
         val user = clan.getMember(player.uniqueId) ?: return
 
@@ -195,7 +195,7 @@ class MainUX(clanService: ClanService) : BaseGui(clanService) {
         val promptSeconds = cfg.settings.invitePromptTimeoutSeconds.coerceAtLeast(MIN_PROMPT_SECONDS)
         val promptPlaceholders = mainPlaceholders(player, clan) + mapOf("seconds" to promptSeconds.toString())
 
-        service.plugin.timedBossBarService.remove(player)
+        service.plugin.services.timedBossBarService.remove(player)
         ChatInputPrompt.cancel(player)
         clickEffects(player, itemCfg, promptPlaceholders)
         cfg.send(player, promptCfg.started, promptPlaceholders, promptSeconds)
@@ -205,18 +205,18 @@ class MainUX(clanService: ClanService) : BaseGui(clanService) {
             player = player,
             timeoutTicks = promptSeconds.toLong() * TICKS_PER_SECOND,
             onInput = { input ->
-                service.plugin.timedBossBarService.remove(player)
+                service.plugin.services.timedBossBarService.remove(player)
                 if (promptCfg.cancelInputs.any { it.equals(input, ignoreCase = true) }) {
                     cfg.send(player, cfg.messages.invite.cancelled)
                 } else {
                     val target = Bukkit.getPlayer(input)
                     if (target == null) cfg.send(player, cfg.messages.invite.targetNotFound, mapOf("player" to input))
-                    else service.plugin.inviteService.sendInvite(player, target)
+                    else service.plugin.services.inviteService.sendInvite(player, target)
                 }
                 reopenMain(player)
             },
             onTimeout = {
-                service.plugin.timedBossBarService.remove(player)
+                service.plugin.services.timedBossBarService.remove(player)
                 cfg.send(player, promptCfg.timedOut)
                 reopenMain(player)
             }
@@ -230,11 +230,11 @@ class MainUX(clanService: ClanService) : BaseGui(clanService) {
 
     private fun clickEffects(player: Player, itemCfg: GuiItemConfig, placeholders: Map<String, String> = emptyMap()) {
         val effects = itemCfg.actions.filterNot { it is OpenGuiAction }
-        if (effects.isNotEmpty()) clanService.plugin.configService.send(player, effects, placeholders)
+        if (effects.isNotEmpty()) clanService.plugin.services.configService.send(player, effects, placeholders)
     }
 
     private fun mainPlaceholders(player: Player, clan: Clan): Map<String, String> {
-        val cfg = clanService.plugin.configService
+        val cfg = clanService.plugin.services.configService
         val display = cfg.menus.mainMenu.display
         val user = clan.getMember(player.uniqueId)
         val homes = cfg.menus.homesMenu.homes
@@ -272,8 +272,8 @@ class MainUX(clanService: ClanService) : BaseGui(clanService) {
     }
 
     private fun renderConfigItem(builder: ItemBuilder, player: Player, itemCfg: GuiItemConfig, placeholders: Map<String, String>) {
-        builder.name(clanService.plugin.configService.formatMessage(player, itemCfg.name, placeholders))
-        builder.lore(itemCfg.lore.map { clanService.plugin.configService.formatMessage(player, it, placeholders) })
+        builder.name(clanService.plugin.services.configService.formatMessage(player, itemCfg.name, placeholders))
+        builder.lore(itemCfg.lore.map { clanService.plugin.services.configService.formatMessage(player, it, placeholders) })
         builder.glow(itemCfg.glow)
     }
 
