@@ -31,7 +31,7 @@ jobs:
 
       - name: Read pnLibrary version
         id: pnlibrary
-        run: echo "version=$(sed -n 's/^val pnLibraryVersion = "\(.*\)"//p' build.gradle.kts)" >> "$GITHUB_OUTPUT"
+        run: echo "version=$(grep -m1 '^val pnLibraryVersion' build.gradle.kts | cut -d'"' -f2)" >> "$GITHUB_OUTPUT"
 
       - name: Checkout pnLibrary
         uses: actions/checkout@v4
@@ -50,7 +50,7 @@ jobs:
         working-directory: pnLibrary
         run: |
           chmod +x gradlew
-          ./gradlew publishToMavenLocal --no-daemon --no-build-cache
+          JAVA_HOME="$JAVA_HOME_21_X64" ./gradlew publishToMavenLocal --no-daemon --no-build-cache
 
       - name: Build
         run: ./gradlew clean build -PjavaTarget=${{ matrix.java }} --no-daemon
