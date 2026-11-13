@@ -29,11 +29,28 @@ jobs:
           distribution: temurin
           java-version: ${{ matrix.java }}
 
+      - name: Read pnLibrary version
+        id: pnlibrary
+        run: echo "version=$(sed -n 's/^val pnLibraryVersion = "\(.*\)"//p' build.gradle.kts)" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout pnLibrary
+        uses: actions/checkout@v4
+        with:
+          repository: pnFolder/pnLibrary
+          ref: v${{ steps.pnlibrary.outputs.version }}
+          path: pnLibrary
+
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
 
       - name: Make Gradle wrapper executable
         run: chmod +x gradlew
+
+      - name: Publish pnLibrary to Maven Local
+        working-directory: pnLibrary
+        run: |
+          chmod +x gradlew
+          ./gradlew publishToMavenLocal --no-daemon --no-build-cache
 
       - name: Build
         run: ./gradlew clean build -PjavaTarget=${{ matrix.java }} --no-daemon
