@@ -1,5 +1,6 @@
 package ua.inventorytype.pnclans.impl.inventory.builder
 
+import ua.inventorytype.pnclans.impl.text.ClanText
 import org.bukkit.Bukkit
 import org.bukkit.Material
 import org.bukkit.NamespacedKey
@@ -9,7 +10,6 @@ import org.bukkit.event.inventory.InventoryClickEvent
 import org.bukkit.inventory.ItemFlag
 import org.bukkit.inventory.ItemStack
 import ua.inventorytype.pnclans.impl.inventory.annotation.GuiDsl
-import ua.inventorytype.pnclans.impl.util.ColorUtil
 
 @GuiDsl
 class ItemBuilder(initialMaterial: Material) {
@@ -33,22 +33,19 @@ class ItemBuilder(initialMaterial: Material) {
         itemStack.amount = value.coerceIn(1, itemStack.maxStackSize)
     }
 
-    @Suppress("DEPRECATION")
     fun name(displayName: String) {
         if (displayName.isEmpty()) return
-        itemMeta?.setDisplayName(ColorUtil.color(displayName))
+        itemMeta?.displayName(ClanText.itemLine(displayName))
     }
 
-    @Suppress("DEPRECATION")
     fun lore(vararg lines: String) {
         if (lines.isEmpty()) return
-        itemMeta?.lore = lines.map { ColorUtil.color(it) }
+        itemMeta?.lore(lines.map(ClanText::itemLine))
     }
 
-    @Suppress("DEPRECATION")
     fun lore(lines: List<String>) {
         if (lines.isEmpty()) return
-        itemMeta?.lore = lines.map { ColorUtil.color(it) }
+        itemMeta?.lore(lines.map(ClanText::itemLine))
     }
 
     fun glow(enabled: Boolean = true) {

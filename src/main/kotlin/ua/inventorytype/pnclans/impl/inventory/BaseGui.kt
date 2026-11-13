@@ -1,5 +1,6 @@
 package ua.inventorytype.pnclans.impl.inventory
 
+import ua.inventorytype.pnclans.impl.text.ClanText
 import org.bukkit.Bukkit
 import org.bukkit.Material
 import org.bukkit.entity.Player
@@ -15,7 +16,6 @@ import ua.inventorytype.pnclans.impl.config.GuiMenuConfig
 import ua.inventorytype.pnclans.impl.config.GuiBackgroundConfig
 import ua.inventorytype.pnclans.impl.inventory.annotation.GuiDsl
 import ua.inventorytype.pnclans.impl.inventory.builder.SlotBuilder
-import ua.inventorytype.pnclans.impl.util.ColorUtil
 
 /**
  * Base abstract GUI class supporting fluent DSL layout, YAML config deserialization,
@@ -35,9 +35,9 @@ abstract class BaseGui(
 
     private val inv: Inventory by lazy {
         if (type == InventoryType.CHEST) {
-            Bukkit.createInventory(this, rows.coerceIn(1, 6) * 9, ColorUtil.color(title))
+            Bukkit.createInventory(this, rows.coerceIn(1, 6) * 9, ClanText.component(title))
         } else {
-            Bukkit.createInventory(this, type, ColorUtil.color(title))
+            Bukkit.createInventory(this, type, ClanText.component(title))
         }
     }
 
@@ -140,9 +140,9 @@ abstract class BaseGui(
                             return@dynamicItemNullable null
                         }
                         val service = this@BaseGui.clanService
-                        val formattedName = service.plugin.configService.formatMessage(player, itemConfig.name)
+                        val formattedName = service.plugin.services.configService.formatMessage(player, itemConfig.name)
                         val formattedLore = itemConfig.lore.map { line ->
-                            service.plugin.configService.formatMessage(player, line)
+                            service.plugin.services.configService.formatMessage(player, line)
                         }
 
                         name(formattedName)
@@ -162,7 +162,7 @@ abstract class BaseGui(
                         if (itemConfig.actions.isNotEmpty()) {
                             val context = ActionContext(
                                 player = player,
-                                placeholderRegistry = service.plugin.placeholderRegistry,
+                                placeholderRegistry = service.plugin.services.placeholderRegistry,
                                 plugin = service.plugin
                             )
                             itemConfig.actions.forEach { action ->

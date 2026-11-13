@@ -79,12 +79,12 @@ class ClanHighlightService(private val plugin: BukkitPlugin) : Listener {
         entityIds.clear()
         viewerTargets.clear()
         Bukkit.getOnlinePlayers().forEach(::trackPlayer)
-        plugin.clanService.getAllClans().forEach(::syncClan)
+        plugin.services.clanService.getAllClans().forEach(::syncClan)
     }
 
     fun syncPlayer(player: Player) {
         trackPlayer(player)
-        val clan = plugin.clanService.getClanUser(player) ?: return
+        val clan = plugin.services.clanService.getClanUser(player) ?: return
         syncClan(clan)
         resyncClanLater(clan)
     }
@@ -179,7 +179,7 @@ class ClanHighlightService(private val plugin: BukkitPlugin) : Listener {
     }
 
     fun resyncClanLater(clan: Clan) {
-        plugin.pnLibraryIntegration.tasks.later(1L, Runnable {
+        plugin.services.pnLibraryIntegration.tasks.later(1L, Runnable {
             if (plugin.isEnabled) syncClan(clan)
         })
     }
@@ -194,7 +194,7 @@ class ClanHighlightService(private val plugin: BukkitPlugin) : Listener {
             return
         }
         sendArmor(viewer, target, coloredLeatherArmor(Color.fromRGB(170, 0, 170)))
-        plugin.pnLibraryIntegration.tasks.later(seconds * 20, Runnable {
+        plugin.services.pnLibraryIntegration.tasks.later(seconds * 20, Runnable {
             if (viewer.isOnline && target.isOnline) sendDefaultArmor(viewer, target)
         })
     }
@@ -212,7 +212,7 @@ class ClanHighlightService(private val plugin: BukkitPlugin) : Listener {
     @EventHandler
     fun onClanSaved(event: ClanSavedEvent) {
         if (pendingClanSyncs.putIfAbsent(event.clan.id, event.clan) == null) {
-            plugin.pnLibraryIntegration.tasks.sync(Runnable {
+            plugin.services.pnLibraryIntegration.tasks.sync(Runnable {
                 val clan = pendingClanSyncs.remove(event.clan.id) ?: return@Runnable
                 if (plugin.isEnabled) syncClan(clan)
             })

@@ -204,7 +204,7 @@ class ConfigService(private val plugin: Plugin) {
      */
     fun formatMessage(player: Player, template: String, customPlaceholders: Map<String, String> = emptyMap()): String {
         val bukkitPlugin = plugin as? BukkitPlugin ?: return template
-        return bukkitPlugin.placeholderRegistry.process(player, template, customPlaceholders)
+        return bukkitPlugin.services.placeholderRegistry.process(player, template, customPlaceholders)
     }
 
     /**
@@ -249,7 +249,7 @@ class ConfigService(private val plugin: Plugin) {
      *
      * Example usage:
      * ```kotlin
-     * val cfg = clanService.plugin.configService
+     * val cfg = clanService.plugin.services.configService
      * cfg.send(player, cfg.messages.homes.teleported, mapOf("home" to homeName))
      * ```
      *
@@ -266,7 +266,7 @@ class ConfigService(private val plugin: Plugin) {
         val bukkitPlugin = plugin as? BukkitPlugin ?: return
         val context = ActionContext(
             player = player,
-            placeholderRegistry = bukkitPlugin.placeholderRegistry,
+            placeholderRegistry = bukkitPlugin.services.placeholderRegistry,
             placeholders = placeholders,
             plugin = bukkitPlugin,
             durationSeconds = durationSeconds

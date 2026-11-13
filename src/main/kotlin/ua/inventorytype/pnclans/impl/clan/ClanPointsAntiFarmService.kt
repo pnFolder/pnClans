@@ -59,7 +59,7 @@ internal class ClanPointsAntiFarmService(private val plugin: BukkitPlugin) {
         }
 
         val baseAmount = pre.baseAmount.coerceAtLeast(0L)
-        val cfg = plugin.configService.points.antiFarm
+        val cfg = plugin.services.configService.points.antiFarm
         val reasons = linkedSetOf<ClanPointsAntiFarmReason>()
         var amount = baseAmount
 
@@ -74,7 +74,7 @@ internal class ClanPointsAntiFarmService(private val plugin: BukkitPlugin) {
             val killerId = killer.uniqueId
             val victimId = victim.uniqueId
 
-            val victimClan = plugin.clanService.getClanUser(victim)
+            val victimClan = plugin.services.clanService.getClanUser(victim)
             if (cfg.sameClan.enabled && victimClan?.id == clan.id) {
                 amount = applyMultiplier(amount, cfg.sameClan.multiplier)
                 reasons += ClanPointsAntiFarmReason.SAME_CLAN
@@ -201,7 +201,7 @@ internal class ClanPointsAntiFarmService(private val plugin: BukkitPlugin) {
         val impl = clan as? ClanImpl ?: return false
         val previous = impl.pointKillRecords
         impl.clearPointKillRecords()
-        if (!plugin.clanService.saveClan(clan)) {
+        if (!plugin.services.clanService.saveClan(clan)) {
             impl.restorePointKillRecords(previous)
             return false
         }
@@ -217,7 +217,7 @@ internal class ClanPointsAntiFarmService(private val plugin: BukkitPlugin) {
         reasons: Set<ClanPointsAntiFarmReason>
     ) {
         val impl = clan as? ClanImpl ?: return
-        val history = plugin.configService.points.history
+        val history = plugin.services.configService.points.history
         val now = System.currentTimeMillis()
         impl.addPointKillRecord(
             ClanPointKillRecord(
@@ -237,7 +237,7 @@ internal class ClanPointsAntiFarmService(private val plugin: BukkitPlugin) {
             Long.MIN_VALUE
         }
         impl.prunePointKillRecords(oldestAllowed, history.maxAntiFarmRecordsPerClan.coerceAtLeast(1))
-        plugin.clanService.saveClan(clan)
+        plugin.services.clanService.saveClan(clan)
     }
 
     private fun sameAddress(first: Player, second: Player): Boolean {

@@ -24,7 +24,7 @@ class HomesUX(
 ) : BaseGui(clanService) {
 
     init {
-        val cfg = clanService.plugin.configService
+        val cfg = clanService.plugin.services.configService
         val homeCfg = cfg.menus.homesMenu
         val maxPage = (homeCfg.homes.maxOfOrNull { it.page } ?: 1).coerceAtLeast(1)
         val currentPage = requestedPage.coerceIn(1, maxPage)
@@ -35,7 +35,7 @@ class HomesUX(
 
         title(applyPlaceholders(homeCfg.title, pagePlaceholders))
         rows(homeCfg.rows)
-        background(clanService.plugin.configService.menus.background)
+        background(clanService.plugin.services.configService.menus.background)
 
         homeCfg.homes.filter { it.page == currentPage }.forEach { entry ->
             val lockedMat = parseMaterial(entry.lockedMaterial, Material.BARRIER)
@@ -189,7 +189,7 @@ class HomesUX(
     }
 
     private fun format(player: Player, template: String, placeholders: Map<String, String>): String =
-        clanService.plugin.configService.formatMessage(player, template, placeholders)
+        clanService.plugin.services.configService.formatMessage(player, template, placeholders)
 
     private fun format(player: Player, templates: List<String>, placeholders: Map<String, String>): List<String> =
         templates.map { format(player, it, placeholders) }

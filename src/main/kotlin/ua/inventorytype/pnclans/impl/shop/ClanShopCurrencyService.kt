@@ -16,21 +16,21 @@ import java.util.logging.Level
 internal class ClanShopCurrencyService(private val plugin: BukkitPlugin) {
     fun isAvailable(currency: ClanShopCurrency): Boolean = when (currency) {
         ClanShopCurrency.CLAN_POINTS -> true
-        ClanShopCurrency.VAULT -> plugin.economyService.isEnabled
+        ClanShopCurrency.VAULT -> plugin.services.economyService.isEnabled
         ClanShopCurrency.PLAYER_POINTS -> playerPointsApi() != null
     }
 
     fun balance(currency: ClanShopCurrency, player: Player, clan: Clan): Double? = when (currency) {
         ClanShopCurrency.CLAN_POINTS -> clan.points.toDouble()
-        ClanShopCurrency.VAULT -> plugin.economyService.balance(player)
+        ClanShopCurrency.VAULT -> plugin.services.economyService.balance(player)
         ClanShopCurrency.PLAYER_POINTS -> playerPointsBalance(player.uniqueId)?.toDouble()
     }
 
     fun withdraw(currency: ClanShopCurrency, player: Player, clan: Clan, amount: Long): Boolean {
         if (amount <= 0L) return false
         return when (currency) {
-            ClanShopCurrency.CLAN_POINTS -> plugin.clanPointsService.spend(clan, amount, ClanPointsSource.SHOP)
-            ClanShopCurrency.VAULT -> plugin.economyService.isEnabled && plugin.economyService.withdraw(player, amount.toDouble())
+            ClanShopCurrency.CLAN_POINTS -> plugin.services.clanPointsService.spend(clan, amount, ClanPointsSource.SHOP)
+            ClanShopCurrency.VAULT -> plugin.services.economyService.isEnabled && plugin.services.economyService.withdraw(player, amount.toDouble())
             ClanShopCurrency.PLAYER_POINTS -> if (amount <= Int.MAX_VALUE) {
                 invokePlayerPoints("take", player.uniqueId, amount.toInt()) as? Boolean ?: false
             } else {
@@ -43,8 +43,8 @@ internal class ClanShopCurrencyService(private val plugin: BukkitPlugin) {
     fun refund(currency: ClanShopCurrency, player: Player, clan: Clan, amount: Long): Boolean {
         if (amount <= 0L) return false
         return when (currency) {
-            ClanShopCurrency.CLAN_POINTS -> plugin.clanPointsService.award(clan, amount, ClanPointsSource.SHOP)
-            ClanShopCurrency.VAULT -> plugin.economyService.isEnabled && plugin.economyService.depositPlayer(player, amount.toDouble())
+            ClanShopCurrency.CLAN_POINTS -> plugin.services.clanPointsService.award(clan, amount, ClanPointsSource.SHOP)
+            ClanShopCurrency.VAULT -> plugin.services.economyService.isEnabled && plugin.services.economyService.depositPlayer(player, amount.toDouble())
             ClanShopCurrency.PLAYER_POINTS -> if (amount <= Int.MAX_VALUE) {
                 invokePlayerPoints("give", player.uniqueId, amount.toInt()) as? Boolean ?: false
             } else {

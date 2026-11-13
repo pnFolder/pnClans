@@ -20,12 +20,12 @@ import ua.inventorytype.pnclans.impl.inventory.builder.ItemBuilder
 class UpgradeUX(clanService: ClanService) : BaseGui(clanService) {
 
     init {
-        val cfg = clanService.plugin.configService
+        val cfg = clanService.plugin.services.configService
         val menuCfg = cfg.menus.upgradeMenu
 
         title(menuCfg.title)
         rows(menuCfg.rows)
-        background(clanService.plugin.configService.menus.background)
+        background(clanService.plugin.services.configService.menus.background)
 
         val levelSlots = listOf(20, 22, 24, 29, 31)
         menuCfg.items["level"]?.let { levelTemplate ->
@@ -82,7 +82,7 @@ class UpgradeUX(clanService: ClanService) : BaseGui(clanService) {
 
     private fun performUpgrade(player: Player) {
         val service = clanService
-        val cfg = service.plugin.configService
+        val cfg = service.plugin.services.configService
         val clan = service.getClanUser(player) ?: return
         val user = clan.getMember(player.uniqueId) ?: return
 
@@ -106,8 +106,8 @@ class UpgradeUX(clanService: ClanService) : BaseGui(clanService) {
             cfg.send(player, cfg.messages.upgrade.insufficientMmr)
             return
         }
-        val completedQuests = service.plugin.clanQuestService.completedQuestCount(clan)
-        if (service.plugin.configService.quests.enabled && completedQuests < next.requiredQuests) {
+        val completedQuests = service.plugin.services.clanQuestService.completedQuestCount(clan)
+        if (service.plugin.services.configService.quests.enabled && completedQuests < next.requiredQuests) {
             cfg.send(
                 player,
                 cfg.messages.upgrade.insufficientQuests,
@@ -133,7 +133,7 @@ class UpgradeUX(clanService: ClanService) : BaseGui(clanService) {
     }
 
     private fun overviewPlaceholders(player: Player, clan: Clan): Map<String, String> {
-        val cfg = clanService.plugin.configService
+        val cfg = clanService.plugin.services.configService
         val next = ClanLevels.getNext(clan.level)
         return mapOf(
             "clan" to clan.name,
@@ -151,7 +151,7 @@ class UpgradeUX(clanService: ClanService) : BaseGui(clanService) {
     }
 
     private fun beaconPlaceholders(player: Player, clan: Clan): Map<String, String> {
-        val cfg = clanService.plugin.configService
+        val cfg = clanService.plugin.services.configService
         if (clan.level >= ClanLevels.MAX_LEVEL) {
             return mapOf(
                 "beacon_title" to "&#FFD700✦ Абсолютное Величие",
@@ -214,13 +214,13 @@ class UpgradeUX(clanService: ClanService) : BaseGui(clanService) {
             "level_perk" to levelData.unlockedPerk,
             "level_cost" to levelData.costMoney.toString(),
             "level_required_mmr" to levelData.requiredMmr.toString(),
-            "level_required_quests" to (if (clanService.plugin.configService.quests.enabled) levelData.requiredQuests else 0).toString()
+            "level_required_quests" to (if (clanService.plugin.services.configService.quests.enabled) levelData.requiredQuests else 0).toString()
         )
     }
 
     private fun beaconFramesFor(clan: Clan): List<String> {
         if (clan.level >= ClanLevels.MAX_LEVEL) return emptyList()
-        val cfg = clanService.plugin.configService
+        val cfg = clanService.plugin.services.configService
         val next = ClanLevels.getNext(clan.level) ?: return emptyList()
         val hasMoney = clan.bankBalance >= next.costMoney
         val hasMMR = clan.mmr >= next.requiredMmr
@@ -235,15 +235,15 @@ class UpgradeUX(clanService: ClanService) : BaseGui(clanService) {
         itemCfg: GuiItemConfig,
         placeholders: Map<String, String>
     ) {
-        builder.name(clanService.plugin.configService.formatMessage(player, itemCfg.name, placeholders))
-        builder.lore(itemCfg.lore.map { line -> clanService.plugin.configService.formatMessage(player, line, placeholders) })
+        builder.name(clanService.plugin.services.configService.formatMessage(player, itemCfg.name, placeholders))
+        builder.lore(itemCfg.lore.map { line -> clanService.plugin.services.configService.formatMessage(player, line, placeholders) })
         builder.glow(itemCfg.glow)
     }
 
     private fun parseMaterial(name: String, fallback: Material): Material =
         runCatching { Material.valueOf(name.uppercase()) }.getOrDefault(fallback)
 
-    private fun serviceQuestCount(clan: Clan): Int = clanService.plugin.clanQuestService.completedQuestCount(clan)
+    private fun serviceQuestCount(clan: Clan): Int = clanService.plugin.services.clanQuestService.completedQuestCount(clan)
 
     private companion object {
         const val PER_LEVEL_MEMBERS = 5

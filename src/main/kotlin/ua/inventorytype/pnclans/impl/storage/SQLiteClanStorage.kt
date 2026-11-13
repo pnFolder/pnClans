@@ -300,7 +300,7 @@ class SQLiteClanStorage(private val plugin: BukkitPlugin) : IClanStorage {
 
     override fun saveChest(clanId: String, items: Array<ItemStack?>) {
         runCatching {
-            val base64 = ItemStackSerializer.toBase64(items)
+            val base64 = ClanItems.encode(items)
             val sql = "REPLACE INTO chests(clan_id, items) VALUES(?, ?);"
             getConnection().prepareStatement(sql).use { pstmt ->
                 pstmt.setString(1, clanId)
@@ -319,7 +319,7 @@ class SQLiteClanStorage(private val plugin: BukkitPlugin) : IClanStorage {
                 val rs = pstmt.executeQuery()
                 if (rs.next()) {
                     val base64 = rs.getString("items")
-                    return@runCatching ItemStackSerializer.fromBase64(base64)
+                    return@runCatching ClanItems.decode(base64)
                 }
             }
             arrayOfNulls<ItemStack>(54)

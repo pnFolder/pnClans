@@ -29,8 +29,8 @@ class ClanCommand(
     private val plugin: BukkitPlugin,
     private val inviteService: ClanInviteService
 ) : CommandExecutor, TabCompleter {
-    private val clanService = plugin.clanService
-    private val configService = plugin.configService
+    private val clanService = plugin.services.clanService
+    private val configService = plugin.services.configService
     private val adminHandler = ClanAdminCommandHandler(plugin)
     private val cfg get() = configService.settings
 
@@ -81,7 +81,7 @@ class ClanCommand(
                         configService.send(sender, configService.messages.homes.notSet, mapOf("home" to homeEntry.label))
                         return true
                     }
-                    plugin.teleportService.teleportToHome(sender, clan, homeEntry.label, loc)
+                    plugin.services.teleportService.teleportToHome(sender, clan, homeEntry.label, loc)
                 }
 
                 "sethome" -> {
@@ -151,25 +151,25 @@ class ClanCommand(
                             if (challengeId == null) {
                                 configService.send(sender, configService.messages.battles.challengeNotFound)
                             } else {
-                                val result = if (args[1].equals("accept", true)) plugin.clanBattleService.acceptChallenge(sender, challengeId)
-                                else plugin.clanBattleService.declineChallenge(sender, challengeId)
+                                val result = if (args[1].equals("accept", true)) plugin.services.clanBattleService.acceptChallenge(sender, challengeId)
+                                else plugin.services.clanBattleService.declineChallenge(sender, challengeId)
                                 sendBattleResult(sender, result)
                                 if (result is ClanBattleOperation.Success) ClanBattlesUX(clanService).open(sender)
                             }
                         }
                         "roster" -> {
-                            sendBattleResult(sender, plugin.clanBattleService.toggleLobbyParticipation(sender))
+                            sendBattleResult(sender, plugin.services.clanBattleService.toggleLobbyParticipation(sender))
                             ClanBattlesUX(clanService).open(sender)
                         }
                         "ready" -> {
-                            sendBattleResult(sender, plugin.clanBattleService.toggleLobbyReady(sender))
+                            sendBattleResult(sender, plugin.services.clanBattleService.toggleLobbyReady(sender))
                             ClanBattlesUX(clanService).open(sender)
                         }
                         null -> ClanBattlesUX(clanService).open(sender)
                         else -> {
                             val target = clanService.getClanByName(args.drop(1).joinToString(" "))
                             if (target == null) ClanBattlesUX(clanService).open(sender)
-                            else sendBattleResult(sender, plugin.clanBattleService.sendChallenge(sender, target))
+                            else sendBattleResult(sender, plugin.services.clanBattleService.sendChallenge(sender, target))
                         }
                     }
                 }
@@ -212,7 +212,7 @@ class ClanCommand(
                     val errorMsg = clanService.disbandClan(
                         clan,
                         sender,
-                        endActiveBattle = plugin.clanBattleService.hasActiveBattle(clan)
+                        endActiveBattle = plugin.services.clanBattleService.hasActiveBattle(clan)
                     )
                     if (errorMsg != null) sender.sendMessage(errorMsg)
                 }
@@ -221,7 +221,7 @@ class ClanCommand(
                 "reload" -> adminHandler.execute(sender, listOf("reload"))
 
                 else -> {
-                    val extension = plugin.publicSubcommand(args[0])
+                    val extension = plugin.services.api.findSubcommand(args[0])
                     if (extension != null) {
                         val context = ClanCommandContext(sender, args.drop(1), clanService.getClanUser(sender))
                         val event = ClanSubcommandExecuteEvent(extension, context)
@@ -259,7 +259,7 @@ class ClanCommand(
             if (modules.homes) subcommands.addAll(listOf("home", "sethome", "delhome"))
             if (modules.treasury) subcommands.addAll(listOf("deposit", "withdraw"))
             if (modules.chest) subcommands.add("chest")
-            return (subcommands + plugin.publicSubcommandNames()).filter { it.startsWith(args[0], ignoreCase = true) }
+            return (subcommands + plugin.services.api.subcommandNames()).filter { it.startsWith(args[0], ignoreCase = true) }
         }
         if (args.size == 2 && args[0].equals("disband", true)) {
             val player = sender as? Player ?: return emptyList()
@@ -287,9 +287,9 @@ class ClanCommand(
         if (args.size == 3 && args[0].equals("battle", true) && (args[1].equals("accept", true) || args[1].equals("decline", true))) {
             val player = sender as? Player ?: return emptyList()
             val clan = clanService.getClanUser(player) ?: return emptyList()
-            return plugin.clanBattleService.incomingChallenges(clan).map { it.id.toString() }.filter { it.startsWith(args[2], ignoreCase = true) }
+            return plugin.services.clanBattleService.incomingChallenges(clan).map { it.id.toString() }.filter { it.startsWith(args[2], ignoreCase = true) }
         }
-        val extension = args.firstOrNull()?.let(plugin::publicSubcommand)
+        val extension = args.firstOrNull()?.let(plugin.services.api::findSubcommand)
         if (extension != null && args.size >= 2) {
             val player = sender as? Player
             val extensionArgs = args.drop(1)

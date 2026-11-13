@@ -1,5 +1,9 @@
 package ua.inventorytype.pnclans.impl.integration
 
+import ua.inventorytype.pnclans.impl.text.ClanText
+import ua.inventorytype.pnclans.impl.storage.ClanItems
+import org.pnfolder.pnlibrary.bukkit.api.BukkitPlatform
+import org.pnfolder.pnlibrary.api.platform.platform
 import org.bukkit.Bukkit
 import org.pnfolder.pnlibrary.api.diagnostics.DiagnosticLevel
 import org.pnfolder.pnlibrary.api.diagnostics.DiagnosticConfiguration
@@ -13,7 +17,9 @@ import org.pnfolder.pnlibrary.api.runtime.PnLibraryIdentity
 import org.pnfolder.pnlibrary.api.updates.UpdateChannel
 import org.pnfolder.pnlibrary.api.tasks.TaskScope
 import ua.inventorytype.pnclans.BukkitPlugin
-import ua.inventorytype.pnclans.impl.placeholder.PnClansPlaceholders
+import org.pnfolder.pnlibrary.api.placeholders.PlaceholderService
+import org.pnfolder.pnlibrary.api.placeholders.tree.placeholders
+import ua.inventorytype.pnclans.impl.placeholder.ClanPlaceholderValues
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.function.Supplier
 
@@ -48,9 +54,9 @@ class PnLibraryIntegration(private val plugin: BukkitPlugin) : AutoCloseable {
                 .build())
             setup.metrics { metrics ->
                 metrics.bStats(BSTATS_PROJECT_ID).fastStats(FASTSTATS_TOKEN).charts { charts ->
-                    charts.simplePie("clan_chat_mode") { plugin.configService.settings.clanChat.mode.name }
-                    charts.simplePie("storage_type") { plugin.configService.settings.storageType.uppercase() }
-                    charts.simplePie("update_channel") { plugin.configService.settings.updateChannel.name }
+                    charts.simplePie("clan_chat_mode") { plugin.services.configService.settings.clanChat.mode.name }
+                    charts.simplePie("storage_type") { plugin.services.configService.settings.storageType.uppercase() }
+                    charts.simplePie("update_channel") { plugin.services.configService.settings.updateChannel.name }
                     charts.simplePie("economy_available") { economyConnected.toString() }
                     charts.simplePie("placeholder_api") { placeholderConnected.toString() }
                     charts.singleLineChart("loaded_addons") { loadedAddons }
@@ -58,15 +64,15 @@ class PnLibraryIntegration(private val plugin: BukkitPlugin) : AutoCloseable {
             }
             setup.diagnostics(plugin.dataFolder.toPath(), DiagnosticContainer.builder("pnclans")
                 .snapshot(Supplier {
-                    val clans = runCatching { plugin.clanService.getAllClans() }.getOrDefault(emptyList())
+                    val clans = runCatching { plugin.services.clanService.getAllClans() }.getOrDefault(emptyList())
                     mapOf(
                         "version" to plugin.description.version,
-                        "storageType" to plugin.configService.settings.storageType.uppercase(),
-                        "storageImplementation" to runCatching { plugin.clanService.storage.javaClass.name }.getOrNull(),
+                        "storageType" to plugin.services.configService.settings.storageType.uppercase(),
+                        "storageImplementation" to runCatching { plugin.services.clanService.storage.javaClass.name }.getOrNull(),
                         "loadedClans" to clans.size,
                         "loadedMembers" to clans.sumOf { it.users.size },
                         "onlineClanMembers" to Bukkit.getOnlinePlayers().count {
-                            runCatching { plugin.clanService.getClanByUuid(it.uniqueId) != null }.getOrDefault(false)
+                            runCatching { plugin.services.clanService.getClanByUuid(it.uniqueId) != null }.getOrDefault(false)
                         },
                         "loadedAddons" to loadedAddons,
                         "economyConnected" to economyConnected,
@@ -89,8 +95,9 @@ class PnLibraryIntegration(private val plugin: BukkitPlugin) : AutoCloseable {
                 .build())
             setup.updates("pnFolder", "pnClans") { updater ->
                 updater
-                    .channel(Supplier { UpdateChannel.valueOf(plugin.configService.settings.updateChannel.name) })
-                    .automaticDownload(plugin.configService.settings.autoUpdate)
+                    .channel(Supplier { UpdateChannel.valueOf(plugin.services.configService.settings.updateChannel.name) })
+                    .automaticDownload(plugin.services.configService.settings.autoUpdate)
+                    .supportedApi(1, 1)
                     .artifact("(?i)^pnClans-.*-paper-.*-java21\\.jar$", 21, 24)
                     .artifact("(?i)^pnClans-.*-paper-.*-java25\\.jar$", 25)
             }
@@ -100,9 +107,14 @@ class PnLibraryIntegration(private val plugin: BukkitPlugin) : AutoCloseable {
         throw failure
     }
 
-    init { Log.attach(context.logger) }
+    init {
+        Log.attach(context.logger)
+        ClanText.connect(context.components)
+        ClanItems.connect(library.platform<BukkitPlatform>().items)
+    }
 
     val tasks: TaskScope get() = context.tasks
+    val placeholders: PlaceholderService get() = context.placeholders
 
     fun started(
         economyConnected: Boolean,
@@ -116,7 +128,7 @@ class PnLibraryIntegration(private val plugin: BukkitPlugin) : AutoCloseable {
 
         library.diagnostics.status(
             plugin.name, "storage", "READY",
-            "${plugin.configService.settings.storageType.uppercase()} storage initialized",
+            "${plugin.services.configService.settings.storageType.uppercase()} storage initialized",
             mapOf("loadedClans" to loadedClansCount),
         )
         library.diagnostics.status(
@@ -137,7 +149,7 @@ class PnLibraryIntegration(private val plugin: BukkitPlugin) : AutoCloseable {
 
         val box = context.lifecycle.enabled()
             .ok("Конфигурация", "7 файлов загружено")
-            .ok("База данных", "${plugin.configService.settings.storageType.uppercase()}, кланов: $loadedClansCount")
+            .ok("База данных", "${plugin.services.configService.settings.storageType.uppercase()}, кланов: $loadedClansCount")
             .ok("Аддоны", "загружено: $loadedAddonsCount")
             .ok("bStats", "project ID: $BSTATS_PROJECT_ID")
             .ok("Диагностика", "/pn debug pnClans")
@@ -149,24 +161,23 @@ class PnLibraryIntegration(private val plugin: BukkitPlugin) : AutoCloseable {
         box.show()
     }
 
-    /** Публикует `%pnclans_*%` в PlaceholderAPI через pnLibrary. Возвращает false, если не вышло. */
-    fun registerPlaceholders(): Boolean {
-        val placeholders = PnClansPlaceholders(plugin)
-        return try {
-            placeholders.keys.forEach { key ->
-                context.placeholders.register(key, String::class.java) { builder ->
-                    builder
-                        .resolve { request -> placeholders.resolve(request.playerId, key) }
-                        .publishToPlaceholderApi(PLACEHOLDER_NAMESPACE, key)
-                }
+    /**
+     * Регистрирует значения клана в pnLibrary один раз: `%pnclans_name%` в PlaceholderAPI (публикует сама библиотека),
+     * `{pnclans/pnclans:name}` для других плагинов и короткие `{clan_name}` для меню и сообщений плагина.
+     * Вызывается до первой подстановки текста.
+     */
+    fun registerPlaceholderTree(values: ClanPlaceholderValues) {
+        // clanService появляется позже, чем регистрируется дерево, поэтому берётся при каждом вызове
+        fun clanOf(id: java.util.UUID?) = id?.let(plugin.services.clanService::getClanByUuid)
+        context.placeholders(papi = PLACEHOLDER_NAMESPACE) {
+            values.keys.forEach { key ->
+                text(key) { value { values.value(key, clanOf(player), player, roleTitle = false) } }
             }
-            true
-        } catch (failure: RuntimeException) {
-            plugin.logger.log(java.util.logging.Level.WARNING, "Плейсхолдеры pnClans не зарегистрированы", failure)
-            false
-        } catch (failure: LinkageError) {
-            plugin.logger.log(java.util.logging.Level.WARNING, "Плейсхолдеры pnClans не зарегистрированы", failure)
-            false
+            values.keys.filter { it != "clan" }.forEach { key ->
+                text("clan_$key") { inside(); value { values.value(key, clanOf(player), player, roleTitle = true) } }
+            }
+            text("clan_clan") { inside(); value { values.value("clan", clanOf(player), player, roleTitle = true) } }
+            text("player_name") { inside(); value { player?.let(Bukkit::getPlayer)?.name } }
         }
     }
 

@@ -17,14 +17,14 @@ class UserPermissionsUX(
 ) : BaseGui(clanService) {
 
     init {
-        val cfg = clanService.plugin.configService
+        val cfg = clanService.plugin.services.configService
         val menuCfg = cfg.menus.userPermissionsMenu
         val targetMember = targetUser
         val parent = parentGui
 
         title(menuCfg.title.replace("{player}", targetMember.playerName))
         rows(menuCfg.rows.coerceIn(1, 6))
-        background(clanService.plugin.configService.menus.background)
+        background(clanService.plugin.services.configService.menus.background)
 
         menuCfg.items["permission"]?.let { permissionTemplate ->
             permissionSlots(menuCfg.rows).zip(ClanPerms.ALL_PERMISSIONS).forEach { (slotIndex, perm) ->
@@ -100,7 +100,7 @@ class UserPermissionsUX(
         placeholders: Map<String, String>,
         glow: Boolean
     ) {
-        val cfg = clanService.plugin.configService
+        val cfg = clanService.plugin.services.configService
         builder.name(cfg.formatMessage(player, itemCfg.name, placeholders))
         builder.lore(itemCfg.lore.map { cfg.formatMessage(player, it, placeholders) })
         builder.glow(glow)

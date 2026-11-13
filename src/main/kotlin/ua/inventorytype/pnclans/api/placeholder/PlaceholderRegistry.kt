@@ -1,81 +1,43 @@
 package ua.inventorytype.pnclans.api.placeholder
 
+import ua.inventorytype.pnclans.impl.text.ClanText
 import org.bukkit.Bukkit
 import org.bukkit.entity.Player
-import ua.inventorytype.pnclans.impl.clan.ClanService
-import ua.inventorytype.pnclans.impl.util.ColorUtil
+import org.pnfolder.pnlibrary.api.placeholders.PlaceholderService
+import java.util.concurrent.ConcurrentHashMap
 
-class PlaceholderRegistry {
+/**
+ * Подставляет плейсхолдеры в текст меню и сообщений через [placeholders] из pnLibrary: значения клана, ключи
+ * аддонов, `%...%` из PlaceholderAPI. Здесь остаются только цвета.
+ */
+class PlaceholderRegistry(private val placeholders: PlaceholderService) {
 
-    private val placeholders = mutableMapOf<String, (Player) -> String>()
+    private val addonKeys = ConcurrentHashMap<String, AutoCloseable>()
 
-    /** Registers or replaces a `{key}` placeholder provider. */
+    /** Registers or replaces a `{key}` placeholder provider; it is published to pnLibrary like any other value. */
     fun register(key: String, provider: (Player) -> String) {
-        placeholders[key.lowercase()] = provider
-    }
-
-    /** Registers pnClans built-in placeholders during plugin startup. */
-    internal fun registerDefaults(clanService: ClanService) {
-        register("clan") { player -> clanService.getClanUser(player)?.name ?: "Нет" }
-        register("clan_name") { player -> clanService.getClanUser(player)?.name ?: "Нет" }
-        register("clan_tag") { player -> clanService.getClanUser(player)?.let { "§8[§6${it.name}§8]" } ?: "" }
-        register("clan_role") { player ->
-            val clan = clanService.getClanUser(player)
-            if (clan != null) {
-                val user = clan.getMember(player.uniqueId)
-                if (user != null) clanService.plugin.configService.getRoleDisplayName(clan.getUserRole(user)) else "Нет"
-            } else "Нет"
+        val name = key.lowercase()
+        val registration = placeholders.register(name, String::class.java) { builder ->
+            builder.resolve { request -> request.playerId?.let(Bukkit::getPlayer)?.let(provider) ?: "" }
         }
-        register("clan_level") { player -> clanService.getClanUser(player)?.level?.toString() ?: "0" }
-        register("clan_balance") { player -> clanService.getClanUser(player)?.bankBalance?.toString() ?: "0" }
-        register("clan_points") { player -> clanService.getClanUser(player)?.points?.toString() ?: "0" }
-        register("clan_mmr") { player -> clanService.getClanUser(player)?.mmr?.toString() ?: "0" }
-        register("clan_kills") { player -> clanService.getClanUser(player)?.kills?.toString() ?: "0" }
-        register("clan_deaths") { player -> clanService.getClanUser(player)?.deaths?.toString() ?: "0" }
-        register("clan_battle_wins") { player -> clanService.getClanUser(player)?.battleWins?.toString() ?: "0" }
-        register("clan_battle_losses") { player -> clanService.getClanUser(player)?.battleLosses?.toString() ?: "0" }
-        register("clan_members") { player -> clanService.getClanUser(player)?.let { "${it.onlineCount}/${it.users.size}" } ?: "0/0" }
-        register("player_name") { player -> player.name }
+        addonKeys.put(name, registration)?.close()
     }
 
-    /** Resolves custom `{key}` tokens, registered placeholders, colours, and PlaceholderAPI values. */
+    /** Fills `{key}` tokens from [customPlaceholders] first, then everything registered in pnLibrary, then colours. */
     fun process(player: Player, text: String, customPlaceholders: Map<String, String> = emptyMap(), colorize: Boolean = true): String {
         if (text.isEmpty()) return ""
-
         var result = text
-
-        if (customPlaceholders.isNotEmpty()) {
-            customPlaceholders.forEach { (key, value) ->
-                val token = "{$key}"
-                if (result.contains(token)) {
-                    result = result.replace(token, value)
-                }
-            }
+        if (result.contains('{') || result.contains('%')) {
+            // Значения клана считаются сразу, поэтому ответ готов без ожидания
+            result = placeholders.render(result, player.uniqueId, customPlaceholders).toCompletableFuture().getNow(result)
         }
-
-        if (result.contains('{')) {
-            placeholders.forEach { (key, provider) ->
-                val token = "{$key}"
-                if (result.contains(token)) {
-                    result = result.replace(token, provider(player))
-                }
-            }
-        }
-
         if (colorize && (result.contains('&') || result.contains('§') || result.contains('#'))) {
-            result = ColorUtil.color(result)
+            result = ClanText.legacy(result)
         }
-
-        if (result.contains('%') && Bukkit.getPluginManager().isPluginEnabled("PlaceholderAPI")) {
-            result = me.clip.placeholderapi.PlaceholderAPI.setPlaceholders(player, result)
-        }
-
         return result
     }
 
     /** Resolves every entry in [lines] using the same rules as [process]. */
-    fun process(player: Player, lines: List<String>, customPlaceholders: Map<String, String> = emptyMap(), colorize: Boolean = true): List<String> {
-        if (lines.isEmpty()) return emptyList()
-        return lines.map { process(player, it, customPlaceholders, colorize) }
-    }
+    fun process(player: Player, lines: List<String>, customPlaceholders: Map<String, String> = emptyMap(), colorize: Boolean = true): List<String> =
+        lines.map { process(player, it, customPlaceholders, colorize) }
 }

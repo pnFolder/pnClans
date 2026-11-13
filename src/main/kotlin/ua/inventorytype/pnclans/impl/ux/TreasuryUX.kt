@@ -22,12 +22,12 @@ import java.util.Date
 class TreasuryUX(clanService: ClanService) : BaseGui(clanService) {
 
     init {
-        val cfg = clanService.plugin.configService
+        val cfg = clanService.plugin.services.configService
         val menuCfg = cfg.menus.treasuryMenu
 
         title(menuCfg.title)
         rows(menuCfg.rows)
-        background(clanService.plugin.configService.menus.background)
+        background(clanService.plugin.services.configService.menus.background)
 
         menuCfg.items["center"]?.let { itemCfg ->
             slot(itemCfg.slot) {
@@ -103,7 +103,7 @@ class TreasuryUX(clanService: ClanService) : BaseGui(clanService) {
         fallbackMaterial: Material,
         operation: String
     ) {
-        val cfg = clanService.plugin.configService
+        val cfg = clanService.plugin.services.configService
         val menuCfg = cfg.menus.treasuryMenu
         val template = menuCfg.items[templateKey] ?: return
         val maximumSlot = (menuCfg.rows.coerceIn(1, 6) * 9) - 1
@@ -150,7 +150,7 @@ class TreasuryUX(clanService: ClanService) : BaseGui(clanService) {
 
     private fun openDepositPrompt(player: Player) {
         val service = clanService
-        val cfg = service.plugin.configService
+        val cfg = service.plugin.services.configService
         val clan = service.getClanUser(player) ?: return
         val user = clan.getMember(player.uniqueId) ?: return
 
@@ -164,7 +164,7 @@ class TreasuryUX(clanService: ClanService) : BaseGui(clanService) {
 
     private fun openWithdrawPrompt(player: Player) {
         val service = clanService
-        val cfg = service.plugin.configService
+        val cfg = service.plugin.services.configService
         val clan = service.getClanUser(player) ?: return
         val user = clan.getMember(player.uniqueId) ?: return
 
@@ -178,7 +178,7 @@ class TreasuryUX(clanService: ClanService) : BaseGui(clanService) {
 
     private fun openAmountPrompt(player: Player, withdraw: Boolean) {
         val service = clanService
-        val cfg = service.plugin.configService
+        val cfg = service.plugin.services.configService
         val timeoutSeconds = cfg.settings.treasuryPromptTimeoutSeconds.coerceAtLeast(1)
         val cancelInputs = cfg.settings.treasuryPromptCancelInputs
             .map(String::trim)
@@ -230,7 +230,7 @@ class TreasuryUX(clanService: ClanService) : BaseGui(clanService) {
 
     private fun performDeposit(player: Player, amount: Double, reopen: Boolean) {
         val service = clanService
-        val cfg = service.plugin.configService
+        val cfg = service.plugin.services.configService
         val clan = service.getClanUser(player)
         if (clan == null || !amount.isFinite() || amount <= 0.0) {
             cfg.send(player, cfg.messages.general.invalidInput, mapOf("amount" to "0"))
@@ -264,7 +264,7 @@ class TreasuryUX(clanService: ClanService) : BaseGui(clanService) {
                     return
                 }
             }
-            service.plugin.clanQuestService.recordTreasuryDeposit(clan, player, amount)
+            service.plugin.services.clanQuestService.recordTreasuryDeposit(clan, player, amount)
             org.bukkit.Bukkit.getPluginManager().callEvent(ClanTreasuryTransactionEvent(clan, transaction, player))
             service.notifyClanUpdated(player.uniqueId)
             cfg.send(
@@ -285,7 +285,7 @@ class TreasuryUX(clanService: ClanService) : BaseGui(clanService) {
 
     private fun performWithdraw(player: Player, amount: Double, reopen: Boolean) {
         val service = clanService
-        val cfg = service.plugin.configService
+        val cfg = service.plugin.services.configService
         val clan = service.getClanUser(player)
         if (clan == null || !amount.isFinite() || amount <= 0.0) {
             cfg.send(player, cfg.messages.general.invalidInput, mapOf("amount" to "0"))
@@ -347,7 +347,7 @@ class TreasuryUX(clanService: ClanService) : BaseGui(clanService) {
     }
 
     private fun refreshBalance(player: Player) {
-        val centerSlot = clanService.plugin.configService.menus.treasuryMenu.items["center"]?.slot ?: return
+        val centerSlot = clanService.plugin.services.configService.menus.treasuryMenu.items["center"]?.slot ?: return
         updateSlot(centerSlot, player)
     }
 
@@ -355,7 +355,7 @@ class TreasuryUX(clanService: ClanService) : BaseGui(clanService) {
         value.toBigDecimal().stripTrailingZeros().toPlainString()
 
     private fun sendPersistenceFailure(player: Player) {
-        val cfg = clanService.plugin.configService
+        val cfg = clanService.plugin.services.configService
         cfg.send(player, cfg.messages.treasury.persistenceFailed)
     }
 
@@ -364,7 +364,7 @@ class TreasuryUX(clanService: ClanService) : BaseGui(clanService) {
         clan: ua.inventorytype.pnclans.api.clan.Clan,
         user: ua.inventorytype.pnclans.api.User
     ): Map<String, String> {
-        val cfg = clanService.plugin.configService
+        val cfg = clanService.plugin.services.configService
         val canSee = clan.hasUserPermission(user, ClanPerms.Bank.SEE)
         val display = if (canSee) {
             clan.bankBalance.toBigDecimal().stripTrailingZeros().toPlainString()
@@ -385,8 +385,8 @@ class TreasuryUX(clanService: ClanService) : BaseGui(clanService) {
         itemCfg: GuiItemConfig,
         placeholders: Map<String, String>
     ) {
-        builder.name(clanService.plugin.configService.formatMessage(player, itemCfg.name, placeholders))
-        builder.lore(itemCfg.lore.map { line -> clanService.plugin.configService.formatMessage(player, line, placeholders) })
+        builder.name(clanService.plugin.services.configService.formatMessage(player, itemCfg.name, placeholders))
+        builder.lore(itemCfg.lore.map { line -> clanService.plugin.services.configService.formatMessage(player, line, placeholders) })
         builder.glow(itemCfg.glow)
     }
 
@@ -401,7 +401,7 @@ class HistoryUX(
 ) : BaseGui(clanService) {
 
     init {
-        val cfg = clanService.plugin.configService
+        val cfg = clanService.plugin.services.configService
         val menuCfg = cfg.menus.treasuryHistoryMenu
         val currentPage = page.coerceAtLeast(0)
         val entrySlots = menuCfg.entrySlots
@@ -411,7 +411,7 @@ class HistoryUX(
 
         title(menuCfg.title.replace("{page}", (currentPage + 1).toString()).replace("{pages}", "?"))
         rows(menuCfg.rows.coerceIn(1, 6))
-        background(clanService.plugin.configService.menus.background)
+        background(clanService.plugin.services.configService.menus.background)
 
         entrySlots.forEachIndexed { position, slotIndex ->
             slot(slotIndex) {
@@ -446,7 +446,7 @@ class HistoryUX(
     }
 
     private fun configurePrevious(currentPage: Int, pageSize: Int) {
-        val menuCfg = clanService.plugin.configService.menus.treasuryHistoryMenu
+        val menuCfg = clanService.plugin.services.configService.menus.treasuryHistoryMenu
         val enabledCfg = menuCfg.items["previous"] ?: return
         val disabledCfg = menuCfg.items["previousDisabled"] ?: enabledCfg
         slot(enabledCfg.slot) {
@@ -470,7 +470,7 @@ class HistoryUX(
     }
 
     private fun configureBack() {
-        val itemCfg = clanService.plugin.configService.menus.treasuryHistoryMenu.items["back"] ?: return
+        val itemCfg = clanService.plugin.services.configService.menus.treasuryHistoryMenu.items["back"] ?: return
         slot(itemCfg.slot) {
             dynamicItem(this@HistoryUX.parseMaterial(itemCfg.material, Material.OAK_DOOR)) { player ->
                 this@HistoryUX.render(this, player, itemCfg, emptyMap())
@@ -481,7 +481,7 @@ class HistoryUX(
     }
 
     private fun configureNext(currentPage: Int, pageSize: Int) {
-        val menuCfg = clanService.plugin.configService.menus.treasuryHistoryMenu
+        val menuCfg = clanService.plugin.services.configService.menus.treasuryHistoryMenu
         val enabledCfg = menuCfg.items["next"] ?: return
         val disabledCfg = menuCfg.items["nextDisabled"] ?: enabledCfg
         slot(enabledCfg.slot) {
@@ -506,7 +506,7 @@ class HistoryUX(
     }
 
     private fun entryConfig(type: TreasuryTransactionType): GuiItemConfig? {
-        val items = clanService.plugin.configService.menus.treasuryHistoryMenu.items
+        val items = clanService.plugin.services.configService.menus.treasuryHistoryMenu.items
         return when (type) {
             TreasuryTransactionType.DEPOSIT -> items["depositEntry"]
             TreasuryTransactionType.WITHDRAW -> items["withdrawEntry"]
@@ -520,12 +520,12 @@ class HistoryUX(
     }
 
     private fun dateFormatter(): SimpleDateFormat = formatter(
-        clanService.plugin.configService.menus.treasuryHistoryMenu.dateFormat,
+        clanService.plugin.services.configService.menus.treasuryHistoryMenu.dateFormat,
         "dd.MM.yyyy"
     )
 
     private fun timeFormatter(): SimpleDateFormat = formatter(
-        clanService.plugin.configService.menus.treasuryHistoryMenu.timeFormat,
+        clanService.plugin.services.configService.menus.treasuryHistoryMenu.timeFormat,
         "HH:mm:ss"
     )
 
@@ -538,7 +538,7 @@ class HistoryUX(
         itemCfg: GuiItemConfig,
         placeholders: Map<String, String>
     ) {
-        val cfg = clanService.plugin.configService
+        val cfg = clanService.plugin.services.configService
         builder.name(cfg.formatMessage(player, itemCfg.name, placeholders))
         builder.lore(itemCfg.lore.map { cfg.formatMessage(player, it, placeholders) })
         builder.glow(itemCfg.glow)

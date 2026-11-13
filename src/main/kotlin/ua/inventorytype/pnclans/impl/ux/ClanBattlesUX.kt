@@ -18,9 +18,9 @@ class ClanBattlesUX(
     clanService: ClanService,
     selectedPage: Int = 0
 ) : BaseGui(clanService) {
-    private val config = clanService.plugin.configService.battles
+    private val config = clanService.plugin.services.configService.battles
     private val display = config.display
-    private val battleService: ClanBattleService = clanService.plugin.clanBattleService
+    private val battleService: ClanBattleService = clanService.plugin.services.clanBattleService
     private val guiRows = config.rows.coerceIn(1, 6)
     private val inventorySize = guiRows * 9
     private val reservedSlots = setOf(
@@ -40,7 +40,7 @@ class ClanBattlesUX(
     init {
         title(config.title)
         rows(guiRows)
-        background(clanService.plugin.configService.menus.background)
+        background(clanService.plugin.services.configService.menus.background)
         addHeader()
         addOwnStatus()
         addIncomingChallenge()
@@ -50,7 +50,7 @@ class ClanBattlesUX(
 
     override fun open(player: Player) {
         if (!config.enabled) {
-            clanService.plugin.configService.send(player, clanService.plugin.configService.messages.battles.disabled)
+            clanService.plugin.services.configService.send(player, clanService.plugin.services.configService.messages.battles.disabled)
             return
         }
         if (clanService.getClanUser(player) == null) {
@@ -244,7 +244,7 @@ class ClanBattlesUX(
 
     private fun handle(player: Player, result: ClanBattleOperation) {
         val rejected = result as? ClanBattleOperation.Rejected ?: return
-        val messages = clanService.plugin.configService.messages
+        val messages = clanService.plugin.services.configService.messages
         val actions = when (rejected.reason) {
             ClanBattleRejection.DISABLED -> messages.battles.disabled
             ClanBattleRejection.NO_PERMISSION -> messages.battles.noPermission
@@ -262,7 +262,7 @@ class ClanBattlesUX(
             ClanBattleRejection.LOBBY_FULL -> messages.battles.lobbyFull
             ClanBattleRejection.NOT_ENOUGH_SELECTED -> messages.battles.lobbyNotEnoughSelected
         }
-        clanService.plugin.configService.send(player, actions, mapOf("minimum" to config.minimumOnlineMembers.coerceAtLeast(1).toString(), "maximum" to config.maximumParticipants.coerceAtLeast(1).toString()))
+        clanService.plugin.services.configService.send(player, actions, mapOf("minimum" to config.minimumOnlineMembers.coerceAtLeast(1).toString(), "maximum" to config.maximumParticipants.coerceAtLeast(1).toString()))
     }
 
     private fun refresh(player: Player) {
@@ -342,6 +342,6 @@ class ClanBattlesUX(
 
     private fun readyLabel(ready: Boolean): String = if (ready) display.readyText else display.waitingText
     private fun material(value: String, fallback: Material): Material = runCatching { Material.valueOf(value.uppercase()) }.getOrDefault(fallback)
-    private fun format(player: Player, value: String, placeholders: Map<String, String> = emptyMap()): String = clanService.plugin.configService.formatMessage(player, value, placeholders)
+    private fun format(player: Player, value: String, placeholders: Map<String, String> = emptyMap()): String = clanService.plugin.services.configService.formatMessage(player, value, placeholders)
     private fun valid(slot: Int): Boolean = slot in 0 until inventorySize
 }

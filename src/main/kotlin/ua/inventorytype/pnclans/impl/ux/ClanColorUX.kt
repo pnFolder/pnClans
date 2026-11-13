@@ -17,12 +17,12 @@ import ua.inventorytype.pnclans.impl.inventory.builder.ItemBuilder
 class ClanColorUX(clanService: ClanService) : BaseGui(clanService) {
 
     init {
-        val cfg = clanService.plugin.configService
+        val cfg = clanService.plugin.services.configService
         val menuCfg = cfg.menus.clanColorMenu
 
         title(menuCfg.title)
         rows(menuCfg.rows.coerceIn(1, 6))
-        background(clanService.plugin.configService.menus.background)
+        background(clanService.plugin.services.configService.menus.background)
 
         addItem("overview", placeholders = { clan -> commonPlaceholders(clan) })
         addItem("typeInfo")
@@ -63,8 +63,8 @@ class ClanColorUX(clanService: ClanService) : BaseGui(clanService) {
         glow: (Clan) -> Boolean = { false },
         click: ((Player) -> Unit)? = null
     ) {
-        val itemCfg = clanService.plugin.configService.menus.clanColorMenu.items[key] ?: return
-        val maxSlot = clanService.plugin.configService.menus.clanColorMenu.rows.coerceIn(1, 6) * 9 - 1
+        val itemCfg = clanService.plugin.services.configService.menus.clanColorMenu.items[key] ?: return
+        val maxSlot = clanService.plugin.services.configService.menus.clanColorMenu.rows.coerceIn(1, 6) * 9 - 1
         if (itemCfg.slot !in 0..maxSlot) {
             Log.warning("[pnClans] clanColorMenu item '$key' has invalid slot ${itemCfg.slot}; item skipped.")
             return
@@ -81,7 +81,7 @@ class ClanColorUX(clanService: ClanService) : BaseGui(clanService) {
     }
 
     private fun commonPlaceholders(clan: Clan): Map<String, String> {
-        val display = clanService.plugin.configService.settings.clanHighlightDisplay
+        val display = clanService.plugin.services.configService.settings.clanHighlightDisplay
         return mapOf(
             "type" to clan.highlightType.displayName,
             "status" to if (clan.highlightEnabled) display.enabledText else display.disabledText,
@@ -90,7 +90,7 @@ class ClanColorUX(clanService: ClanService) : BaseGui(clanService) {
     }
 
     private fun selectedText(selected: Boolean): String {
-        val display = clanService.plugin.configService.settings.clanHighlightDisplay
+        val display = clanService.plugin.services.configService.settings.clanHighlightDisplay
         return if (selected) display.selectedYes else display.selectedNo
     }
 
@@ -101,14 +101,14 @@ class ClanColorUX(clanService: ClanService) : BaseGui(clanService) {
         placeholders: Map<String, String>,
         glow: Boolean
     ) {
-        val cfg = clanService.plugin.configService
+        val cfg = clanService.plugin.services.configService
         builder.name(cfg.formatMessage(player, itemCfg.name, placeholders))
         builder.lore(itemCfg.lore.map { cfg.formatMessage(player, it, placeholders) })
         builder.glow(glow)
     }
 
     private fun applyColor(player: Player, color: ClanHighlightColor) {
-        val cfg = clanService.plugin.configService
+        val cfg = clanService.plugin.services.configService
         val clan = clanService.getClanUser(player) ?: return
         val user = clan.getMember(player.uniqueId) ?: return
         if (!clan.hasPermission(user, ClanPerms.Settings.TOGGLE_COLOR)) {
@@ -122,7 +122,7 @@ class ClanColorUX(clanService: ClanService) : BaseGui(clanService) {
     }
 
     private fun applyType(player: Player, type: ClanHighlightType) {
-        val cfg = clanService.plugin.configService
+        val cfg = clanService.plugin.services.configService
         val clan = clanService.getClanUser(player) ?: return
         val user = clan.getMember(player.uniqueId) ?: return
         if (!clan.hasPermission(user, ClanPerms.Settings.TOGGLE_HIGHLIGHT_MODE)) {
@@ -136,7 +136,7 @@ class ClanColorUX(clanService: ClanService) : BaseGui(clanService) {
     }
 
     private fun applyStatus(player: Player, enabled: Boolean) {
-        val cfg = clanService.plugin.configService
+        val cfg = clanService.plugin.services.configService
         val clan = clanService.getClanUser(player) ?: return
         val user = clan.getMember(player.uniqueId) ?: return
         if (!clan.hasPermission(user, ClanPerms.Settings.TOGGLE_HIGHLIGHT_MODE)) {
@@ -150,7 +150,7 @@ class ClanColorUX(clanService: ClanService) : BaseGui(clanService) {
     }
 
     private fun applyReset(player: Player) {
-        val cfg = clanService.plugin.configService
+        val cfg = clanService.plugin.services.configService
         val clan = clanService.getClanUser(player) ?: return
         val user = clan.getMember(player.uniqueId) ?: return
         if (!clan.hasPermission(user, ClanPerms.Settings.TOGGLE_HIGHLIGHT_MODE)) {
@@ -169,11 +169,11 @@ class ClanColorUX(clanService: ClanService) : BaseGui(clanService) {
 
     private fun saveHighlight(clan: Clan, player: Player): Boolean {
         if (!clanService.saveClan(clan)) {
-            clanService.plugin.configService.send(player, clanService.plugin.configService.messages.settings.highlightSaveFailed)
+            clanService.plugin.services.configService.send(player, clanService.plugin.services.configService.messages.settings.highlightSaveFailed)
             return false
         }
-        clanService.plugin.clanHighlightService.syncClan(clan)
-        clanService.plugin.clanHighlightService.resyncClanLater(clan)
+        clanService.plugin.services.clanHighlightService.syncClan(clan)
+        clanService.plugin.services.clanHighlightService.resyncClanLater(clan)
         return true
     }
 

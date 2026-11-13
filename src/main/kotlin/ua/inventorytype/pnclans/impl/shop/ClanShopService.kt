@@ -1,5 +1,6 @@
 package ua.inventorytype.pnclans.impl.shop
 
+import ua.inventorytype.pnclans.impl.storage.ClanItems
 import ua.inventorytype.pnclans.impl.integration.Log
 
 import kotlinx.serialization.Serializable
@@ -24,7 +25,6 @@ import ua.inventorytype.pnclans.api.event.ClanShopPurchasePreEvent
 import ua.inventorytype.pnclans.api.shop.ClanShopCurrency
 import ua.inventorytype.pnclans.impl.config.ClanShopProductConfig
 import ua.inventorytype.pnclans.impl.config.ClanShopPaymentOption
-import ua.inventorytype.pnclans.impl.storage.ItemStackSerializer
 import java.io.File
 import java.nio.file.Files
 import java.nio.file.StandardCopyOption
@@ -99,14 +99,14 @@ internal class ClanShopService(private val plugin: BukkitPlugin) {
         expectedProduct: ClanShopProductConfig,
         expectedPayment: ClanShopPaymentOption
     ): ClanShopPurchaseResult {
-        if (!plugin.configService.shop.enabled) {
+        if (!plugin.services.configService.shop.enabled) {
             return ClanShopPurchaseResult.Rejected(ClanShopPurchaseRejection.SHOP_DISABLED)
         }
         if (!ledgerHealthy || !resetDayIfNeeded()) {
             return ClanShopPurchaseResult.Rejected(ClanShopPurchaseRejection.LEDGER_FAILED)
         }
 
-        val product = plugin.configService.shop.products[productId]
+        val product = plugin.services.configService.shop.products[productId]
             ?: return ClanShopPurchaseResult.Rejected(ClanShopPurchaseRejection.PRODUCT_NOT_FOUND)
         if (product != expectedProduct) {
             return ClanShopPurchaseResult.Rejected(ClanShopPurchaseRejection.SHOP_CHANGED)
@@ -186,20 +186,20 @@ internal class ClanShopService(private val plugin: BukkitPlugin) {
         }
 
         Bukkit.getPluginManager().callEvent(ClanShopPurchaseEvent(clan, player, productId, currency, event.price))
-        plugin.clanQuestService.recordShopPurchase(clan, player)
+        plugin.services.clanQuestService.recordShopPurchase(clan, player)
         return ClanShopPurchaseResult.Success(event.price)
     }
 
     private fun meetsRequirements(clan: Clan, product: ClanShopProductConfig): Boolean =
         clan.level >= product.conditions.minimumClanLevel &&
             clan.users.size >= product.conditions.minimumMembers &&
-            plugin.clanQuestService.requiredQuestsMet(clan, product.conditions.requiredQuests)
+            plugin.services.clanQuestService.requiredQuestsMet(clan, product.conditions.requiredQuests)
 
     /** Validate every deterministic reward configuration before charging the player. */
     private fun prepareRewards(productId: String, product: ClanShopProductConfig): ItemStack? {
         product.rewards.forEach { validateAction(it, productId) }
         return product.itemStack?.takeIf { it.isNotBlank() }?.let { encoded ->
-            ItemStackSerializer.fromBase64(encoded).firstOrNull()?.clone()
+            ClanItems.decodeFirst(encoded)?.clone()
                 ?: throw IllegalArgumentException("Invalid serialized shop item for $productId")
         }
     }
@@ -263,7 +263,7 @@ internal class ClanShopService(private val plugin: BukkitPlugin) {
                 "clan" to clan.name,
                 "quantity" to product.itemAmount.toString()
             )
-            val context = ActionContext(player, plugin.placeholderRegistry, placeholders, plugin)
+            val context = ActionContext(player, plugin.services.placeholderRegistry, placeholders, plugin)
 
             // Execute configurable actions before the static item. The item is already decoded and therefore cannot fail because of malformed Base64.
             product.rewards.forEach { action ->

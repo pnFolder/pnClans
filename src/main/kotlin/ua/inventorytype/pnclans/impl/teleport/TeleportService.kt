@@ -17,7 +17,7 @@ class TeleportService(private val plugin: BukkitPlugin) {
         cancelTeleport(player.uniqueId)
 
         val delaySeconds = (6 - clan.level).coerceAtLeast(1)
-        val cfg = plugin.configService
+        val cfg = plugin.services.configService
 
         val startLocation = player.location
         val startHealth = player.health
@@ -64,7 +64,7 @@ class TeleportService(private val plugin: BukkitPlugin) {
             }
         }
 
-        handle = plugin.pnLibraryIntegration.tasks.repeat(20L, 20L, action)
+        handle = plugin.services.pnLibraryIntegration.tasks.repeat(20L, 20L, action)
         pendingTeleports[player.uniqueId] = handle
     }
 

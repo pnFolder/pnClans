@@ -27,12 +27,12 @@ class GuiListener(val plugin: BukkitPlugin) : Listener {
     private val activeGuis = ConcurrentHashMap<UUID, BaseGui>()
 
     init {
-        plugin.clanService.subscribe { playerUuid ->
+        plugin.services.clanService.subscribe { playerUuid ->
             val player = plugin.server.getPlayer(playerUuid) ?: return@subscribe
             val activeGui = activeGuis[player.uniqueId] ?: return@subscribe
             
             if (activeGui is ua.inventorytype.pnclans.impl.ux.TreasuryUX) {
-                val centerSlot = plugin.configService.menus.treasuryMenu.items["center"]?.slot ?: 13
+                val centerSlot = plugin.services.configService.menus.treasuryMenu.items["center"]?.slot ?: 13
                 activeGui.updateSlot(centerSlot, player)
             } else if (activeGui !is ua.inventorytype.pnclans.impl.ux.ClanChestUX) {
                 activeGui.update(player)
@@ -92,7 +92,7 @@ class GuiListener(val plugin: BukkitPlugin) : Listener {
     }
 
     private fun scheduleInventoryUpdate(player: Player) {
-        plugin.pnLibraryIntegration.tasks.later(1L, Runnable {
+        plugin.services.pnLibraryIntegration.tasks.later(1L, Runnable {
             if (player.isOnline) {
                 player.updateInventory()
             }

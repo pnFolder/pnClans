@@ -1,5 +1,7 @@
 package ua.inventorytype.pnclans.impl.command
 
+import ua.inventorytype.pnclans.impl.text.ClanText
+import ua.inventorytype.pnclans.impl.config.ConfigReload
 import ua.inventorytype.pnclans.impl.integration.Log
 
 import org.bukkit.command.CommandSender
@@ -10,12 +12,11 @@ import ua.inventorytype.pnclans.api.clan.TreasuryTransaction
 import ua.inventorytype.pnclans.api.clan.TreasuryTransactionType
 import ua.inventorytype.pnclans.impl.clan.ClanStatsPeriod
 import ua.inventorytype.pnclans.impl.clan.ClanImpl
-import ua.inventorytype.pnclans.impl.util.ColorUtil
 import java.math.BigDecimal
 
 /** Validated administrative mutations exposed through `/clan admin`. */
 internal class ClanAdminCommandHandler(private val plugin: BukkitPlugin) {
-    private val clans get() = plugin.clanService
+    private val clans get() = plugin.services.clanService
     private val pointsAdmin = ClanAdminPointsCommandHandler(plugin)
     private val shopAdmin = ClanAdminShopCommandHandler(plugin)
     private val memberAdmin = ClanAdminMemberCommandHandler(plugin)
@@ -76,7 +77,7 @@ internal class ClanAdminCommandHandler(private val plugin: BukkitPlugin) {
                 else -> emptyList()
             }
             4 -> when (args[0].lowercase()) {
-                "quest" -> plugin.configService.quests.quests.keys.toList()
+                "quest" -> plugin.services.configService.quests.quests.keys.toList()
                 "battle" -> clanNames()
                 else -> emptyList()
             }
@@ -87,7 +88,7 @@ internal class ClanAdminCommandHandler(private val plugin: BukkitPlugin) {
 
     private fun showClanInfo(sender: CommandSender, clanName: String?) {
         val clan = clanName?.let(clans::getClanByName) ?: return usage(sender, "/clan admin info <clan>")
-        val battle = plugin.clanBattleService.battleForClan(clan)
+        val battle = plugin.services.clanBattleService.battleForClan(clan)
         sender.reply("")
         sender.reply("&#FC7D37✦ &fКлан &8• &#5EA9FD${clan.name}")
         sender.reply("&8ID: &f${clan.id} &8• Уровень: &#5EFD7D${clan.level} &8• MMR: &#FFD700${clan.mmr}")
@@ -110,7 +111,7 @@ internal class ClanAdminCommandHandler(private val plugin: BukkitPlugin) {
             sender,
             clan,
             member,
-            plugin.configService.getRoleDisplayName(clan.getUserRole(member)),
+            plugin.services.configService.getRoleDisplayName(clan.getUserRole(member)),
             clans,
             period
         )
@@ -191,7 +192,7 @@ internal class ClanAdminCommandHandler(private val plugin: BukkitPlugin) {
     private fun mutateQuest(sender: CommandSender, args: List<String>) {
         if (!args.getOrNull(0).equals("reset", true)) return usage(sender, "/clan admin quest reset <clan> <quest-id>")
         val clan = args.getOrNull(1)?.let(clans::getClanByName) ?: return usage(sender, "/clan admin quest reset <clan> <quest-id>")
-        val questId = args.getOrNull(2)?.takeIf { plugin.configService.quests.quests.containsKey(it) }
+        val questId = args.getOrNull(2)?.takeIf { plugin.services.configService.quests.quests.containsKey(it) }
             ?: return usage(sender, "/clan admin quest reset <clan> <quest-id>")
         val previousProgress = clan.questProgress[questId] ?: ClanQuestProgress()
         clan.setQuestProgress(questId, ClanQuestProgress())
@@ -205,7 +206,7 @@ internal class ClanAdminCommandHandler(private val plugin: BukkitPlugin) {
         val clan = args.getOrNull(1)?.let(clans::getClanByName) ?: return usage(sender, "/clan admin battle stop <clan> [winner-clan]")
         val winner = args.getOrNull(2)?.let(clans::getClanByName)
         if (args.size > 2 && winner == null) return usage(sender, "/clan admin battle stop <clan> [winner-clan]")
-        if (!plugin.clanBattleService.stopByAdmin(clan, winner)) {
+        if (!plugin.services.clanBattleService.stopByAdmin(clan, winner)) {
             sender.reply("&#FC3737✖ &fАктивный бой клана не найден или победитель не участвует в нём.")
             return
         }
@@ -214,7 +215,7 @@ internal class ClanAdminCommandHandler(private val plugin: BukkitPlugin) {
     }
 
     private fun reload(sender: CommandSender) {
-        if (!plugin.clanBattleService.prepareReload()) {
+        if (!plugin.services.clanBattleService.prepareReload()) {
             sender.reply("&#FC3737✖ &fНельзя перезагрузить pnClans во время активной битвы. Завершите её через &e/clan admin battle stop&f.")
             return
         }
@@ -222,14 +223,14 @@ internal class ClanAdminCommandHandler(private val plugin: BukkitPlugin) {
             sender.reply("&#FC3737✖ &fПерезагрузка отменена: не все данные удалось сохранить.")
             return
         }
-        val activeStorageType = plugin.configService.settings.storageType
-        plugin.guiListener.forceCloseAll()
-        plugin.reloadConfigurations()
-        val requestedStorageType = plugin.configService.settings.storageType
+        val activeStorageType = plugin.services.configService.settings.storageType
+        plugin.services.guiListener.forceCloseAll()
+        ConfigReload.run(plugin, plugin.services.configService)
+        val requestedStorageType = plugin.services.configService.settings.storageType
         val storageChangePending = !requestedStorageType.equals(activeStorageType, ignoreCase = true)
-        if (storageChangePending) plugin.configService.settings.storageType = activeStorageType
+        if (storageChangePending) plugin.services.configService.settings.storageType = activeStorageType
         clans.loadClans()
-        plugin.clanBattleService.completeReload()
+        plugin.services.clanBattleService.completeReload()
         sender.reply("&#5EFD7D✔ &fКонфигурации и данные pnClans перезагружены.")
         if (storageChangePending) {
             sender.reply("&#FFD700! &fСмена хранилища на &e$requestedStorageType &fприменится только после полного перезапуска сервера.")
@@ -294,7 +295,7 @@ internal class ClanAdminCommandHandler(private val plugin: BukkitPlugin) {
     }
 
     private fun CommandSender.reply(text: String) {
-        sendMessage(ColorUtil.color(text))
+        sendMessage(ClanText.component(text))
     }
 
     private data class LongMutation(val operation: String, val clan: Clan, val amount: Long)

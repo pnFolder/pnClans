@@ -20,12 +20,12 @@ import ua.inventorytype.pnclans.impl.inventory.BaseGui
 class EditorRolesUX(clanService: ClanService) : BaseGui(clanService) {
 
     init {
-        val cfg = clanService.plugin.configService
+        val cfg = clanService.plugin.services.configService
         val menuCfg = cfg.menus.editorRolesMenu
 
         title(menuCfg.title)
         rows(menuCfg.rows)
-        background(clanService.plugin.configService.menus.background)
+        background(clanService.plugin.services.configService.menus.background)
 
         menuCfg.items["overview"]?.let { itemCfg ->
             slot(itemCfg.slot) {
@@ -52,7 +52,7 @@ class EditorRolesUX(clanService: ClanService) : BaseGui(clanService) {
                 val slotIndex = roleSlots.getOrNull(index) ?: return@forEachIndexed
                 slot(slotIndex) {
                     dynamicItem(parseMaterial(roleTemplate.material, role.icon)) { player ->
-                        val roleDisplayName = this@EditorRolesUX.clanService.plugin.configService.getRoleDisplayName(role)
+                        val roleDisplayName = this@EditorRolesUX.clanService.plugin.services.configService.getRoleDisplayName(role)
                         val placeholders = mapOf(
                             "role" to roleDisplayName,
                             "weight" to role.weight.toString(),
@@ -93,7 +93,7 @@ class EditorRolesUX(clanService: ClanService) : BaseGui(clanService) {
     }
 
     private fun format(player: Player, template: String, placeholders: Map<String, String>): String =
-        clanService.plugin.configService.formatMessage(player, template, placeholders)
+        clanService.plugin.services.configService.formatMessage(player, template, placeholders)
 
     private fun format(player: Player, templates: List<String>, placeholders: Map<String, String>): List<String> =
         templates.map { format(player, it, placeholders) }
@@ -121,7 +121,7 @@ class RolePermissionsUX(
 ) : BaseGui(clanService) {
 
     init {
-        val cfg = clanService.plugin.configService
+        val cfg = clanService.plugin.services.configService
         val menuCfg = cfg.menus.editorRolesMenu
         val roleName = cfg.getRoleDisplayName(targetRole)
         val permissionSlots = listOf(
@@ -133,7 +133,7 @@ class RolePermissionsUX(
 
         title("&#FC7D37« Права Роли » &7• $roleName")
         rows(6)
-        background(clanService.plugin.configService.menus.background)
+        background(clanService.plugin.services.configService.menus.background)
 
         menuCfg.items["permission"]?.let { permissionTemplate ->
             ClanPerms.ALL_PERMISSIONS.take(permissionSlots.size).forEachIndexed { index, perm ->
@@ -199,7 +199,7 @@ class RolePermissionsUX(
         )
 
     private fun format(player: Player, template: String, placeholders: Map<String, String>): String =
-        clanService.plugin.configService.formatMessage(player, template, placeholders)
+        clanService.plugin.services.configService.formatMessage(player, template, placeholders)
 
     private fun format(player: Player, templates: List<String>, placeholders: Map<String, String>): List<String> =
         templates.flatMap { format(player, it, placeholders).split("\n") }

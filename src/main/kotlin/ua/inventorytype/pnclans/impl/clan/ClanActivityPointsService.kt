@@ -26,7 +26,7 @@ class ClanActivityPointsService(private val plugin: BukkitPlugin) : Listener {
 
     init {
         Bukkit.getPluginManager().registerEvents(this, plugin)
-        task = plugin.pnLibraryIntegration.tasks.repeat(20L, 20L, Runnable { tick() })
+        task = plugin.services.pnLibraryIntegration.tasks.repeat(20L, 20L, Runnable { tick() })
     }
 
     fun shutdown() {
@@ -69,7 +69,7 @@ class ClanActivityPointsService(private val plugin: BukkitPlugin) : Listener {
     }
 
     private fun tick() {
-        val config = plugin.configService.settings.clanActivityPoints
+        val config = plugin.services.configService.settings.clanActivityPoints
         if (!config.enabled) {
             lastQuestInterval.clear()
             return
@@ -81,7 +81,7 @@ class ClanActivityPointsService(private val plugin: BukkitPlugin) : Listener {
         val intervalMs = config.intervalSeconds.coerceAtLeast(1L) * 1000L
         val processedClans = HashSet<String>()
         Bukkit.getOnlinePlayers().forEach { player ->
-            val clan = plugin.clanService.getClanUser(player) ?: return@forEach
+            val clan = plugin.services.clanService.getClanUser(player) ?: return@forEach
             val activeAt = lastActivity[player.uniqueId] ?: return@forEach
             if (now - activeAt > timeoutMs) return@forEach
             if (!processedClans.add(clan.id)) return@forEach
@@ -92,7 +92,7 @@ class ClanActivityPointsService(private val plugin: BukkitPlugin) : Listener {
             }
             val lastQuestAt = lastQuestInterval.putIfAbsent(clan.id, now)
             if (lastQuestAt != null && now - lastQuestAt >= intervalMs) {
-                plugin.clanQuestService.recordActivityInterval(clan, player)
+                plugin.services.clanQuestService.recordActivityInterval(clan, player)
                 lastQuestInterval[clan.id] = now
             }
             if (config.pointsPerInterval <= 0L || config.dailyClanLimit <= 0L) return@forEach
@@ -106,9 +106,9 @@ class ClanActivityPointsService(private val plugin: BukkitPlugin) : Listener {
             if (now - lastAward < intervalMs) return@forEach
 
             val amount = config.pointsPerInterval.coerceAtMost(remaining)
-            if (plugin.clanPointsService.award(clan, amount, ua.inventorytype.pnclans.api.clan.ClanPointsSource.ACTIVITY)) {
+            if (plugin.services.clanPointsService.award(clan, amount, ua.inventorytype.pnclans.api.clan.ClanPointsSource.ACTIVITY)) {
                 clan.activityPointsAwardedToday = awarded + amount
-                plugin.clanService.saveClan(clan)
+                plugin.services.clanService.saveClan(clan)
             }
         }
         lastQuestInterval.keys.removeIf { it !in processedClans }

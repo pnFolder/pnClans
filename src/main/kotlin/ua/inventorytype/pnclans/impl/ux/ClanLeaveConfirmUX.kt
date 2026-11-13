@@ -12,7 +12,7 @@ import ua.inventorytype.pnclans.impl.inventory.builder.ItemBuilder
 class ClanLeaveConfirmUX(clanService: ClanService) : BaseGui(clanService) {
 
     init {
-        val cfg = clanService.plugin.configService
+        val cfg = clanService.plugin.services.configService
         val menuCfg = cfg.menus.leaveConfirmMenu
 
         title(menuCfg.title)
@@ -48,7 +48,7 @@ class ClanLeaveConfirmUX(clanService: ClanService) : BaseGui(clanService) {
                         val errorMsg = this@ClanLeaveConfirmUX.clanService.disbandClan(
                             clan,
                             player,
-                            endActiveBattle = this@ClanLeaveConfirmUX.clanService.plugin.clanBattleService.hasActiveBattle(clan)
+                            endActiveBattle = this@ClanLeaveConfirmUX.clanService.plugin.services.clanBattleService.hasActiveBattle(clan)
                         )
                         if (errorMsg != null) {
                             player.sendMessage(errorMsg)
@@ -91,20 +91,20 @@ class ClanLeaveConfirmUX(clanService: ClanService) : BaseGui(clanService) {
         placeholders: Map<String, String>,
         additionalLore: List<String> = emptyList()
     ) {
-        builder.name(clanService.plugin.configService.formatMessage(player, itemCfg.name, placeholders))
+        builder.name(clanService.plugin.services.configService.formatMessage(player, itemCfg.name, placeholders))
         val actionIndex = itemCfg.lore.indexOfLast { it.contains("➥") }
         val lore = if (additionalLore.isNotEmpty() && actionIndex >= 0) {
             itemCfg.lore.take(actionIndex) + additionalLore + itemCfg.lore.drop(actionIndex)
         } else {
             itemCfg.lore + additionalLore
         }
-        builder.lore(lore.map { line -> clanService.plugin.configService.formatMessage(player, line, placeholders) })
+        builder.lore(lore.map { line -> clanService.plugin.services.configService.formatMessage(player, line, placeholders) })
         builder.glow(itemCfg.glow)
     }
 
     private fun battleWarning(clan: ua.inventorytype.pnclans.api.clan.Clan, isLeader: Boolean): List<String> {
-        if (!clanService.plugin.clanBattleService.hasActiveBattle(clan)) return emptyList()
-        val items = clanService.plugin.configService.menus.leaveConfirmMenu.items
+        if (!clanService.plugin.services.clanBattleService.hasActiveBattle(clan)) return emptyList()
+        val items = clanService.plugin.services.configService.menus.leaveConfirmMenu.items
         val key = if (isLeader) "battleWarningLeader" else "battleWarningMember"
         return items[key]?.lore.orEmpty()
     }

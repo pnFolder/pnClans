@@ -43,7 +43,7 @@ class ClanInviteService(private val clanService: ClanService) {
      * @return True only when a new active invitation was created.
      */
     fun sendInvite(sender: Player, target: Player): Boolean {
-        val cfg = clanService.plugin.configService
+        val cfg = clanService.plugin.services.configService
         val senderClan = clanService.getClanUser(sender) ?: run {
             cfg.send(sender, cfg.messages.invite.inviterNoClan)
             return false
@@ -117,7 +117,7 @@ class ClanInviteService(private val clanService: ClanService) {
      * @return True only when the player was successfully added to the invited clan.
      */
     fun acceptInvite(player: Player, clanName: String? = null): Boolean {
-        val cfg = clanService.plugin.configService
+        val cfg = clanService.plugin.services.configService
         val invite = pendingInvites[player.uniqueId] ?: run {
             cfg.send(player, cfg.messages.invite.noActiveInvite)
             return false
@@ -189,7 +189,7 @@ class ClanInviteService(private val clanService: ClanService) {
      * @return True when an unexpired invitation was removed.
      */
     fun denyInvite(player: Player, clanName: String? = null): Boolean {
-        val cfg = clanService.plugin.configService
+        val cfg = clanService.plugin.services.configService
         val invite = pendingInvites[player.uniqueId] ?: run {
             cfg.send(player, cfg.messages.invite.noActiveInvite)
             return false
@@ -220,7 +220,7 @@ class ClanInviteService(private val clanService: ClanService) {
     }
 
     private fun scheduleExpiration(invite: ClanInvite, lifetimeSeconds: Int) {
-        clanService.plugin.pnLibraryIntegration.tasks.later(
+        clanService.plugin.services.pnLibraryIntegration.tasks.later(
             lifetimeSeconds.toLong() * TICKS_PER_SECOND,
             Runnable { pendingInvites.remove(invite.targetUuid, invite) }
         )

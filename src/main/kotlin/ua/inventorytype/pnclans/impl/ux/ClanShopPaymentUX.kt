@@ -17,13 +17,13 @@ class ClanShopPaymentUX(
     private val returnPage: Int = 0,
     private val returnSort: String? = null
 ) : BaseGui(clanService) {
-    private val config = clanService.plugin.configService.shop
+    private val config = clanService.plugin.services.configService.shop
     private val product = config.products[productId]
 
     init {
         title(config.display.paymentTitle)
         rows(6)
-        background(clanService.plugin.configService.menus.background)
+        background(clanService.plugin.services.configService.menus.background)
 
         product?.let { configuredProduct ->
             slot(13) {
@@ -47,7 +47,7 @@ class ClanShopPaymentUX(
                 slot(paymentSlots[index]) {
                     dynamicItem(this@ClanShopPaymentUX.currencyMaterial(payment.currency)) { player ->
                         val clan = this@ClanShopPaymentUX.clanService.getClanUser(player) ?: return@dynamicItem null
-                        val shop = this@ClanShopPaymentUX.clanService.plugin.clanShopService
+                        val shop = this@ClanShopPaymentUX.clanService.plugin.services.clanShopService
                         val permitted = this@ClanShopPaymentUX.hasPaymentPermission(player, payment)
                         val available = permitted && shop.isCurrencyAvailable(payment.currency)
                         val balance = shop.balance(payment.currency, player, clan)
@@ -96,7 +96,7 @@ class ClanShopPaymentUX(
             "product_name" to productName(player),
             "currency" to currencyName(displayedPayment)
         )
-        when (val result = clanService.plugin.clanShopService.purchase(
+        when (val result = clanService.plugin.services.clanShopService.purchase(
             player,
             clan,
             productId,
@@ -172,7 +172,7 @@ class ClanShopPaymentUX(
     }
 
     private fun format(player: Player, text: String, placeholders: Map<String, String> = emptyMap()): String =
-        clanService.plugin.configService.formatMessage(player, text, placeholders)
+        clanService.plugin.services.configService.formatMessage(player, text, placeholders)
 
     private fun stripColours(value: String): String = value.replace(Regex("&#[0-9a-fA-F]{6}|&[0-9a-fk-orA-FK-OR]"), "")
     private fun formatNumber(value: Double): String = if (value % 1.0 == 0.0) value.toLong().toString() else "%.2f".format(value)

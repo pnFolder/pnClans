@@ -153,7 +153,7 @@ internal class ClanBattleService(private val plugin: BukkitPlugin) : Listener {
     fun prepareClanRemoval(clan: Clan) {
         challenges.values.filter { it.challengerClanId == clan.id || it.defenderClanId == clan.id }
             .forEach { challenges.remove(it.id, it) }
-        lobbyByClanId[clan.id]?.let { cancelLobby(it, plugin.configService.messages.battles.lobbyClanRemoved) }
+        lobbyByClanId[clan.id]?.let { cancelLobby(it, plugin.services.configService.messages.battles.lobbyClanRemoved) }
         val active = activeByClanId[clan.id] ?: return
         val winnerId = if (clan.id == active.battle.challengerClanId) active.battle.defenderClanId else active.battle.challengerClanId
         finish(active.battle.id, winnerId, ClanBattleEndReason.FORFEIT)
@@ -167,7 +167,7 @@ internal class ClanBattleService(private val plugin: BukkitPlugin) : Listener {
             return true
         }
         val lobby = lobbyByClanId[clan.id] ?: return false
-        cancelLobby(lobby, plugin.configService.messages.battles.lobbyStoppedByAdmin)
+        cancelLobby(lobby, plugin.services.configService.messages.battles.lobbyStoppedByAdmin)
         return true
     }
 
@@ -182,11 +182,11 @@ internal class ClanBattleService(private val plugin: BukkitPlugin) : Listener {
         .sortedBy { it.createdAt }
 
     fun availableOpponents(clan: Clan): List<Clan> {
-        val config = plugin.configService.battles
+        val config = plugin.services.configService.battles
         val challengedClanIds = challenges.values
             .filter { it.expiresAt > System.currentTimeMillis() }
             .flatMapTo(HashSet<String>()) { listOf(it.challengerClanId, it.defenderClanId) }
-        return plugin.clanService.getAllClans()
+        return plugin.services.clanService.getAllClans()
             .filter {
                 it.id != clan.id && it.id !in challengedClanIds && !isClanBusy(it.id) &&
                     it.onlineCount >= config.minimumOnlineMembers.coerceAtLeast(1)
@@ -195,9 +195,9 @@ internal class ClanBattleService(private val plugin: BukkitPlugin) : Listener {
     }
 
     fun sendChallenge(actor: Player, defender: Clan): ClanBattleOperation {
-        val config = plugin.configService.battles
+        val config = plugin.services.configService.battles
         if (!config.enabled) return ClanBattleOperation.Rejected(ClanBattleRejection.DISABLED)
-        val challenger = plugin.clanService.getClanUser(actor) ?: return ClanBattleOperation.Rejected(ClanBattleRejection.NO_CLAN)
+        val challenger = plugin.services.clanService.getClanUser(actor) ?: return ClanBattleOperation.Rejected(ClanBattleRejection.NO_CLAN)
         val member = challenger.getMember(actor.uniqueId) ?: return ClanBattleOperation.Rejected(ClanBattleRejection.NO_CLAN)
         if (!challenger.hasPermission(member, ClanPerms.Action.START_BATTLE)) return ClanBattleOperation.Rejected(ClanBattleRejection.NO_PERMISSION)
         if (challenger.id == defender.id) return ClanBattleOperation.Rejected(ClanBattleRejection.SAME_CLAN)
@@ -215,28 +215,28 @@ internal class ClanBattleService(private val plugin: BukkitPlugin) : Listener {
             now + config.challengeTimeoutSeconds.coerceAtLeast(1L) * 1000L
         )
         challenges[challenge.id] = challenge
-        plugin.pnLibraryIntegration.tasks.later(config.challengeTimeoutSeconds.coerceAtLeast(1L) * 20L, Runnable { expireChallenge(challenge.id) })
-        notifyClan(challenger, plugin.configService.messages.battles.challengeSent, mapOf("opponent" to defender.name, "challenge_id" to challenge.id.toString()))
-        notifyClan(defender, plugin.configService.messages.battles.challengeReceived, mapOf("challenger" to challenger.name, "challenge_id" to challenge.id.toString()))
+        plugin.services.pnLibraryIntegration.tasks.later(config.challengeTimeoutSeconds.coerceAtLeast(1L) * 20L, Runnable { expireChallenge(challenge.id) })
+        notifyClan(challenger, plugin.services.configService.messages.battles.challengeSent, mapOf("opponent" to defender.name, "challenge_id" to challenge.id.toString()))
+        notifyClan(defender, plugin.services.configService.messages.battles.challengeReceived, mapOf("challenger" to challenger.name, "challenge_id" to challenge.id.toString()))
         notifyGui(challenger)
         notifyGui(defender)
         return ClanBattleOperation.Success
     }
 
     fun acceptChallenge(actor: Player, challengeId: UUID): ClanBattleOperation {
-        val config = plugin.configService.battles
-        val messages = plugin.configService.messages.battles
+        val config = plugin.services.configService.battles
+        val messages = plugin.services.configService.messages.battles
         if (!config.enabled) return ClanBattleOperation.Rejected(ClanBattleRejection.DISABLED)
         val challenge = challenges[challengeId] ?: return ClanBattleOperation.Rejected(ClanBattleRejection.CHALLENGE_NOT_FOUND)
         if (challenge.expiresAt <= System.currentTimeMillis()) {
             challenges.remove(challengeId)
             return ClanBattleOperation.Rejected(ClanBattleRejection.CHALLENGE_EXPIRED)
         }
-        val defender = plugin.clanService.getClanUser(actor) ?: return ClanBattleOperation.Rejected(ClanBattleRejection.NO_CLAN)
+        val defender = plugin.services.clanService.getClanUser(actor) ?: return ClanBattleOperation.Rejected(ClanBattleRejection.NO_CLAN)
         if (defender.id != challenge.defenderClanId) return ClanBattleOperation.Rejected(ClanBattleRejection.NOT_TARGET_CLAN)
         val member = defender.getMember(actor.uniqueId) ?: return ClanBattleOperation.Rejected(ClanBattleRejection.NO_CLAN)
         if (!defender.hasPermission(member, ClanPerms.Action.START_BATTLE)) return ClanBattleOperation.Rejected(ClanBattleRejection.NO_PERMISSION)
-        val challenger = plugin.clanService.getClanByName(challenge.challengerClanId) ?: return ClanBattleOperation.Rejected(ClanBattleRejection.CHALLENGE_NOT_FOUND)
+        val challenger = plugin.services.clanService.getClanByName(challenge.challengerClanId) ?: return ClanBattleOperation.Rejected(ClanBattleRejection.CHALLENGE_NOT_FOUND)
         if (isClanBusy(challenger.id) || isClanBusy(defender.id)) return ClanBattleOperation.Rejected(ClanBattleRejection.CLAN_BUSY)
 
         val minimum = config.minimumOnlineMembers.coerceAtLeast(1)
@@ -260,7 +260,7 @@ internal class ClanBattleService(private val plugin: BukkitPlugin) : Listener {
         }
         lobbiesById[lobby.id] = lobby
         challenges.remove(challengeId)
-        lobby.expiryTask = plugin.pnLibraryIntegration.tasks.later(lobbyTimeout * 20L, Runnable { expireLobby(lobby.id) })
+        lobby.expiryTask = plugin.services.pnLibraryIntegration.tasks.later(lobbyTimeout * 20L, Runnable { expireLobby(lobby.id) })
         notifyLobby(lobby, messages.lobbyOpened, mapOf(
             "minimum" to minimum.toString(),
             "maximum" to config.maximumParticipants.coerceAtLeast(1).toString(),
@@ -272,47 +272,47 @@ internal class ClanBattleService(private val plugin: BukkitPlugin) : Listener {
 
     fun declineChallenge(actor: Player, challengeId: UUID): ClanBattleOperation {
         val challenge = challenges[challengeId] ?: return ClanBattleOperation.Rejected(ClanBattleRejection.CHALLENGE_NOT_FOUND)
-        val defender = plugin.clanService.getClanUser(actor) ?: return ClanBattleOperation.Rejected(ClanBattleRejection.NO_CLAN)
+        val defender = plugin.services.clanService.getClanUser(actor) ?: return ClanBattleOperation.Rejected(ClanBattleRejection.NO_CLAN)
         if (defender.id != challenge.defenderClanId) return ClanBattleOperation.Rejected(ClanBattleRejection.NOT_TARGET_CLAN)
         val member = defender.getMember(actor.uniqueId) ?: return ClanBattleOperation.Rejected(ClanBattleRejection.NO_CLAN)
         if (!defender.hasPermission(member, ClanPerms.Action.START_BATTLE)) return ClanBattleOperation.Rejected(ClanBattleRejection.NO_PERMISSION)
         challenges.remove(challengeId)
-        plugin.clanService.getClanByName(challenge.challengerClanId)?.let {
-            notifyClan(it, plugin.configService.messages.battles.declined, mapOf("opponent" to defender.name))
+        plugin.services.clanService.getClanByName(challenge.challengerClanId)?.let {
+            notifyClan(it, plugin.services.configService.messages.battles.declined, mapOf("opponent" to defender.name))
         }
-        notifyClan(defender, plugin.configService.messages.battles.declinedByYou, emptyMap())
+        notifyClan(defender, plugin.services.configService.messages.battles.declinedByYou, emptyMap())
         notifyGui(defender)
-        plugin.clanService.getClanByName(challenge.challengerClanId)?.let(::notifyGui)
+        plugin.services.clanService.getClanByName(challenge.challengerClanId)?.let(::notifyGui)
         return ClanBattleOperation.Success
     }
 
     fun toggleLobbyParticipation(actor: Player): ClanBattleOperation {
-        val config = plugin.configService.battles
-        val messages = plugin.configService.messages.battles
-        val clan = plugin.clanService.getClanUser(actor) ?: return ClanBattleOperation.Rejected(ClanBattleRejection.NO_CLAN)
+        val config = plugin.services.configService.battles
+        val messages = plugin.services.configService.messages.battles
+        val clan = plugin.services.clanService.getClanUser(actor) ?: return ClanBattleOperation.Rejected(ClanBattleRejection.NO_CLAN)
         val lobby = lobbyByClanId[clan.id] ?: return ClanBattleOperation.Rejected(ClanBattleRejection.LOBBY_NOT_FOUND)
         val roster = lobby.participantsByClan[clan.id] ?: return ClanBattleOperation.Rejected(ClanBattleRejection.LOBBY_NOT_FOUND)
         if (actor.uniqueId in roster) {
             roster.remove(actor.uniqueId)
             lobby.readyClanIds.remove(clan.id)
             cancelCountdown(lobby)
-            plugin.configService.send(actor, messages.lobbyLeftRoster)
+            plugin.services.configService.send(actor, messages.lobbyLeftRoster)
         } else {
             if (roster.size >= config.maximumParticipants.coerceAtLeast(1)) return ClanBattleOperation.Rejected(ClanBattleRejection.LOBBY_FULL)
             if (!isEligibleLobbyPlayer(actor, clan)) return ClanBattleOperation.Rejected(ClanBattleRejection.CLAN_BUSY)
             roster.add(actor.uniqueId)
             lobby.readyClanIds.remove(clan.id)
             cancelCountdown(lobby)
-            plugin.configService.send(actor, messages.lobbyJoinedRoster)
+            plugin.services.configService.send(actor, messages.lobbyJoinedRoster)
         }
         notifyLobbyChanged(lobby)
         return ClanBattleOperation.Success
     }
 
     fun toggleLobbyReady(actor: Player): ClanBattleOperation {
-        val config = plugin.configService.battles
-        val messages = plugin.configService.messages.battles
-        val clan = plugin.clanService.getClanUser(actor) ?: return ClanBattleOperation.Rejected(ClanBattleRejection.NO_CLAN)
+        val config = plugin.services.configService.battles
+        val messages = plugin.services.configService.messages.battles
+        val clan = plugin.services.clanService.getClanUser(actor) ?: return ClanBattleOperation.Rejected(ClanBattleRejection.NO_CLAN)
         val member = clan.getMember(actor.uniqueId) ?: return ClanBattleOperation.Rejected(ClanBattleRejection.NO_CLAN)
         if (!clan.hasPermission(member, ClanPerms.Action.START_BATTLE)) return ClanBattleOperation.Rejected(ClanBattleRejection.NO_PERMISSION)
         val lobby = lobbyByClanId[clan.id] ?: return ClanBattleOperation.Rejected(ClanBattleRejection.LOBBY_NOT_FOUND)
@@ -327,10 +327,10 @@ internal class ClanBattleService(private val plugin: BukkitPlugin) : Listener {
         if (clan.id in lobby.readyClanIds) {
             lobby.readyClanIds.remove(clan.id)
             cancelCountdown(lobby)
-            plugin.configService.send(actor, messages.lobbySideNotReady)
+            plugin.services.configService.send(actor, messages.lobbySideNotReady)
         } else {
             lobby.readyClanIds.add(clan.id)
-            plugin.configService.send(actor, messages.lobbySideReady)
+            plugin.services.configService.send(actor, messages.lobbySideReady)
             if (lobby.challengerClanId in lobby.readyClanIds && lobby.defenderClanId in lobby.readyClanIds) startCountdown(lobby)
         }
         notifyLobbyChanged(lobby)
@@ -348,13 +348,13 @@ internal class ClanBattleService(private val plugin: BukkitPlugin) : Listener {
             event.isCancelled = true
             return
         }
-        val attackerClan = plugin.clanService.getClanUser(attacker) ?: run { event.isCancelled = true; return }
-        val victimClan = plugin.clanService.getClanUser(victim) ?: run { event.isCancelled = true; return }
+        val attackerClan = plugin.services.clanService.getClanUser(attacker) ?: run { event.isCancelled = true; return }
+        val victimClan = plugin.services.clanService.getClanUser(victim) ?: run { event.isCancelled = true; return }
         if (!active.battle.containsClan(attackerClan.id) || !active.battle.containsClan(victimClan.id)) {
             event.isCancelled = true
             return
         }
-        if (attackerClan.id == victimClan.id && !plugin.configService.battles.allowFriendlyFire) event.isCancelled = true
+        if (attackerClan.id == victimClan.id && !plugin.services.configService.battles.allowFriendlyFire) event.isCancelled = true
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
@@ -363,8 +363,8 @@ internal class ClanBattleService(private val plugin: BukkitPlugin) : Listener {
         val victim = event.entity as? Player ?: return
         val active = activeByPlayer[attacker.uniqueId] ?: return
         if (activeByPlayer[victim.uniqueId] !== active) return
-        val attackerClan = plugin.clanService.getClanUser(attacker) ?: return
-        val victimClan = plugin.clanService.getClanUser(victim) ?: return
+        val attackerClan = plugin.services.clanService.getClanUser(attacker) ?: return
+        val victimClan = plugin.services.clanService.getClanUser(victim) ?: return
         if (attackerClan.id == victimClan.id || !active.battle.containsClan(attackerClan.id) || !active.battle.containsClan(victimClan.id)) return
         val damage = event.finalDamage.coerceAtLeast(0.0).roundToLong()
         if (damage > 0L) active.damageByClan.merge(attackerClan.id, damage, Long::plus)
@@ -374,23 +374,23 @@ internal class ClanBattleService(private val plugin: BukkitPlugin) : Listener {
     fun onBattleDeath(event: PlayerDeathEvent) {
         val victim = event.entity
         val active = activeByPlayer[victim.uniqueId] ?: return
-        val config = plugin.configService.battles
+        val config = plugin.services.configService.battles
         if (config.keepInventoryOnDeath) { event.keepInventory = true; event.drops.clear() }
         if (config.keepExperienceOnDeath) { event.keepLevel = true; event.droppedExp = 0 }
         val killer = victim.killer ?: return
         if (activeByPlayer[killer.uniqueId] !== active) return
-        val killerClan = plugin.clanService.getClanUser(killer) ?: return
-        val victimClan = plugin.clanService.getClanUser(victim) ?: return
+        val killerClan = plugin.services.clanService.getClanUser(killer) ?: return
+        val victimClan = plugin.services.clanService.getClanUser(victim) ?: return
         if (!active.battle.containsClan(killerClan.id) || !active.battle.containsClan(victimClan.id) || killerClan.id == victimClan.id) return
         when (killerClan.id) {
             active.battle.challengerClanId -> active.battle.challengerScore++
             active.battle.defenderClanId -> active.battle.defenderScore++
             else -> return
         }
-        plugin.clanQuestService.recordBattleKill(killerClan, killer)
-        if (config.pointsPerKill > 0L) plugin.clanPointsService.award(killerClan, config.pointsPerKill, ClanPointsSource.BATTLE)
-        plugin.clanService.getClanByName(active.battle.challengerClanId)?.let(::notifyGui)
-        plugin.clanService.getClanByName(active.battle.defenderClanId)?.let(::notifyGui)
+        plugin.services.clanQuestService.recordBattleKill(killerClan, killer)
+        if (config.pointsPerKill > 0L) plugin.services.clanPointsService.award(killerClan, config.pointsPerKill, ClanPointsSource.BATTLE)
+        plugin.services.clanService.getClanByName(active.battle.challengerClanId)?.let(::notifyGui)
+        plugin.services.clanService.getClanByName(active.battle.defenderClanId)?.let(::notifyGui)
         if (active.battle.challengerScore >= config.scoreToWin.coerceAtLeast(1)) finish(active.battle.id, active.battle.challengerClanId, ClanBattleEndReason.SCORE_LIMIT)
         else if (active.battle.defenderScore >= config.scoreToWin.coerceAtLeast(1)) finish(active.battle.id, active.battle.defenderClanId, ClanBattleEndReason.SCORE_LIMIT)
     }
@@ -399,7 +399,7 @@ internal class ClanBattleService(private val plugin: BukkitPlugin) : Listener {
     fun onBattleRespawn(event: PlayerRespawnEvent) {
         pendingRespawnLocations.remove(event.player.uniqueId)?.let { event.respawnLocation = it; completeReturn(event.player); return }
         val active = activeByPlayer[event.player.uniqueId] ?: return
-        val clan = plugin.clanService.getClanUser(event.player) ?: return
+        val clan = plugin.services.clanService.getClanUser(event.player) ?: return
         arenaLocation(active.battle.arenaId, clan.id == active.battle.challengerClanId)?.let { event.respawnLocation = it }
     }
 
@@ -416,14 +416,14 @@ internal class ClanBattleService(private val plugin: BukkitPlugin) : Listener {
             }
             else -> return
         }
-        plugin.pnLibraryIntegration.tasks.sync(Runnable {
+        plugin.services.pnLibraryIntegration.tasks.sync(Runnable {
             if (player.isOnline && player.teleport(destination) && returnLocation != null) completeReturn(player)
         })
     }
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     fun onBattleMove(event: PlayerMoveEvent) {
-        if (!plugin.configService.battles.enforceArenaBoundary || event is PlayerTeleportEvent) return
+        if (!plugin.services.configService.battles.enforceArenaBoundary || event is PlayerTeleportEvent) return
         val active = activeByPlayer[event.player.uniqueId] ?: return
         val destination = event.to ?: return
         if (!isInsideArena(active, destination)) event.to = event.from
@@ -431,7 +431,7 @@ internal class ClanBattleService(private val plugin: BukkitPlugin) : Listener {
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     fun onBattleTeleport(event: PlayerTeleportEvent) {
-        if (!plugin.configService.battles.enforceArenaBoundary) return
+        if (!plugin.services.configService.battles.enforceArenaBoundary) return
         val active = activeByPlayer[event.player.uniqueId] ?: return
         if (!isInsideArena(active, event.to)) event.isCancelled = true
     }
@@ -440,7 +440,7 @@ internal class ClanBattleService(private val plugin: BukkitPlugin) : Listener {
     fun onBattleQuit(event: PlayerQuitEvent) {
         pendingRespawnLocations.remove(event.player.uniqueId)
         removeLobbyParticipant(event.player)
-        if (!plugin.configService.battles.forfeitWhenNoParticipantsOnline) return
+        if (!plugin.services.configService.battles.forfeitWhenNoParticipantsOnline) return
         val active = activeByPlayer[event.player.uniqueId] ?: return
         val clanId = participantClanId(active, event.player.uniqueId) ?: return
         val someoneOnline = active.participantsByClan[clanId].orEmpty().any { uuid -> Bukkit.getPlayer(uuid)?.isOnline == true && uuid != event.player.uniqueId }
@@ -464,11 +464,11 @@ internal class ClanBattleService(private val plugin: BukkitPlugin) : Listener {
         active.participantsByClan[clan.id]?.remove(memberUuid)
         active.returnLocations.remove(memberUuid)?.let { returnLocation ->
             val player = Bukkit.getPlayer(memberUuid)?.takeIf(Player::isOnline)
-            if (player != null) plugin.pnLibraryIntegration.tasks.sync(Runnable {
+            if (player != null) plugin.services.pnLibraryIntegration.tasks.sync(Runnable {
                 if (player.teleport(returnLocation)) completeReturn(player) else queueReturn(memberUuid, returnLocation, active.battle.arenaId)
             }) else queueReturn(memberUuid, returnLocation, active.battle.arenaId)
         }
-        if (!plugin.configService.battles.forfeitWhenNoParticipantsOnline) return
+        if (!plugin.services.configService.battles.forfeitWhenNoParticipantsOnline) return
         if (active.participantsByClan[clan.id].orEmpty().none { Bukkit.getPlayer(it)?.isOnline == true }) {
             val winnerId = if (clan.id == active.battle.challengerClanId) active.battle.defenderClanId else active.battle.challengerClanId
             finish(active.battle.id, winnerId, ClanBattleEndReason.FORFEIT)
@@ -477,7 +477,7 @@ internal class ClanBattleService(private val plugin: BukkitPlugin) : Listener {
 
     private fun startCountdown(lobby: ClanBattleLobby) {
         if (lobby.countdownTask != null) return
-        val config = plugin.configService.battles
+        val config = plugin.services.configService.battles
         pruneUnavailableLobbyParticipants(lobby)
         if (lobby.challengerClanId !in lobby.readyClanIds || lobby.defenderClanId !in lobby.readyClanIds) return
         val minimum = config.minimumOnlineMembers.coerceAtLeast(1)
@@ -487,8 +487,8 @@ internal class ClanBattleService(private val plugin: BukkitPlugin) : Listener {
         }
         val seconds = config.countdownSeconds.coerceAtLeast(0L)
         lobby.countdownEndsAt = System.currentTimeMillis() + seconds * 1000L
-        notifyLobby(lobby, plugin.configService.messages.battles.lobbyCountdownStarted, mapOf("seconds" to seconds.toString()))
-        lobby.countdownTask = plugin.pnLibraryIntegration.tasks.later(seconds * 20L, Runnable {
+        notifyLobby(lobby, plugin.services.configService.messages.battles.lobbyCountdownStarted, mapOf("seconds" to seconds.toString()))
+        lobby.countdownTask = plugin.services.pnLibraryIntegration.tasks.later(seconds * 20L, Runnable {
             lobby.countdownTask = null
             lobby.countdownEndsAt = 0L
             startLobbyBattle(lobby.id)
@@ -497,8 +497,8 @@ internal class ClanBattleService(private val plugin: BukkitPlugin) : Listener {
 
     private fun startLobbyBattle(lobbyId: UUID) {
         val lobby = lobbiesById[lobbyId] ?: return
-        val config = plugin.configService.battles
-        val messages = plugin.configService.messages.battles
+        val config = plugin.services.configService.battles
+        val messages = plugin.services.configService.messages.battles
         if (!config.enabled) { cancelLobby(lobby, messages.lobbyModuleDisabled); return }
         pruneUnavailableLobbyParticipants(lobby)
         val minimum = config.minimumOnlineMembers.coerceAtLeast(1)
@@ -510,8 +510,8 @@ internal class ClanBattleService(private val plugin: BukkitPlugin) : Listener {
             notifyLobbyChanged(lobby)
             return
         }
-        val challenger = plugin.clanService.getClanByName(lobby.challengerClanId) ?: run { cancelLobby(lobby, messages.lobbyOpponentUnavailable); return }
-        val defender = plugin.clanService.getClanByName(lobby.defenderClanId) ?: run { cancelLobby(lobby, messages.lobbyOpponentUnavailable); return }
+        val challenger = plugin.services.clanService.getClanByName(lobby.challengerClanId) ?: run { cancelLobby(lobby, messages.lobbyOpponentUnavailable); return }
+        val defender = plugin.services.clanService.getClanByName(lobby.defenderClanId) ?: run { cancelLobby(lobby, messages.lobbyOpponentUnavailable); return }
         if (activeByClanId[challenger.id] != null || activeByClanId[defender.id] != null) { cancelLobby(lobby, messages.lobbyClanBecameBusy); return }
         val challengerParticipants = challengerIds.mapNotNull(Bukkit::getPlayer).filter(Player::isOnline)
         val defenderParticipants = defenderIds.mapNotNull(Bukkit::getPlayer).filter(Player::isOnline)
@@ -563,7 +563,7 @@ internal class ClanBattleService(private val plugin: BukkitPlugin) : Listener {
         notifyClan(defender, messages.started, battlePlaceholders(battle, challenger, defender))
         notifyGui(challenger)
         notifyGui(defender)
-        active.timerTask = plugin.pnLibraryIntegration.tasks.later(config.battleDurationSeconds.coerceAtLeast(1L) * 20L, Runnable { finish(battle.id, null, ClanBattleEndReason.TIME_LIMIT) })
+        active.timerTask = plugin.services.pnLibraryIntegration.tasks.later(config.battleDurationSeconds.coerceAtLeast(1L) * 20L, Runnable { finish(battle.id, null, ClanBattleEndReason.TIME_LIMIT) })
     }
 
     private fun finish(battleId: UUID, forcedWinnerId: String?, reason: ClanBattleEndReason) {
@@ -573,8 +573,8 @@ internal class ClanBattleService(private val plugin: BukkitPlugin) : Listener {
         activeByClanId.remove(active.battle.defenderClanId, active)
         activeByArenaId.remove(active.battle.arenaId, active)
         active.participantsByClan.values.flatten().forEach { activeByPlayer.remove(it, active) }
-        val challenger = plugin.clanService.getClanByName(active.battle.challengerClanId)
-        val defender = plugin.clanService.getClanByName(active.battle.defenderClanId)
+        val challenger = plugin.services.clanService.getClanByName(active.battle.challengerClanId)
+        val defender = plugin.services.clanService.getClanByName(active.battle.defenderClanId)
         val winnerId = forcedWinnerId ?: when {
             active.battle.challengerScore > active.battle.defenderScore -> active.battle.challengerClanId
             active.battle.defenderScore > active.battle.challengerScore -> active.battle.defenderClanId
@@ -588,16 +588,16 @@ internal class ClanBattleService(private val plugin: BukkitPlugin) : Listener {
             if (winner != null && loser != null) {
                 if (winner.battleWins < Int.MAX_VALUE) winner.battleWins++
                 if (loser.battleLosses < Int.MAX_VALUE) loser.battleLosses++
-                val config = plugin.configService.battles
+                val config = plugin.services.configService.battles
                 winner.mmr = (winner.mmr.toLong() + config.ratingWin.coerceAtLeast(0)).coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
                 loser.mmr = (loser.mmr - config.ratingLoss.coerceAtLeast(0)).coerceAtLeast(0)
-                plugin.clanQuestService.recordBattleWin(winner, participantFor(active, winner.id))
-                if (config.pointsWin > 0L) plugin.clanPointsService.award(winner, config.pointsWin, ClanPointsSource.BATTLE)
-                plugin.clanService.saveClan(winner)
-                plugin.clanService.saveClan(loser)
+                plugin.services.clanQuestService.recordBattleWin(winner, participantFor(active, winner.id))
+                if (config.pointsWin > 0L) plugin.services.clanPointsService.award(winner, config.pointsWin, ClanPointsSource.BATTLE)
+                plugin.services.clanService.saveClan(winner)
+                plugin.services.clanService.saveClan(loser)
             } else {
-                challenger?.let(plugin.clanService::saveClan)
-                defender?.let(plugin.clanService::saveClan)
+                challenger?.let(plugin.services.clanService::saveClan)
+                defender?.let(plugin.services.clanService::saveClan)
             }
         }
         active.returnLocations.forEach { (uuid, location) ->
@@ -610,7 +610,7 @@ internal class ClanBattleService(private val plugin: BukkitPlugin) : Listener {
             }
         }
         Bukkit.getPluginManager().callEvent(ClanBattleEndEvent(active.battle.copy(), winner, loser, reason))
-        val display = plugin.configService.battles.display
+        val display = plugin.services.configService.battles.display
         val placeholders = mapOf(
             "challenger" to (challenger?.name ?: active.battle.challengerClanId),
             "defender" to (defender?.name ?: active.battle.defenderClanId),
@@ -619,14 +619,14 @@ internal class ClanBattleService(private val plugin: BukkitPlugin) : Listener {
             "defender_score" to active.battle.defenderScore.toString(),
             "reason" to battleEndReasonLabel(reason)
         )
-        challenger?.let { notifyClan(it, plugin.configService.messages.battles.finished, placeholders) }
-        defender?.let { notifyClan(it, plugin.configService.messages.battles.finished, placeholders) }
+        challenger?.let { notifyClan(it, plugin.services.configService.messages.battles.finished, placeholders) }
+        defender?.let { notifyClan(it, plugin.services.configService.messages.battles.finished, placeholders) }
         challenger?.let(::notifyGui)
         defender?.let(::notifyGui)
     }
 
     private fun battleEndReasonLabel(reason: ClanBattleEndReason): String {
-        val display = plugin.configService.battles.display
+        val display = plugin.services.configService.battles.display
         return when (reason) {
             ClanBattleEndReason.SCORE_LIMIT -> display.endReasonScoreLimit
             ClanBattleEndReason.TIME_LIMIT -> display.endReasonTimeLimit
@@ -639,10 +639,10 @@ internal class ClanBattleService(private val plugin: BukkitPlugin) : Listener {
     private fun recordDamage(active: ActiveClanBattle, clan: Clan?) {
         if (clan == null) return
         val amount = active.damageByClan[clan.id] ?: return
-        if (amount > 0L) plugin.clanQuestService.recordBattleDamage(clan, participantFor(active, clan.id), amount)
+        if (amount > 0L) plugin.services.clanQuestService.recordBattleDamage(clan, participantFor(active, clan.id), amount)
     }
 
-    private fun recordParticipation(clan: Clan, actor: Player) { plugin.clanQuestService.recordBattleParticipation(clan, actor) }
+    private fun recordParticipation(clan: Clan, actor: Player) { plugin.services.clanQuestService.recordBattleParticipation(clan, actor) }
     private fun participantClanId(active: ActiveClanBattle, playerUuid: UUID): String? = active.participantsByClan.entries.firstOrNull { playerUuid in it.value }?.key
     private fun participantFor(active: ActiveClanBattle, clanId: String): Player? = active.participantsByClan[clanId].orEmpty().asSequence().mapNotNull { Bukkit.getPlayer(it) }.firstOrNull(Player::isOnline)
 
@@ -651,14 +651,14 @@ internal class ClanBattleService(private val plugin: BukkitPlugin) : Listener {
 
     private fun pruneUnavailableLobbyParticipants(lobby: ClanBattleLobby) {
         lobby.participantsByClan.forEach { (clanId, roster) ->
-            val clan = plugin.clanService.getClanByName(clanId)
+            val clan = plugin.services.clanService.getClanByName(clanId)
             if (roster.removeIf { uuid -> Bukkit.getPlayer(uuid)?.let { it.isOnline && clan != null && isEligibleLobbyPlayer(it, clan) } != true }) lobby.readyClanIds.remove(clanId)
         }
         if (lobby.challengerClanId !in lobby.readyClanIds || lobby.defenderClanId !in lobby.readyClanIds) cancelCountdown(lobby)
     }
 
     private fun removeLobbyParticipant(player: Player) {
-        val clan = plugin.clanService.getClanUser(player) ?: return
+        val clan = plugin.services.clanService.getClanUser(player) ?: return
         val lobby = lobbyByClanId[clan.id] ?: return
         val roster = lobby.participantsByClan[clan.id] ?: return
         if (!roster.remove(player.uniqueId)) return
@@ -667,7 +667,7 @@ internal class ClanBattleService(private val plugin: BukkitPlugin) : Listener {
         notifyLobbyChanged(lobby)
     }
 
-    private fun resolveArena(): Triple<String, Location, Location>? = plugin.configService.battles.arenas.entries.firstNotNullOfOrNull { (id, arena) ->
+    private fun resolveArena(): Triple<String, Location, Location>? = plugin.services.configService.battles.arenas.entries.firstNotNullOfOrNull { (id, arena) ->
         if (activeByArenaId.containsKey(id) || lobbyByArenaId.containsKey(id) || id in quarantinedArenaIds) return@firstNotNullOfOrNull null
         val world = Bukkit.getWorld(arena.world.trim()) ?: return@firstNotNullOfOrNull null
         if (!isValidArena(arena)) return@firstNotNullOfOrNull null
@@ -675,14 +675,14 @@ internal class ClanBattleService(private val plugin: BukkitPlugin) : Listener {
     }
 
     private fun arenaLocations(arenaId: String): Triple<String, Location, Location>? {
-        val arena = plugin.configService.battles.arenas[arenaId] ?: return null
+        val arena = plugin.services.configService.battles.arenas[arenaId] ?: return null
         val world = Bukkit.getWorld(arena.world.trim()) ?: return null
         if (!isValidArena(arena)) return null
         return Triple(arenaId, toLocation(world, arena.challenger), toLocation(world, arena.defender))
     }
 
     private fun arenaLocation(arenaId: String, challengerSide: Boolean): Location? {
-        val arena = plugin.configService.battles.arenas[arenaId] ?: return null
+        val arena = plugin.services.configService.battles.arenas[arenaId] ?: return null
         val world = Bukkit.getWorld(arena.world.trim()) ?: return null
         if (!isValidArena(arena)) return null
         return toLocation(world, if (challengerSide) arena.challenger else arena.defender)
@@ -699,7 +699,7 @@ internal class ClanBattleService(private val plugin: BukkitPlugin) : Listener {
     }
 
     private fun isInsideArena(active: ActiveClanBattle, location: Location): Boolean {
-        val arena = plugin.configService.battles.arenas[active.battle.arenaId] ?: return false
+        val arena = plugin.services.configService.battles.arenas[active.battle.arenaId] ?: return false
         val world = Bukkit.getWorld(arena.world.trim()) ?: return false
         if (location.world?.uid != world.uid || !isValidArena(arena)) return false
         val x = location.x - (arena.challenger.x + arena.defender.x) / 2.0
@@ -747,16 +747,16 @@ internal class ClanBattleService(private val plugin: BukkitPlugin) : Listener {
     private fun cancelLobby(lobby: ClanBattleLobby, actions: List<Action>, placeholders: Map<String, String> = emptyMap()) { notifyLobby(lobby, actions, placeholders); removeLobby(lobby); notifyLobbyChanged(lobby) }
     private fun expireLobby(id: UUID) {
         val lobby = lobbiesById[id] ?: return
-        if (lobby.expiresAt <= System.currentTimeMillis()) cancelLobby(lobby, plugin.configService.messages.battles.lobbyExpired)
+        if (lobby.expiresAt <= System.currentTimeMillis()) cancelLobby(lobby, plugin.services.configService.messages.battles.lobbyExpired)
     }
-    private fun notifyLobbyChanged(lobby: ClanBattleLobby) { plugin.clanService.getClanByName(lobby.challengerClanId)?.let(::notifyGui); plugin.clanService.getClanByName(lobby.defenderClanId)?.let(::notifyGui) }
+    private fun notifyLobbyChanged(lobby: ClanBattleLobby) { plugin.services.clanService.getClanByName(lobby.challengerClanId)?.let(::notifyGui); plugin.services.clanService.getClanByName(lobby.defenderClanId)?.let(::notifyGui) }
     private fun notifyLobby(lobby: ClanBattleLobby, actions: List<Action>, placeholders: Map<String, String> = emptyMap()) {
-        listOfNotNull(plugin.clanService.getClanByName(lobby.challengerClanId), plugin.clanService.getClanByName(lobby.defenderClanId)).distinctBy(Clan::id).forEach { clan ->
-            clan.users.mapNotNull { Bukkit.getPlayer(it.uuid) }.forEach { plugin.configService.send(it, actions, placeholders) }
+        listOfNotNull(plugin.services.clanService.getClanByName(lobby.challengerClanId), plugin.services.clanService.getClanByName(lobby.defenderClanId)).distinctBy(Clan::id).forEach { clan ->
+            clan.users.mapNotNull { Bukkit.getPlayer(it.uuid) }.forEach { plugin.services.configService.send(it, actions, placeholders) }
         }
     }
-    private fun notifyClan(clan: Clan, actions: List<Action>, placeholders: Map<String, String>) { clan.users.mapNotNull { Bukkit.getPlayer(it.uuid) }.forEach { plugin.configService.send(it, actions, placeholders) } }
-    private fun notifyGui(clan: Clan) { clan.users.forEach { plugin.clanService.notifyClanUpdated(it.uuid) } }
+    private fun notifyClan(clan: Clan, actions: List<Action>, placeholders: Map<String, String>) { clan.users.mapNotNull { Bukkit.getPlayer(it.uuid) }.forEach { plugin.services.configService.send(it, actions, placeholders) } }
+    private fun notifyGui(clan: Clan) { clan.users.forEach { plugin.services.clanService.notifyClanUpdated(it.uuid) } }
     private fun battlePlaceholders(battle: ClanBattle, challenger: Clan, defender: Clan): Map<String, String> = mapOf(
         "challenger" to challenger.name, "defender" to defender.name,
         "challenger_score" to battle.challengerScore.toString(), "defender_score" to battle.defenderScore.toString(),
@@ -766,8 +766,8 @@ internal class ClanBattleService(private val plugin: BukkitPlugin) : Listener {
         val challenge = challenges[id] ?: return
         if (challenge.expiresAt > System.currentTimeMillis()) return
         challenges.remove(id)
-        plugin.clanService.getClanByName(challenge.challengerClanId)?.let { notifyClan(it, plugin.configService.messages.battles.challengeExpired, emptyMap()); notifyGui(it) }
-        plugin.clanService.getClanByName(challenge.defenderClanId)?.let { notifyClan(it, plugin.configService.messages.battles.challengeExpired, emptyMap()); notifyGui(it) }
+        plugin.services.clanService.getClanByName(challenge.challengerClanId)?.let { notifyClan(it, plugin.services.configService.messages.battles.challengeExpired, emptyMap()); notifyGui(it) }
+        plugin.services.clanService.getClanByName(challenge.defenderClanId)?.let { notifyClan(it, plugin.services.configService.messages.battles.challengeExpired, emptyMap()); notifyGui(it) }
     }
 
     private companion object { const val RETURN_LOCATION_PARTS = 6 }

@@ -17,7 +17,7 @@ class ClanShopUX(
     selectedPage: Int = 0,
     selectedSort: String? = null
 ) : BaseGui(clanService) {
-    private val config = clanService.plugin.configService.shop
+    private val config = clanService.plugin.services.configService.shop
     private val guiRows = 6
     private val bottomRow = (guiRows - 1) * 9
     private val backSlot = bottomRow
@@ -54,7 +54,7 @@ class ClanShopUX(
         currentPage = currentPage.coerceAtMost(pageCount() - 1)
         title(config.title)
         rows(guiRows)
-        background(clanService.plugin.configService.menus.background)
+        background(clanService.plugin.services.configService.menus.background)
 
         addHeader()
         addCategories()
@@ -340,7 +340,7 @@ class ClanShopUX(
     }
 
     private fun productPlaceholders(player: Player, clan: Clan, id: String, product: ClanShopProductConfig): Map<String, String> {
-        val shop = clanService.plugin.clanShopService
+        val shop = clanService.plugin.services.clanShopService
         val clanLimit = product.conditions.dailyClanLimit
         val globalLimit = product.conditions.dailyGlobalLimit
         val categoryName = config.categories[product.category]?.name ?: product.category
@@ -353,8 +353,8 @@ class ClanShopUX(
             "required_level" to product.conditions.minimumClanLevel.takeIf { it > 0 }?.toString().orEmpty().ifEmpty { config.display.notRequiredText },
             "required_members" to product.conditions.minimumMembers.takeIf { it > 0 }?.toString().orEmpty().ifEmpty { config.display.notRequiredText },
             "required_quests" to product.conditions.requiredQuests.sorted().joinToString(", ") { questId ->
-                val quest = clanService.plugin.configService.quests.quests[questId]
-                val completed = clanService.plugin.clanQuestService.hasCompletedAtLeastOnce(clan, questId)
+                val quest = clanService.plugin.services.configService.quests.quests[questId]
+                val completed = clanService.plugin.services.clanQuestService.hasCompletedAtLeastOnce(clan, questId)
                 "${if (completed) "&#5EFD7D✔" else "&#FC3737✖"} ${quest?.name ?: questId}"
             }.ifEmpty { config.display.notRequiredText },
             "clan_limit" to if (clanLimit <= 0) config.display.unlimitedText else "${shop.clanPurchasesToday(clan, id)}/$clanLimit",
@@ -364,15 +364,15 @@ class ClanShopUX(
 
     private fun requiredQuestLines(player: Player, clan: Clan, product: ClanShopProductConfig): List<String> =
         product.conditions.requiredQuests.sorted().map { questId ->
-            val quest = clanService.plugin.configService.quests.quests[questId]
-            val completed = clanService.plugin.clanQuestService.hasCompletedAtLeastOnce(clan, questId)
+            val quest = clanService.plugin.services.configService.quests.quests[questId]
+            val completed = clanService.plugin.services.clanQuestService.hasCompletedAtLeastOnce(clan, questId)
             val icon = if (completed) "&#5EFD7D✔" else "&#FC3737✖"
             format(player, " &7- $icon &f${quest?.name ?: questId}")
         }
 
     private fun paymentLines(player: Player, clan: Clan, product: ClanShopProductConfig): List<String> =
         product.payments.map { payment ->
-            val shop = clanService.plugin.clanShopService
+            val shop = clanService.plugin.services.clanShopService
             val balance = shop.balance(payment.currency, player, clan)
             val permitted = hasPaymentPermission(player, payment)
             val enough = permitted && balance != null && balance >= payment.amount
@@ -389,7 +389,7 @@ class ClanShopUX(
         }
 
     private fun balancePlaceholders(player: Player, clan: Clan): Map<String, String> {
-        val shop = clanService.plugin.clanShopService
+        val shop = clanService.plugin.services.clanShopService
         return mapOf(
             "clan_points" to formatNumber(shop.balance(ClanShopCurrency.CLAN_POINTS, player, clan)),
             "vault_balance" to formatNumber(shop.balance(ClanShopCurrency.VAULT, player, clan)),
@@ -400,13 +400,13 @@ class ClanShopUX(
     private fun meetsBasicRequirements(clan: Clan, product: ClanShopProductConfig): Boolean =
         clan.level >= product.conditions.minimumClanLevel &&
             clan.users.size >= product.conditions.minimumMembers &&
-            clanService.plugin.clanQuestService.requiredQuestsMet(clan, product.conditions.requiredQuests)
+            clanService.plugin.services.clanQuestService.requiredQuestsMet(clan, product.conditions.requiredQuests)
 
     private fun material(value: String, fallback: Material): Material =
         runCatching { Material.valueOf(value.uppercase()) }.getOrDefault(fallback)
 
     private fun format(player: Player, text: String, placeholders: Map<String, String> = emptyMap()): String =
-        clanService.plugin.configService.formatMessage(player, text, placeholders)
+        clanService.plugin.services.configService.formatMessage(player, text, placeholders)
 
     private fun send(player: Player, text: String, placeholders: Map<String, String> = emptyMap()) {
         player.sendMessage(format(player, text, placeholders))

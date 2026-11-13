@@ -111,7 +111,7 @@ internal class ClanPointsService(private val clanService: ClanService) : ClanPoi
             reason = reason,
             relatedTransactionId = relatedTransactionId
         )
-        (clan as? ClanImpl)?.prunePointsLogs(clanService.plugin.configService.points.history.maxTransactionsPerClan)
+        (clan as? ClanImpl)?.prunePointsLogs(clanService.plugin.services.configService.points.history.maxTransactionsPerClan)
 
         if (!clanService.saveClan(clan)) {
             clan.points = previousPoints

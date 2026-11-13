@@ -1,5 +1,6 @@
 package ua.inventorytype.pnclans.impl.command
 
+import ua.inventorytype.pnclans.impl.text.ClanText
 import ua.inventorytype.pnclans.impl.integration.Log
 
 import org.bukkit.Bukkit
@@ -8,7 +9,6 @@ import ua.inventorytype.pnclans.BukkitPlugin
 import ua.inventorytype.pnclans.api.clan.Clan
 import ua.inventorytype.pnclans.api.clan.ClanPointsTransaction
 import ua.inventorytype.pnclans.impl.clan.ClanPointsService
-import ua.inventorytype.pnclans.impl.util.ColorUtil
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -16,8 +16,8 @@ import kotlin.math.ceil
 
 /** Complete administrator surface for clan points and anti-farm audit data. */
 internal class ClanAdminPointsCommandHandler(private val plugin: BukkitPlugin) {
-    private val clans get() = plugin.clanService
-    private val pointsService get() = plugin.clanPointsService as ClanPointsService
+    private val clans get() = plugin.services.clanService
+    private val pointsService get() = plugin.services.clanPointsService as ClanPointsService
 
     fun execute(sender: CommandSender, args: List<String>) {
         when (args.firstOrNull()?.lowercase()) {
@@ -53,7 +53,7 @@ internal class ClanAdminPointsCommandHandler(private val plugin: BukkitPlugin) {
     private fun info(sender: CommandSender, args: List<String>) {
         val clan = clan(args.firstOrNull()) ?: return usage(sender)
         val logs = clan.pointsLogs
-        val antiFarm = plugin.clanPointsAntiFarmService.recent(clan)
+        val antiFarm = plugin.services.clanPointsAntiFarmService.recent(clan)
         val blocked = antiFarm.count { it.grantedAmount <= 0L }
         val reduced = antiFarm.count { it.grantedAmount in 1 until it.baseAmount }
         sender.reply("")
@@ -96,7 +96,7 @@ internal class ClanAdminPointsCommandHandler(private val plugin: BukkitPlugin) {
     private fun reset(sender: CommandSender, args: List<String>) {
         val clan = clan(args.firstOrNull()) ?: return usage(sender)
         val reason = args.drop(1).joinToString(" ").trim()
-        if (plugin.configService.points.admin.requireReasonForDestructiveActions && reason.isBlank()) {
+        if (plugin.services.configService.points.admin.requireReasonForDestructiveActions && reason.isBlank()) {
             sender.reply("&#FC3737✖ &fДля reset укажите причину.")
             sender.reply("&#FFD700Использование: &f/clan admin points reset <clan> <reason>")
             return
@@ -116,7 +116,7 @@ internal class ClanAdminPointsCommandHandler(private val plugin: BukkitPlugin) {
 
     private fun history(sender: CommandSender, args: List<String>) {
         val clan = clan(args.firstOrNull()) ?: return usage(sender)
-        val pageSize = plugin.configService.points.admin.historyPageSize.coerceIn(1, 50)
+        val pageSize = plugin.services.configService.points.admin.historyPageSize.coerceIn(1, 50)
         val logs = clan.pointsLogs.asReversed()
         val pages = maxOf(1, ceil(logs.size.toDouble() / pageSize).toInt())
         val page = (args.getOrNull(1)?.toIntOrNull() ?: 1).coerceIn(1, pages)
@@ -139,7 +139,7 @@ internal class ClanAdminPointsCommandHandler(private val plugin: BukkitPlugin) {
         val clan = clan(args.firstOrNull()) ?: return usage(sender)
         val query = args.getOrNull(1)?.trim()?.takeIf { it.isNotBlank() } ?: return usage(sender)
         val reason = args.drop(2).joinToString(" ").trim()
-        if (plugin.configService.points.admin.requireReasonForDestructiveActions && reason.isBlank()) {
+        if (plugin.services.configService.points.admin.requireReasonForDestructiveActions && reason.isBlank()) {
             sender.reply("&#FC3737✖ &fДля rollback укажите причину.")
             return
         }
@@ -168,7 +168,7 @@ internal class ClanAdminPointsCommandHandler(private val plugin: BukkitPlugin) {
             }
             member.uuid
         }
-        val entries = plugin.clanPointsAntiFarmService.recent(clan, playerFilter).take(15)
+        val entries = plugin.services.clanPointsAntiFarmService.recent(clan, playerFilter).take(15)
         sender.reply("")
         sender.reply("&#FC7D37✦ &fAnti-farm audit &#5EA9FD${clan.name}${args.getOrNull(1)?.let { " &8• &f$it" } ?: ""}")
         if (entries.isEmpty()) sender.reply("&8Записей нет.")
@@ -184,11 +184,11 @@ internal class ClanAdminPointsCommandHandler(private val plugin: BukkitPlugin) {
     private fun clearAntiFarm(sender: CommandSender, args: List<String>) {
         val clan = clan(args.firstOrNull()) ?: return usage(sender)
         val reason = args.drop(1).joinToString(" ").trim()
-        if (plugin.configService.points.admin.requireReasonForDestructiveActions && reason.isBlank()) {
+        if (plugin.services.configService.points.admin.requireReasonForDestructiveActions && reason.isBlank()) {
             sender.reply("&#FC3737✖ &fДля очистки anti-farm tracking укажите причину.")
             return
         }
-        if (!plugin.clanPointsAntiFarmService.clear(clan)) {
+        if (!plugin.services.clanPointsAntiFarmService.clear(clan)) {
             sender.reply("&#FC3737✖ &fНе удалось очистить anti-farm tracking.")
             return
         }
@@ -232,7 +232,7 @@ internal class ClanAdminPointsCommandHandler(private val plugin: BukkitPlugin) {
     }
 
     private fun CommandSender.reply(text: String) {
-        sendMessage(ColorUtil.color(text))
+        sendMessage(ClanText.component(text))
     }
 
     private companion object {
