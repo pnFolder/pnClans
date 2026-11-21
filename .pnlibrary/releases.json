@@ -3,6 +3,40 @@
   "product": "pnclans",
   "releases": [
     {
+      "version": "1.3.0-beta.8",
+      "channel": "beta",
+      "description": "Переход на pnLibrary 0.1.0-dev.6 (API 2): нужна новая библиотека.",
+      "changelogUrl": "https://github.com/PnFolder/pnClans/blob/main/.pnlibrary/changelogs/1.3.0-beta.8.md",
+      "publishedAt": "2026-11-21T15:43:49Z",
+      "api": {
+        "minimum": 2,
+        "maximum": 2
+      },
+      "artifacts": [
+        {
+          "file": "pnClans-1.3.0-beta.8-paper-mc1.21.11-java21.jar",
+          "platform": "BUKKIT",
+          "java": {
+            "minimum": 21,
+            "maximum": 24
+          },
+          "url": "https://github.com/PnFolder/pnClans/releases/download/v1.3.0-beta.8/pnClans-1.3.0-beta.8-paper-mc1.21.11-java21.jar",
+          "sha256": "907d77db8acc3024aa901bccfd2bd7e0b22685405fa23073f232b2ca545ab1e8",
+          "size": 6591426
+        },
+        {
+          "file": "pnClans-1.3.0-beta.8-paper-mc1.21.11-java25.jar",
+          "platform": "BUKKIT",
+          "java": {
+            "minimum": 25
+          },
+          "url": "https://github.com/PnFolder/pnClans/releases/download/v1.3.0-beta.8/pnClans-1.3.0-beta.8-paper-mc1.21.11-java25.jar",
+          "sha256": "90b671f50c3175dce82532ff6591c961b5d0b83c40f1cd7fd48df758913d12b5",
+          "size": 6591430
+        }
+      ]
+    },
+    {
       "version": "1.3.0-beta.5",
       "channel": "beta",
       "description": "Подключение к pnLibrary 0.0.1-dev.6: обновления, диагностика, метрики и единый журнал.",
