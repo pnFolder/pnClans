@@ -1,9 +1,9 @@
 package ua.inventorytype.pnclans.impl.integration
 
-import org.pnfolder.pnlibrary.api.tasks.TaskExecution
+import org.pnfolder.pnlibrary.api.tasks.spec.TaskExecution
 import org.pnfolder.pnlibrary.api.tasks.TaskHandle
 import org.pnfolder.pnlibrary.api.tasks.TaskScope
-import org.pnfolder.pnlibrary.api.tasks.TaskSpec
+import org.pnfolder.pnlibrary.api.tasks.spec.TaskSpec
 import java.time.Duration
 
 /** Запускает [action] в потоке сущности [target] как можно скорее. */
