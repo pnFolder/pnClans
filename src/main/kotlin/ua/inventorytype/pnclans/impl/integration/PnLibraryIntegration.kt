@@ -18,7 +18,9 @@ import org.pnfolder.pnlibrary.api.updates.product.UpdateChannel
 import org.pnfolder.pnlibrary.api.tasks.TaskScope
 import ua.inventorytype.pnclans.BukkitPlugin
 import org.pnfolder.pnlibrary.api.placeholders.PlaceholderService
-import org.pnfolder.pnlibrary.api.placeholders.tree.scope.placeholders
+import org.pnfolder.pnlibrary.api.placeholders.model.PlaceholderPublication
+import org.pnfolder.pnlibrary.api.placeholders.model.PlaceholderResolver
+import org.pnfolder.pnlibrary.api.plugin.PluginAccess
 import ua.inventorytype.pnclans.impl.placeholder.ClanPlaceholderValues
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.function.Supplier
@@ -169,16 +171,21 @@ class PnLibraryIntegration(private val plugin: BukkitPlugin) : AutoCloseable {
     fun registerPlaceholderTree(values: ClanPlaceholderValues) {
         // clanService появляется позже, чем регистрируется дерево, поэтому берётся при каждом вызове
         fun clanOf(id: java.util.UUID?) = id?.let(plugin.services.clanService::getClanByUuid)
-        context.placeholders(papi = PLACEHOLDER_NAMESPACE) {
-            values.keys.forEach { key ->
-                text(key) { value { values.value(key, clanOf(player), player, roleTitle = false) } }
-            }
-            values.keys.filter { it != "clan" }.forEach { key ->
-                text("clan_$key") { inside(); value { values.value(key, clanOf(player), player, roleTitle = true) } }
-            }
-            text("clan_clan") { inside(); value { values.value("clan", clanOf(player), player, roleTitle = true) } }
-            text("player_name") { inside(); value { player?.let(Bukkit::getPlayer)?.name } }
+        // Регистрация идёт через Java-интерфейсы pnLibrary, а не через Kotlin-DSL: у плагина и библиотеки свои копии
+        // Kotlin, и функциональные типы (kotlin.jvm.functions.Function1) на границе плагинов вызывают LinkageError.
+        fun register(name: String, hidden: Boolean, resolve: (java.util.UUID?) -> String?) {
+            context.placeholders.register(name, String::class.java, java.util.function.Consumer { builder ->
+                builder.resolve(PlaceholderResolver { request -> resolve(request.playerId) })
+                builder.access(PluginAccess.shared())
+                if (!hidden) builder.publish(PlaceholderPublication("placeholderapi", PLACEHOLDER_NAMESPACE, "${context.id.value}~$name"))
+            })
         }
+        values.keys.forEach { key -> register(key, hidden = false) { player -> values.value(key, clanOf(player), player, roleTitle = false) } }
+        values.keys.filter { it != "clan" }.forEach { key ->
+            register("clan_$key", hidden = true) { player -> values.value(key, clanOf(player), player, roleTitle = true) }
+        }
+        register("clan_clan", hidden = true) { player -> values.value("clan", clanOf(player), player, roleTitle = true) }
+        register("player_name", hidden = true) { player -> player?.let(Bukkit::getPlayer)?.name }
     }
 
     fun reportError(context: String, throwable: Throwable, fields: Map<String, Any?> = emptyMap()) {
@@ -224,6 +231,6 @@ class PnLibraryIntegration(private val plugin: BukkitPlugin) : AutoCloseable {
         private const val FASTSTATS_TOKEN = "735be9bdf5db9ca9ee9cf05dc73fbfcc"
         private const val POLICY_SOURCE =
             "https://raw.githubusercontent.com/pnFolder/pnlibrary-policy/main/.pnlibrary/policies/PnClansPolicy.java"
-        const val MINIMUM_LIBRARY_VERSION = "0.0.1-dev.6"
+        const val MINIMUM_LIBRARY_VERSION = "0.1.0-dev.6"
     }
 }
