@@ -2,7 +2,7 @@ package ua.inventorytype.pnclans.impl.text
 
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.TextDecoration
-import org.pnfolder.pnlibrary.api.text.ComponentSerializerType
+import org.pnfolder.pnlibrary.api.text.serializer.ComponentSerializerType
 import org.pnfolder.pnlibrary.api.text.ComponentService
 
 /**
