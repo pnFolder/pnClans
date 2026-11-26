@@ -170,7 +170,8 @@ class PnLibraryIntegration(private val plugin: BukkitPlugin) : AutoCloseable {
             val papi = if (hidden) null else PLACEHOLDER_NAMESPACE
             context.placeholders.value(name, "", papi, PlaceholderValue { viewer -> resolve(viewer.playerId) })
         }
-        values.keys.forEach { key -> register(key, hidden = false) { player -> values.value(key, clanOf(player), player, roleTitle = false) } }
+        // PlaceholderAPI делит имя по `_` на части адреса (`%pnclans_battle_wins%` = `battle.wins`), поэтому для видимых ключей `_` меняется на точку
+        values.keys.forEach { key -> register(ClanPlaceholderValues.address(key), hidden = false) { player -> values.value(key, clanOf(player), player, roleTitle = false) } }
         values.keys.filter { it != "clan" }.forEach { key ->
             register("clan_$key", hidden = true) { player -> values.value(key, clanOf(player), player, roleTitle = true) }
         }

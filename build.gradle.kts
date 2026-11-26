@@ -47,6 +47,9 @@ dependencies {
     implementation("io.github.pnfolder:pnlibrary-bootstrap-bukkit:$pnLibraryVersion")
     compileOnly("io.github.pnfolder:pnlibrary-api:$pnLibraryVersion")
     compileOnly("io.github.pnfolder:pnlibrary-bukkit-api:$pnLibraryVersion")
+    testImplementation("io.github.pnfolder:pnlibrary-api:$pnLibraryVersion")
+    testImplementation("io.github.pnfolder:pnlibrary-core:$pnLibraryVersion") { isTransitive = false }
+    testImplementation("org.jetbrains:annotations:24.1.0")
 
     implementation("com.github.retrooper:packetevents-spigot:2.13.1-SNAPSHOT")
     compileOnly("com.github.MilkBowl:VaultAPI:1.7") {

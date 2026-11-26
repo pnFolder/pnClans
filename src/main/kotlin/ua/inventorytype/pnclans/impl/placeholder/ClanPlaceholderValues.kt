@@ -49,7 +49,10 @@ class ClanPlaceholderValues(
         return if (roleTitle) roleName(role) else role.name
     }
 
-    private companion object {
+    companion object {
+        /** Адрес ключа в pnLibrary: `battle_wins` -> `battle.wins`, так его находит `%pnclans_battle_wins%`. */
+        fun address(key: String): String = key.replace('_', '.')
+
         const val NONE = "Нет"
         const val ZERO = "0"
     }
