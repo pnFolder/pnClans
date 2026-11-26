@@ -17,8 +17,8 @@ class PlaceholderRegistry(private val placeholders: PlaceholderService) {
     /** Registers or replaces a `{key}` placeholder provider; it is published to pnLibrary like any other value. */
     fun register(key: String, provider: (Player) -> String) {
         val name = key.lowercase()
-        val registration = placeholders.register(name, String::class.java) { builder ->
-            builder.resolve { request -> request.playerId?.let(Bukkit::getPlayer)?.let(provider) ?: "" }
+        val registration = placeholders.value(name) { viewer ->
+            viewer.playerId?.let(Bukkit::getPlayer)?.let(provider) ?: ""
         }
         addonKeys.put(name, registration)?.close()
     }

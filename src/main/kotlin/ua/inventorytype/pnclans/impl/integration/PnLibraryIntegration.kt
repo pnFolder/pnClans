@@ -3,7 +3,6 @@ package ua.inventorytype.pnclans.impl.integration
 import ua.inventorytype.pnclans.impl.text.ClanText
 import ua.inventorytype.pnclans.impl.storage.ClanItems
 import org.pnfolder.pnlibrary.bukkit.api.BukkitPlatform
-import org.pnfolder.pnlibrary.api.platform.platform
 import org.bukkit.Bukkit
 import org.pnfolder.pnlibrary.api.diagnostics.report.DiagnosticLevel
 import org.pnfolder.pnlibrary.api.diagnostics.DiagnosticConfiguration
@@ -11,16 +10,13 @@ import org.pnfolder.pnlibrary.api.diagnostics.report.DiagnosticContainer
 import org.pnfolder.pnlibrary.api.runtime.PnLibrary
 import org.pnfolder.pnlibrary.api.runtime.PnLibraryProvider
 import org.pnfolder.pnlibrary.api.plugin.ModuleContext
-import org.pnfolder.pnlibrary.api.remote.PolicyErrorAction
+import org.pnfolder.pnlibrary.api.remote.result.PolicyErrorAction
 import org.pnfolder.pnlibrary.api.remote.RemotePolicySettings
 import org.pnfolder.pnlibrary.api.runtime.PnLibraryIdentity
-import org.pnfolder.pnlibrary.api.updates.product.UpdateChannel
 import org.pnfolder.pnlibrary.api.tasks.TaskScope
 import ua.inventorytype.pnclans.BukkitPlugin
 import org.pnfolder.pnlibrary.api.placeholders.PlaceholderService
-import org.pnfolder.pnlibrary.api.placeholders.model.PlaceholderPublication
-import org.pnfolder.pnlibrary.api.placeholders.model.PlaceholderResolver
-import org.pnfolder.pnlibrary.api.plugin.PluginAccess
+import org.pnfolder.pnlibrary.api.placeholders.PlaceholderValue
 import ua.inventorytype.pnclans.impl.placeholder.ClanPlaceholderValues
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.function.Supplier
@@ -52,7 +48,6 @@ class PnLibraryIntegration(private val plugin: BukkitPlugin) : AutoCloseable {
             setup.remotePolicy(RemotePolicySettings.builder()
                 .source(POLICY_SOURCE)
                 .onError(PolicyErrorAction.KEEP_RUNNING)
-                .support(PnLibraryIdentity.SUPPORT_URL)
                 .build())
             setup.metrics { metrics ->
                 metrics.bStats(BSTATS_PROJECT_ID).fastStats(FASTSTATS_TOKEN).charts { charts ->
@@ -97,9 +92,7 @@ class PnLibraryIntegration(private val plugin: BukkitPlugin) : AutoCloseable {
                 .build())
             setup.updates("pnFolder", "pnClans") { updater ->
                 updater
-                    .channel(Supplier { UpdateChannel.valueOf(plugin.services.configService.settings.updateChannel.name) })
-                    .automaticDownload(plugin.services.configService.settings.autoUpdate)
-                    .supportedApi(1, 1)
+                    .supportedApi(3, 3)
                     .artifact("(?i)^pnClans-.*-paper-.*-java21\\.jar$", 21, 24)
                     .artifact("(?i)^pnClans-.*-paper-.*-java25\\.jar$", 25)
             }
@@ -112,7 +105,7 @@ class PnLibraryIntegration(private val plugin: BukkitPlugin) : AutoCloseable {
     init {
         Log.attach(context.logger)
         ClanText.connect(context.components)
-        ClanItems.connect(library.platform<BukkitPlatform>().items)
+        ClanItems.connect(library.platforms.require(BukkitPlatform::class.java).items)
     }
 
     val tasks: TaskScope get() = context.tasks
@@ -174,11 +167,8 @@ class PnLibraryIntegration(private val plugin: BukkitPlugin) : AutoCloseable {
         // Регистрация идёт через Java-интерфейсы pnLibrary, а не через Kotlin-DSL: у плагина и библиотеки свои копии
         // Kotlin, и функциональные типы (kotlin.jvm.functions.Function1) на границе плагинов вызывают LinkageError.
         fun register(name: String, hidden: Boolean, resolve: (java.util.UUID?) -> String?) {
-            context.placeholders.register(name, String::class.java, java.util.function.Consumer { builder ->
-                builder.resolve(PlaceholderResolver { request -> resolve(request.playerId) })
-                builder.access(PluginAccess.shared())
-                if (!hidden) builder.publish(PlaceholderPublication("placeholderapi", PLACEHOLDER_NAMESPACE, "${context.id.value}~$name"))
-            })
+            val papi = if (hidden) null else PLACEHOLDER_NAMESPACE
+            context.placeholders.value(name, "", papi, PlaceholderValue { viewer -> resolve(viewer.playerId) })
         }
         values.keys.forEach { key -> register(key, hidden = false) { player -> values.value(key, clanOf(player), player, roleTitle = false) } }
         values.keys.filter { it != "clan" }.forEach { key ->

@@ -26,7 +26,7 @@ repositories {
     maven("https://repo.codemc.io/repository/maven-snapshots/")
 }
 
-val pnLibraryVersion = "0.1.0-dev.6"
+val pnLibraryVersion = "0.1.0-dev.7"
 
 dependencies {
     testImplementation(kotlin("test-junit5"))
