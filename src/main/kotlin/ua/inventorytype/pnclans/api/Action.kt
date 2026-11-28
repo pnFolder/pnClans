@@ -49,7 +49,7 @@ sealed interface Action {
 
 /**
  * Sends a colorized chat message to the player.
- * YAML tag: !message { text: "&aПривет, {player_name}!" }
+ * YAML tag: !message { text: "&aПривет, {player.name}!" }
  */
 @Serializable
 @SerialName("message")
@@ -64,7 +64,7 @@ data class MessageAction(
 
 /**
  * Sends a MiniMessage formatted chat message to the player (Adventure API).
- * YAML tag: !minimessage { text: "<green>Привет, {player_name}!</green>" }
+ * YAML tag: !minimessage { text: "<green>Привет, {player.name}!</green>" }
  */
 @Serializable
 @SerialName("minimessage")

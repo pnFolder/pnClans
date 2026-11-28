@@ -4,16 +4,16 @@ import java.util.UUID
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import org.pnfolder.pnlibrary.api.placeholders.PlaceholderAdapter
-import org.pnfolder.pnlibrary.api.placeholders.PlaceholderValue
 import org.pnfolder.pnlibrary.api.placeholders.reply.PublishedAnswers
 import org.pnfolder.pnlibrary.core.placeholders.PlaceholderEngine
+import ua.inventorytype.pnclans.impl.config.PlaceholderConfig
 import ua.inventorytype.pnclans.impl.placeholder.ClanPlaceholderValues
+import ua.inventorytype.pnclans.impl.placeholder.ClanValues
 
-/** Ключи кланов с `_` должны отвечать на `%pnclans_<ключ>%`, а короткие `{clan_battle_wins}` работать внутри плагина. */
+/** Класс `ClanValues` отвечает и на `{name}`, и на `%pnclans_name%`. */
 class PlaceholderAddressesTest {
     private var answers: PublishedAnswers? = null
     private val engine = PlaceholderEngine { throw AssertionError(it) }
-    private val keys = listOf("clan", "name", "battle_wins", "battle_losses", "wins", "members")
 
     init {
         engine.register(object : PlaceholderAdapter {
@@ -25,24 +25,22 @@ class PlaceholderAddressesTest {
                 return AutoCloseable { }
             }
         })
-        val scope = engine.scope("pnclans/pnclans")
-        fun reg(name: String, papi: String?, value: String) =
-            scope.value(name, "", papi, PlaceholderValue { value })
-        keys.forEach { reg(ClanPlaceholderValues.address(it), "pnclans", it.uppercase()) }
-        keys.filter { it != "clan" }.forEach { reg("clan_$it", null, "HIDDEN_${it.uppercase()}") }
-        scope.registerPublished("pnclans")
-    }
-
-    private fun papi(params: String) = answers!!.answer(UUID.randomUUID(), params, 0)
-
-    @Test
-    fun `underscore keys answer to old papi names`() {
-        keys.forEach { assertEquals(it.uppercase(), papi(it), it) }
+        val values = ClanPlaceholderValues(
+            formats = { PlaceholderConfig(clanFormat = "{clan}", noClan = "-", tagFormat = "{clan}", noTag = "") },
+            roleName = { it.name },
+            color = { it },
+        )
+        engine.scope("pnclans/pnclans").registerPublished("pnclans", ClanValues(values) { null })
     }
 
     @Test
-    fun `short hidden names with underscore keep working`() {
-        val text = engine.render("{clan_battle_wins} {clan_name}").toCompletableFuture().get()
-        assertEquals("HIDDEN_BATTLE_WINS HIDDEN_NAME", text)
+    fun `papi name has the group`() {
+        assertEquals("-", answers!!.answer(UUID.randomUUID(), "name", 0))
+        assertEquals("0/0", answers!!.answer(UUID.randomUUID(), "members", 0))
+    }
+
+    @Test
+    fun `text address works`() {
+        assertEquals("- 0", engine.render("{name} {level}", org.pnfolder.pnlibrary.api.placeholders.info.ViewerInfo.of(UUID.randomUUID())).toCompletableFuture().get())
     }
 }

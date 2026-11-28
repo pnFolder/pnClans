@@ -75,12 +75,13 @@ class ClanServices(private val plugin: BukkitPlugin) {
     var addonsLoaded = 0
         private set
 
-    fun start() {
+    /** Creates every service; runs on each enable of the module, with the module's [integration]. */
+    fun start(integration: PnLibraryIntegration) {
         economyService = EconomyService()
         economyConnected = economyService.setup()
         configService = ConfigService(plugin)
         ConfigReload.run(plugin, configService)
-        pnLibraryIntegration = PnLibraryIntegration(plugin)
+        pnLibraryIntegration = integration
         ErrorReporter.init(plugin)
 
         pnLibraryIntegration.registerPlaceholderTree(placeholderValues)
@@ -119,11 +120,11 @@ class ClanServices(private val plugin: BukkitPlugin) {
         }
     }
 
-    /** Releases configs and the library link after [stopClans]. */
-    fun close(savedClansCount: Int) {
+    /** Stops everything the module started: clan services, error reporting and configs. */
+    fun stop() {
+        stopClans()
         ErrorReporter.shutdown()
         if (::configService.isInitialized) configService.unloadAll()
-        if (::pnLibraryIntegration.isInitialized) pnLibraryIntegration.close(savedClansCount)
     }
 
     fun clansCount(): Int = if (::clanService.isInitialized) clanService.getAllClans().size else 0

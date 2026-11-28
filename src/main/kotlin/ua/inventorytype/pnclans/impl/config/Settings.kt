@@ -214,7 +214,7 @@ class Settings {
     @YamlComment("Отображаемые состояния и значения сброса метки соклановцев.")
     val clanHighlightDisplay: ClanHighlightDisplayConfig = ClanHighlightDisplayConfig()
 
-    @YamlComment("Названия ролей клана для отображения в чате, меню и плейсхолдерах {clan_role}")
+    @YamlComment("Названия ролей клана для отображения в чате, меню и плейсхолдерах {role}")
     val roleLeader: String = "Лидер"
     val roleDeputy: String = "Заместитель"
     val roleElder: String = "Старейшина"

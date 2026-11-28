@@ -7,20 +7,14 @@ import ua.inventorytype.pnclans.impl.text.ClanText
 import java.util.UUID
 
 /**
- * Единственное место, где описано, что показывает каждый плейсхолдер клана. Отсюда берут значения `{clan_name}` в
- * меню и сообщениях, `%pnclans_name%` в PlaceholderAPI и `{pnclans/pnclans:name}` в дереве pnLibrary.
+ * Единственное место, где описано, что показывает каждый плейсхолдер клана. Отсюда берут значения `{name}` и
+ * `%pnclans_name%` в PlaceholderAPI.
  */
 class ClanPlaceholderValues(
     private val formats: () -> PlaceholderConfig,
     private val roleName: (ClanRole) -> String,
     private val color: (String) -> String = ClanText::legacy,
 ) {
-
-    /** Ключи без префикса `clan_`. */
-    val keys: List<String> = listOf(
-        "clan", "name", "tag", "role", "level", "balance", "bank", "points", "mmr", "kills", "deaths",
-        "battle_wins", "wins", "battle_losses", "losses", "members",
-    )
 
     /**
      * Значение для игрока [playerId] в клане [clan]. [roleTitle] включает название роли из настроек вместо имени роли.
@@ -50,9 +44,6 @@ class ClanPlaceholderValues(
     }
 
     companion object {
-        /** Адрес ключа в pnLibrary: `battle_wins` -> `battle.wins`, так его находит `%pnclans_battle_wins%`. */
-        fun address(key: String): String = key.replace('_', '.')
-
         const val NONE = "Нет"
         const val ZERO = "0"
     }

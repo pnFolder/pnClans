@@ -1,18 +1,17 @@
 package ua.inventorytype.pnclans
 
-import org.bukkit.Bukkit
 import org.bukkit.plugin.java.JavaPlugin
 import org.pnfolder.pnlibrary.bukkit.bootstrap.PnLibraryBootstrap
 import ua.inventorytype.pnclans.impl.ClanServices
-import ua.inventorytype.pnclans.impl.command.ClanCommand
+import ua.inventorytype.pnclans.impl.ClansModule
 import ua.inventorytype.pnclans.impl.integration.Log
 import ua.inventorytype.pnclans.impl.integration.PnLibraryIntegration
-import ua.inventorytype.pnclans.impl.listener.ClanListener
 import ua.inventorytype.pnclans.impl.startup.PacketEventsLifecycle
 
 class BukkitPlugin : JavaPlugin() {
     val services = ClanServices(this)
     private var startupBlocked = false
+    private var integration: PnLibraryIntegration? = null
 
     override fun onLoad() {
         Log.fallback(logger)
@@ -35,44 +34,17 @@ class BukkitPlugin : JavaPlugin() {
         PacketEventsLifecycle.start()
         Log.info("[pnClans] Enabled ${description.version} on ${server.version}; PacketEvents initialized=${PacketEventsLifecycle.isStarted()}")
 
-        services.start()
-        registerListeners()
-        registerCommand()
-        connectPlaceholders()
+        val link = PnLibraryIntegration(this)
+        integration = link
+        // Enabling the module starts the services and registers the listeners and the command; see ClansModule.
+        link.registerModule(ClansModule(this, link))
     }
 
     override fun onDisable() {
-        val savedClansCount = services.clansCount()
-        services.stopClans()
+        // Closing the registration disables the module first, which saves the clans and gives back listeners and command.
+        integration?.close()
         PacketEventsLifecycle.stop()
-        services.close(savedClansCount)
     }
 
     private fun disable() = server.pluginManager.disablePlugin(this)
-
-    private fun registerListeners() = with(services) {
-        server.pluginManager.registerEvents(guiListener, this@BukkitPlugin)
-        server.pluginManager.registerEvents(ClanListener(this@BukkitPlugin), this@BukkitPlugin)
-        server.pluginManager.registerEvents(clanHighlightService, this@BukkitPlugin)
-        clanHighlightService.syncAll()
-        clanQuestService.deliverPendingRewardsForOnlinePlayers()
-    }
-
-    private fun registerCommand() {
-        val command = ClanCommand(this, services.inviteService)
-        getCommand("clan")?.let {
-            it.setExecutor(command)
-            it.tabCompleter = command
-        }
-    }
-
-    private fun connectPlaceholders() = with(services) {
-        val papiConnected = Bukkit.getPluginManager().isPluginEnabled("PlaceholderAPI")
-        pnLibraryIntegration.started(
-            economyConnected = economyConnected,
-            papiConnected = papiConnected,
-            loadedClansCount = clansCount(),
-            loadedAddonsCount = addonsLoaded,
-        )
-    }
 }

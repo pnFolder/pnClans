@@ -67,7 +67,7 @@ class ClanPlaceholderValuesTest {
     @Test
     fun `every key is answered and unknown is empty`() {
         val clan = clan()
-        values.keys.forEach { assert(values.value(it, clan, playerId, false).isNotEmpty() || it == "tag") { it } }
+        listOf("name", "tag", "role", "level", "balance", "points", "mmr", "kills", "deaths", "wins", "losses", "members").forEach { assert(values.value(it, clan, playerId, false).isNotEmpty() || it == "tag") { it } }
         assertEquals("", values.value("unknown", clan, playerId, false))
         assertEquals("1/2", values.value("members", clan, playerId, false))
     }
